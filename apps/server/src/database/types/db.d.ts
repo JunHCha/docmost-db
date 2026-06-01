@@ -265,6 +265,49 @@ export interface PageHistory {
   workspaceId: string;
 }
 
+export interface DatabaseProperties {
+  config: Generated<Json>;
+  createdAt: Generated<Timestamp>;
+  databaseId: string;
+  deletedAt: Timestamp | null;
+  id: Generated<string>;
+  name: string;
+  position: string;
+  type: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface DatabasePropertyValues {
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  pageId: string;
+  propertyId: string;
+  updatedAt: Generated<Timestamp>;
+  value: Json | null;
+}
+
+export interface Databases {
+  createdAt: Generated<Timestamp>;
+  deletedAt: Timestamp | null;
+  id: Generated<string>;
+  pageId: string;
+  spaceId: string;
+  updatedAt: Generated<Timestamp>;
+  workspaceId: string;
+}
+
+export interface DatabaseViews {
+  config: Generated<Json>;
+  createdAt: Generated<Timestamp>;
+  databaseId: string;
+  id: Generated<string>;
+  isDefault: Generated<boolean>;
+  name: string;
+  position: string;
+  type: string;
+  updatedAt: Generated<Timestamp>;
+}
+
 export interface Pages {
   content: Json | null;
   contributorIds: Generated<string[] | null>;
@@ -277,6 +320,7 @@ export interface Pages {
   id: Generated<string>;
   isLocked: Generated<boolean>;
   lastUpdatedById: string | null;
+  pageType: Generated<string>;
   parentPageId: string | null;
   position: string | null;
   slugId: string;
@@ -600,6 +644,10 @@ export interface DB {
   backlinks: Backlinks;
   billing: Billing;
   comments: Comments;
+  databaseProperties: DatabaseProperties;
+  databasePropertyValues: DatabasePropertyValues;
+  databases: Databases;
+  databaseViews: DatabaseViews;
   favorites: Favorites;
   fileTasks: FileTasks;
   groups: Groups;
