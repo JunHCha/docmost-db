@@ -40,6 +40,10 @@ import {
   Watchers,
   Audit as _Audit,
   Templates,
+  Databases,
+  DatabaseProperties,
+  DatabasePropertyValues,
+  DatabaseViews,
 } from './db';
 import { PageEmbeddings } from '@docmost/db/types/embeddings.types';
 
@@ -256,3 +260,25 @@ export type UpdatableBaseRow = Updateable<Omit<BaseRows, 'id'>>;
 export type BaseView = Selectable<BaseViews>;
 export type InsertableBaseView = Insertable<BaseViews>;
 export type UpdatableBaseView = Updateable<Omit<BaseViews, 'id'>>;
+
+// Database (a page that is a database)
+export type Database = Selectable<Databases>;
+export type InsertableDatabase = Insertable<Databases>;
+export type UpdatableDatabase = Updateable<Omit<Databases, 'id'>>;
+
+// Database Property (column definition)
+export type DatabaseProperty = Selectable<DatabaseProperties>;
+export type InsertableDatabaseProperty = Insertable<DatabaseProperties>;
+export type UpdatableDatabaseProperty = Updateable<Omit<DatabaseProperties, 'id'>>;
+
+// Database Property Value (per-row, per-property)
+export type DatabasePropertyValue = Selectable<DatabasePropertyValues>;
+export type InsertableDatabasePropertyValue = Insertable<DatabasePropertyValues>;
+export type UpdatableDatabasePropertyValue = Updateable<
+  Omit<DatabasePropertyValues, 'id'>
+>;
+
+// Database View (saved grid/list view)
+export type DatabaseView = Selectable<DatabaseViews>;
+export type InsertableDatabaseView = Insertable<DatabaseViews>;
+export type UpdatableDatabaseView = Updateable<Omit<DatabaseViews, 'id'>>;
