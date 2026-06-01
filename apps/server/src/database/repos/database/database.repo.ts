@@ -8,6 +8,12 @@ import {
 } from '@docmost/db/types/entity.types';
 import { dbOrTx } from '@docmost/db/utils';
 
+// A database row enriched with its page's title/icon, for listing.
+export type DatabaseListItem = Database & {
+  title: string | null;
+  icon: string | null;
+};
+
 @Injectable()
 export class DatabaseRepo {
   constructor(@InjectKysely() private readonly db: KyselyDB) {}
@@ -36,6 +42,33 @@ export class DatabaseRepo {
       .where('pageId', '=', pageId)
       .where('deletedAt', 'is', null)
       .executeTakeFirst();
+  }
+
+  // Databases in a space, joined with their page for title/icon (for listing).
+  async findBySpaceId(
+    spaceId: string,
+    trx?: KyselyTransaction,
+  ): Promise<DatabaseListItem[]> {
+    const db = dbOrTx(this.db, trx);
+    return db
+      .selectFrom('databases as d')
+      .innerJoin('pages as p', 'p.id', 'd.pageId')
+      .where('d.spaceId', '=', spaceId)
+      .where('d.deletedAt', 'is', null)
+      .where('p.deletedAt', 'is', null)
+      .select([
+        'd.id',
+        'd.pageId',
+        'd.spaceId',
+        'd.workspaceId',
+        'd.createdAt',
+        'd.updatedAt',
+        'd.deletedAt',
+        'p.title',
+        'p.icon',
+      ])
+      .orderBy('d.createdAt', 'asc')
+      .execute();
   }
 
   async insertDatabase(
