@@ -94,6 +94,7 @@ export class PageService {
     createPageDto: CreatePageDto,
     trx?: KyselyTransaction,
     isBase: boolean = false,
+    pageType: 'doc' | 'database' = 'doc',
   ): Promise<Page> {
     let parentPageId = undefined;
 
@@ -132,6 +133,7 @@ export class PageService {
     const page = await this.pageRepo.insertPage({
       slugId: generateSlugId(),
       title: createPageDto.title,
+      pageType,
       position: await this.nextPagePosition(
         createPageDto.spaceId,
         parentPageId,
