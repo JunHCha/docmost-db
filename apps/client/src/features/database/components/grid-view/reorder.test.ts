@@ -46,4 +46,19 @@ describe("resolveReorderTarget", () => {
   it("returns null for an unknown target", () => {
     expect(resolveReorderTarget("zzz", "left", ordered)).toBeNull();
   });
+
+  it("returns null when dropping a source on the left edge of its right neighbour (no-op)", () => {
+    // a dropped before b => afterPropertyId would resolve to a (itself).
+    expect(resolveReorderTarget("b", "left", ordered, "a")).toBeNull();
+  });
+
+  it("returns null when dropping a source on its own right edge (afterPropertyId === self, which the server rejects)", () => {
+    expect(resolveReorderTarget("b", "right", ordered, "b")).toBeNull();
+  });
+
+  it("still resolves a real move when sourceId differs from the target", () => {
+    expect(resolveReorderTarget("b", "right", ordered, "a")).toEqual({
+      afterPropertyId: "b",
+    });
+  });
 });

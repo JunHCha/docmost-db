@@ -85,7 +85,10 @@ export function ColumnHeader({
             property.id,
             edge,
             orderedProperties,
+            sourceId,
           );
+          // null means an unknown target or an in-place drop (the server
+          // rejects afterPropertyId === propertyId), so skip the mutation.
           if (!target) return;
           reorder.mutate({
             propertyId: sourceId,

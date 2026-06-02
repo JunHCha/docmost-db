@@ -14,14 +14,21 @@ export function resolveReorderTarget(
   targetId: string,
   edge: Edge,
   ordered: IDatabaseProperty[],
+  sourceId?: string,
 ): ReorderTarget | null {
   const index = ordered.findIndex((p) => p.id === targetId);
   if (index === -1) return null;
 
-  if (edge === "right") {
-    return { afterPropertyId: targetId };
-  }
-  // left edge: insert before the target.
-  const previous = ordered[index - 1];
-  return { afterPropertyId: previous?.id };
+  const afterPropertyId =
+    edge === "right"
+      ? targetId
+      : // left edge: insert before the target, i.e. after its previous sibling
+        // (undefined when the target is first).
+        ordered[index - 1]?.id;
+
+  // A move whose anchor is the source itself is a no-op and the server rejects
+  // `afterPropertyId === propertyId` outright, so drop it here.
+  if (sourceId !== undefined && afterPropertyId === sourceId) return null;
+
+  return { afterPropertyId };
 }
