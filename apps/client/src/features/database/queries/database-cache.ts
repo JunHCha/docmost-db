@@ -9,8 +9,10 @@ import {
 // Single implicit view per database for now, so the viewId slot is a constant.
 export const DEFAULT_VIEW = "default";
 
-export function databaseInfoKey(databaseId: string): QueryKey {
-  return ["database", databaseId];
+// Info is looked up by the entry pageId, not the databaseId, so it gets its
+// own namespace to avoid colliding with the ["database", databaseId] slot (§6).
+export function databaseInfoKey(pageId: string): QueryKey {
+  return ["database-info", pageId];
 }
 
 export function databasePropertiesKey(databaseId: string): QueryKey {

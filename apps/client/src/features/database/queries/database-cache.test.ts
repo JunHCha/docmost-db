@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import {
+  databaseInfoKey,
   databaseRowsKey,
   databasePropertiesKey,
   patchRowValue,
@@ -147,6 +148,12 @@ describe("database-cache", () => {
     );
     expect(props).toHaveLength(1);
     expect(props![0].id).toBe("prop2");
+  });
+
+  it("databaseInfoKey is namespaced by pageId, distinct from the databaseId slot", () => {
+    expect(databaseInfoKey("page1")).toEqual(["database-info", "page1"]);
+    // Must not collide with the databaseId-keyed convention (§6).
+    expect(databaseInfoKey("page1")).not.toEqual(["database", "page1"]);
   });
 
   it("cache helpers are no-ops when the cache is empty", () => {
