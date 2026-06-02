@@ -23,6 +23,20 @@ export class DatabasePropertyValueRepo {
       .execute();
   }
 
+  // Batch fetch for listing rows (avoids N+1).
+  async findByPageIds(
+    pageIds: string[],
+    trx?: KyselyTransaction,
+  ): Promise<DatabasePropertyValue[]> {
+    if (pageIds.length === 0) return [];
+    const db = dbOrTx(this.db, trx);
+    return db
+      .selectFrom('databasePropertyValues')
+      .selectAll()
+      .where('pageId', 'in', pageIds)
+      .execute();
+  }
+
   // Upsert on the (page_id, property_id) unique pair.
   async setValue(
     insertable: InsertableDatabasePropertyValue,
