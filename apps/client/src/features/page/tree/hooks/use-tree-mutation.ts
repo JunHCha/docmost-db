@@ -17,6 +17,7 @@ import {
   useUpdatePageMutation,
   updateCacheOnMovePage,
 } from "@/features/page/queries/page-query.ts";
+import { useCreateDatabaseMutation } from "@/features/database/queries/database-query.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { getSpaceUrl } from "@/lib/config.ts";
 import { useQueryEmit } from "@/features/websocket/use-query-emit.ts";
@@ -24,6 +25,7 @@ import { useQueryEmit } from "@/features/websocket/use-query-emit.ts";
 export type UseTreeMutation = {
   handleMove: (sourceId: string, op: DropOp) => Promise<void>;
   handleCreate: (parentId: string | null) => Promise<void>;
+  handleCreateDatabase: (parentId: string | null) => Promise<void>;
   handleRename: (id: string, name: string) => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
 };
@@ -36,6 +38,7 @@ export function useTreeMutation(spaceId: string): UseTreeMutation {
   // children) and then immediately invokes a handler.
   const store = useStore();
   const createPageMutation = useCreatePageMutation();
+  const createDatabaseMutation = useCreateDatabaseMutation();
   const updatePageMutation = useUpdatePageMutation();
   const removePageMutation = useRemovePageMutation();
   const movePageMutation = useMovePageMutation();
@@ -190,6 +193,64 @@ export function useTreeMutation(spaceId: string): UseTreeMutation {
     [spaceId, createPageMutation, setData, store, emit, navigate, spaceSlug],
   );
 
+  const handleCreateDatabase = useCallback(
+    async (parentId: string | null) => {
+      const payload: { spaceId: string; parentPageId?: string } = { spaceId };
+      if (parentId) payload.parentPageId = parentId;
+
+      let createdPage: IPage;
+      try {
+        const { page } = await createDatabaseMutation.mutateAsync(payload);
+        createdPage = page;
+      } catch {
+        throw new Error("Failed to create database");
+      }
+
+      const newNode: SpaceTreeNode = {
+        id: createdPage.id,
+        slugId: createdPage.slugId,
+        name: createdPage.title || "",
+        position: createdPage.position,
+        spaceId: createdPage.spaceId,
+        parentPageId: createdPage.parentPageId,
+        pageType: "database",
+        hasChildren: false,
+        children: [],
+      };
+
+      const current = store.get(treeDataAtom);
+      let lastIndex: number;
+      if (parentId === null) {
+        lastIndex = current.length;
+      } else {
+        const parent = treeModel.find(current, parentId);
+        lastIndex = parent?.children?.length ?? 0;
+      }
+
+      setData((prev) => treeModel.insert(prev, parentId, newNode, lastIndex));
+
+      setTimeout(() => {
+        emit({
+          operation: "addTreeNode",
+          spaceId,
+          payload: {
+            parentId,
+            index: lastIndex,
+            data: newNode,
+          },
+        });
+      }, 50);
+
+      const pageUrl = buildPageUrl(
+        spaceSlug,
+        createdPage.slugId,
+        createdPage.title,
+      );
+      navigate(pageUrl);
+    },
+    [spaceId, createDatabaseMutation, setData, store, emit, navigate, spaceSlug],
+  );
+
   const handleRename = useCallback(
     async (id: string, name: string) => {
       setData((prev) =>
@@ -253,7 +314,13 @@ export function useTreeMutation(spaceId: string): UseTreeMutation {
     [removePageMutation, setData, store, pageSlug, navigate, spaceSlug, emit, spaceId],
   );
 
-  return { handleMove, handleCreate, handleRename, handleDelete };
+  return {
+    handleMove,
+    handleCreate,
+    handleCreateDatabase,
+    handleRename,
+    handleDelete,
+  };
 }
 
 function isPageInNode(node: SpaceTreeNode, pageSlug: string): boolean {
