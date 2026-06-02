@@ -95,4 +95,69 @@ describe("useTreeMutation handleCreateDatabase", () => {
     expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate.mock.calls[0][0]).toContain("slug1");
   });
+
+  it("inserts the database node under the given parent", async () => {
+    const store = createStore();
+    store.set(treeDataAtom, [
+      {
+        id: "parent1",
+        slugId: "pslug",
+        name: "Parent",
+        position: "a0",
+        spaceId: "s1",
+        parentPageId: null,
+        hasChildren: true,
+        children: [],
+      },
+    ]);
+
+    createDatabaseMock.mockResolvedValue({
+      database: { id: "db1" },
+      page: {
+        id: "child-db",
+        slugId: "cslug",
+        title: "Nested DB",
+        position: "a1",
+        spaceId: "s1",
+        parentPageId: "parent1",
+      },
+    });
+
+    const { result } = renderHook(() => useTreeMutation("s1"), {
+      wrapper: wrapper(store),
+    });
+
+    await act(async () => {
+      await result.current.handleCreateDatabase("parent1");
+    });
+
+    expect(createDatabaseMock).toHaveBeenCalledWith({
+      spaceId: "s1",
+      parentPageId: "parent1",
+    });
+
+    const parent = treeModel.find(store.get(treeDataAtom), "parent1");
+    const child = parent?.children?.find((n) => n.id === "child-db");
+    expect(child).toBeTruthy();
+    expect(child?.pageType).toBe("database");
+  });
+
+  it("does not insert a node when database creation fails", async () => {
+    const store = createStore();
+    store.set(treeDataAtom, []);
+    createDatabaseMock.mockRejectedValue(new Error("boom"));
+
+    const { result } = renderHook(() => useTreeMutation("s1"), {
+      wrapper: wrapper(store),
+    });
+
+    await expect(
+      act(async () => {
+        await result.current.handleCreateDatabase(null);
+      }),
+    ).rejects.toThrow("Failed to create database");
+
+    expect(store.get(treeDataAtom)).toEqual([]);
+    expect(navigate).not.toHaveBeenCalled();
+  });
 });

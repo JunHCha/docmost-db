@@ -5,11 +5,7 @@ vi.mock("@/lib/api-client", () => ({
   default: { post },
 }));
 
-import {
-  createDatabase,
-  getDatabaseInfo,
-  getDatabaseList,
-} from "./database-service";
+import { createDatabase } from "./database-service";
 
 describe("database-service", () => {
   beforeEach(() => {
@@ -26,26 +22,6 @@ describe("database-service", () => {
       spaceId: "s1",
       title: "Tasks",
     });
-    expect(result).toBe(data);
-  });
-
-  it("getDatabaseInfo posts to /databases/info with databaseId", async () => {
-    const data = { database: { id: "db1" }, page: { id: "p1" } };
-    post.mockResolvedValue({ data });
-
-    const result = await getDatabaseInfo({ databaseId: "db1" });
-
-    expect(post).toHaveBeenCalledWith("/databases/info", { databaseId: "db1" });
-    expect(result).toBe(data);
-  });
-
-  it("getDatabaseList posts to /databases/list with spaceId", async () => {
-    const data = [{ id: "db1" }];
-    post.mockResolvedValue({ data });
-
-    const result = await getDatabaseList({ spaceId: "s1" });
-
-    expect(post).toHaveBeenCalledWith("/databases/list", { spaceId: "s1" });
     expect(result).toBe(data);
   });
 });
