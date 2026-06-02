@@ -106,6 +106,9 @@ export function useSetValueMutation(databaseId: string) {
       patchRowValue(queryClient, databaseId, value);
     },
     onError: () => {
+      // Force a resync so a failed patch never leaves the cache out of step
+      // with the server.
+      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
       notifications.show({ message: t("Failed to update value"), color: "red" });
     },
   });
@@ -124,6 +127,7 @@ export function useClearValueMutation(databaseId: string) {
       );
     },
     onError: () => {
+      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
       notifications.show({ message: t("Failed to clear value"), color: "red" });
     },
   });
@@ -139,6 +143,7 @@ export function useCreateRowMutation(databaseId: string) {
       invalidateOnCreatePage(page);
     },
     onError: () => {
+      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
       notifications.show({ message: t("Failed to create row"), color: "red" });
     },
   });
@@ -152,6 +157,9 @@ export function useCreatePropertyMutation(databaseId: string) {
       appendProperty(queryClient, databaseId, property);
     },
     onError: () => {
+      queryClient.invalidateQueries({
+        queryKey: databasePropertiesKey(databaseId),
+      });
       notifications.show({
         message: t("Failed to create property"),
         color: "red",
@@ -168,6 +176,9 @@ export function useUpdatePropertyMutation(databaseId: string) {
       patchProperty(queryClient, databaseId, property);
     },
     onError: () => {
+      queryClient.invalidateQueries({
+        queryKey: databasePropertiesKey(databaseId),
+      });
       notifications.show({
         message: t("Failed to update property"),
         color: "red",
@@ -184,6 +195,9 @@ export function useDeletePropertyMutation(databaseId: string) {
       removeProperty(queryClient, databaseId, variables.propertyId);
     },
     onError: () => {
+      queryClient.invalidateQueries({
+        queryKey: databasePropertiesKey(databaseId),
+      });
       notifications.show({
         message: t("Failed to delete property"),
         color: "red",
@@ -203,6 +217,9 @@ export function useReorderPropertyMutation(databaseId: string) {
       });
     },
     onError: () => {
+      queryClient.invalidateQueries({
+        queryKey: databasePropertiesKey(databaseId),
+      });
       notifications.show({
         message: t("Failed to reorder property"),
         color: "red",
