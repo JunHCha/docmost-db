@@ -92,6 +92,7 @@ export class PageService {
     userId: string,
     workspaceId: string,
     createPageDto: CreatePageDto,
+    pageType: 'doc' | 'database' = 'doc',
   ): Promise<Page> {
     let parentPageId = undefined;
 
@@ -130,6 +131,7 @@ export class PageService {
     const page = await this.pageRepo.insertPage({
       slugId: generateSlugId(),
       title: createPageDto.title,
+      pageType,
       position: await this.nextPagePosition(
         createPageDto.spaceId,
         parentPageId,
