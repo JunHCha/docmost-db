@@ -3,6 +3,7 @@ export type SpaceTreeNode = {
   slugId: string;
   name: string;
   icon?: string;
+  pageType?: "doc" | "database";
   position: string;
   spaceId: string;
   parentPageId: string;
