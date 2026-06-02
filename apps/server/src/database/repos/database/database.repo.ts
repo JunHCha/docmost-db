@@ -95,4 +95,28 @@ export class DatabaseRepo {
       .where('id', '=', databaseId)
       .execute();
   }
+
+  // Rows of a database = the direct child pages of its database page
+  // (page=row philosophy). Filters trashed rows; ordered by page position.
+  async listRows(databasePageId: string, trx?: KyselyTransaction) {
+    const db = dbOrTx(this.db, trx);
+    return db
+      .selectFrom('pages')
+      .select([
+        'id',
+        'slugId',
+        'title',
+        'icon',
+        'position',
+        'parentPageId',
+        'spaceId',
+        'workspaceId',
+        'createdAt',
+        'updatedAt',
+      ])
+      .where('parentPageId', '=', databasePageId)
+      .where('deletedAt', 'is', null)
+      .orderBy('position', 'asc')
+      .execute();
+  }
 }
