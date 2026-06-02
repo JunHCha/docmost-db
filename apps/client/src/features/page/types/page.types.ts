@@ -8,6 +8,7 @@ export interface IPage {
   icon: string;
   coverPhoto: string;
   parentPageId: string;
+  pageType?: "doc" | "database";
   creatorId: string;
   spaceId: string;
   workspaceId: string;

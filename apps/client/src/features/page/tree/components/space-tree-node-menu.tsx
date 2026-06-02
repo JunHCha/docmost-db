@@ -7,6 +7,7 @@ import { notifications } from "@mantine/notifications";
 import {
   IconArrowRight,
   IconCopy,
+  IconDatabase,
   IconDotsVertical,
   IconFileExport,
   IconLink,
@@ -47,7 +48,7 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
   const clipboard = useClipboard({ timeout: 500 });
   const { spaceSlug } = useParams();
   const { openDeleteModal } = useDeletePageModal();
-  const { handleDelete } = useTreeMutation(node.spaceId);
+  const { handleDelete, handleCreateDatabase } = useTreeMutation(node.spaceId);
   const [data, setData] = useAtom(treeDataAtom);
   const emit = useQueryEmit();
   const [exportOpened, { open: openExportModal, close: closeExportModal }] =
@@ -193,6 +194,17 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
                 }}
               >
                 {t("Duplicate")}
+              </Menu.Item>
+
+              <Menu.Item
+                leftSection={<IconDatabase size={16} />}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCreateDatabase(node.id);
+                }}
+              >
+                {t("Create database")}
               </Menu.Item>
 
               <Menu.Item

@@ -6,6 +6,7 @@ import { ActionIcon, rem } from "@mantine/core";
 import {
   IconChevronDown,
   IconChevronRight,
+  IconDatabase,
   IconFileDescription,
   IconPlus,
   IconPointFilled,
@@ -167,6 +168,8 @@ export function SpaceTreeRow({
               node.icon
             ) : node.isBase ? (
               <IconTable size={18} />
+            ) : node.pageType === "database" ? (
+              <IconDatabase size="18" />
             ) : (
               <IconFileDescription size="18" />
             )

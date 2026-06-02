@@ -18,6 +18,7 @@ import { BaseView } from "@/ee/base/components/base-view";
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { Feature } from "@/ee/features";
 import { getPageTitle } from "@/features/page/page.utils";
+import { DatabaseViewContainer } from "@/features/database/components/database-view-container.tsx";
 const MemoizedFullEditor = React.memo(FullEditor);
 const MemoizedTitleEditor = React.memo(TitleEditor);
 const MemoizedPageHeader = React.memo(PageHeader);
@@ -165,18 +166,22 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
 
         <MemoizedPageHeader readOnly={!canEdit} />
 
-        <MemoizedFullEditor
-          key={page.id}
-          pageId={page.id}
-          title={page.title}
-          content={page.content}
-          slugId={page.slugId}
-          spaceSlug={page?.space?.slug}
-          editable={canEdit}
-          creator={page.creator}
-          contributors={page.contributors}
-          canComment={canComment}
-        />
+        {page.pageType === "database" ? (
+          <DatabaseViewContainer page={page} />
+        ) : (
+          <MemoizedFullEditor
+            key={page.id}
+            pageId={page.id}
+            title={page.title}
+            content={page.content}
+            slugId={page.slugId}
+            spaceSlug={page?.space?.slug}
+            editable={canEdit}
+            creator={page.creator}
+            contributors={page.contributors}
+            canComment={canComment}
+          />
+        )}
         <MemoizedHistoryModal pageId={page.id} />
       </div>
     )
