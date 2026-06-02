@@ -63,4 +63,17 @@ export class DatabasePropertyRepo {
       .where('id', '=', propertyId)
       .execute();
   }
+
+  async softDeleteProperty(
+    propertyId: string,
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    await db
+      .updateTable('databaseProperties')
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where('id', '=', propertyId)
+      .where('deletedAt', 'is', null)
+      .execute();
+  }
 }
