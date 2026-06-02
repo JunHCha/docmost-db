@@ -1,4 +1,6 @@
 import {
+  IsOptional,
+  IsUUID,
   registerDecorator,
   isUUID,
   ValidationOptions,
@@ -38,5 +40,11 @@ export class DatabaseInfoDto {
   @DatabaseInfoIdentifier()
   databaseId?: string;
 
+  // `@IsOptional` + `@IsUUID` keep pageId alive through the global
+  // `whitelist: true` pipe (a decorator-less property is stripped) and validate
+  // its format. The XOR / "neither provided" enforcement still lives entirely
+  // on the custom validator attached to databaseId — do not move it here.
+  @IsOptional()
+  @IsUUID()
   pageId?: string;
 }
