@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import { MemoryRouter } from "react-router-dom";
+
+const navigate = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => navigate };
+});
 
 const setMutate = vi.fn();
 const clearMutate = vi.fn();
@@ -52,7 +59,7 @@ const properties: IDatabaseProperty[] = [
 
 const rows: IDatabaseRow[] = [
   {
-    row: { id: "row1", title: "First" } as any,
+    row: { id: "row1", title: "First", slugId: "slug1" } as any,
     values: [
       {
         id: "v1",
@@ -66,10 +73,17 @@ const rows: IDatabaseRow[] = [
   },
 ];
 
-function renderGrid() {
+function renderGrid(spaceSlug?: string) {
   return render(
     <MantineProvider>
-      <GridView databaseId="db1" properties={properties} rows={rows} />
+      <MemoryRouter>
+        <GridView
+          databaseId="db1"
+          properties={properties}
+          rows={rows}
+          spaceSlug={spaceSlug ?? "my-space"}
+        />
+      </MemoryRouter>
     </MantineProvider>,
   );
 }
@@ -79,6 +93,7 @@ describe("GridView", () => {
     createRowMutate.mockReset();
     createPropertyMutate.mockReset();
     updateRowTitleMutate.mockReset();
+    navigate.mockReset();
   });
 
   it("renders a header per property", () => {
@@ -107,6 +122,19 @@ describe("GridView", () => {
       pageId: "row1",
       title: "Second",
     });
+  });
+
+  it("navigates to the row page when the open trigger is clicked", () => {
+    renderGrid();
+    fireEvent.click(screen.getByLabelText("Open row"));
+    expect(navigate).toHaveBeenCalledWith("/s/my-space/p/first-slug1");
+  });
+
+  it("does not navigate when the title text is clicked (edits instead)", () => {
+    renderGrid();
+    fireEvent.click(screen.getByText("First"));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Row title")).toBeTruthy();
   });
 
   it("renders each row's cell values", () => {

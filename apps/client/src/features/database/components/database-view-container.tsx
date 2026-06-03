@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Center, Loader, Stack, Text, TextInput } from "@mantine/core";
+import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { IPage } from "@/features/page/types/page.types.ts";
 import {
@@ -16,6 +17,7 @@ interface DatabaseViewContainerProps {
 
 export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   const { t } = useTranslation();
+  const { spaceSlug } = useParams();
   const infoQuery = useDatabaseInfoQuery(page.id);
   const databaseId = infoQuery.data?.database.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
@@ -73,6 +75,7 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
         databaseId={databaseId}
         properties={propertiesQuery.data ?? []}
         rows={rowsQuery.data ?? []}
+        spaceSlug={spaceSlug}
       />
     </Stack>
   );

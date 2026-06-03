@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { Table, Button, ActionIcon, Text, TextInput } from "@mantine/core";
+import { Table, Button, ActionIcon, Group, Text, TextInput } from "@mantine/core";
+import { IconArrowsDiagonal } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -11,6 +13,7 @@ import {
   useUpdateRowTitleMutation,
 } from "@/features/database/queries/database-query.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
+import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { ColumnHeader } from "./column-header";
 import { GridCell } from "./grid-cell";
 import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
@@ -18,12 +21,17 @@ import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
 interface RowTitleCellProps {
   row: IPage;
   databaseId: string;
+  // Slug of the database's space — taken from the current route, since list
+  // rows don't carry their space (a row lives in the same space as its DB).
+  spaceSlug?: string;
 }
 
 // The leading "Title" column shows the row's page title with inline editing.
-// Opening the row as a full page (#9) is intentionally out of scope here.
-function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
+// Clicking the title text edits it; the separate hover trigger opens the row as
+// a full page (#9) — the two actions must never be conflated.
+function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const update = useUpdateRowTitleMutation(databaseId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(row.title ?? "");
@@ -56,17 +64,29 @@ function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
   }
 
   return (
-    <Text
-      size="sm"
-      c={row.title ? undefined : "dimmed"}
-      style={inlineDisplayStyle}
-      onClick={() => {
-        setDraft(row.title ?? "");
-        setEditing(true);
-      }}
-    >
-      {row.title || t("Untitled")}
-    </Text>
+    <Group gap={4} wrap="nowrap" className="db-row-title">
+      <Text
+        size="sm"
+        c={row.title ? undefined : "dimmed"}
+        style={{ ...inlineDisplayStyle, flex: 1 }}
+        onClick={() => {
+          setDraft(row.title ?? "");
+          setEditing(true);
+        }}
+      >
+        {row.title || t("Untitled")}
+      </Text>
+      <ActionIcon
+        variant="subtle"
+        size="sm"
+        aria-label={t("Open row")}
+        onClick={() =>
+          navigate(buildPageUrl(spaceSlug, row.slugId, row.title))
+        }
+      >
+        <IconArrowsDiagonal size={16} />
+      </ActionIcon>
+    </Group>
   );
 }
 
@@ -74,9 +94,15 @@ interface GridViewProps {
   databaseId: string;
   properties: IDatabaseProperty[];
   rows: IDatabaseRow[];
+  spaceSlug?: string;
 }
 
-export function GridView({ databaseId, properties, rows }: GridViewProps) {
+export function GridView({
+  databaseId,
+  properties,
+  rows,
+  spaceSlug,
+}: GridViewProps) {
   const { t } = useTranslation();
   const createRow = useCreateRowMutation(databaseId);
   const createProperty = useCreatePropertyMutation(databaseId);
@@ -125,7 +151,11 @@ export function GridView({ databaseId, properties, rows }: GridViewProps) {
         {rows.map(({ row, values }) => (
           <Table.Tr key={row.id}>
             <Table.Td>
-              <RowTitleCell row={row} databaseId={databaseId} />
+              <RowTitleCell
+                row={row}
+                databaseId={databaseId}
+                spaceSlug={spaceSlug}
+              />
             </Table.Td>
             {ordered.map((property) => (
               <Table.Td key={property.id}>

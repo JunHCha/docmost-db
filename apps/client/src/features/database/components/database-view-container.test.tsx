@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import { MemoryRouter } from "react-router-dom";
 
 const infoQuery = vi.fn();
 const propertiesQuery = vi.fn();
@@ -32,7 +33,9 @@ const page = { id: "page1", title: "Tasks" } as any;
 function renderContainer() {
   return render(
     <MantineProvider>
-      <DatabaseViewContainer page={page} />
+      <MemoryRouter>
+        <DatabaseViewContainer page={page} />
+      </MemoryRouter>
     </MantineProvider>,
   );
 }
