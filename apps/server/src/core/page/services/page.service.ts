@@ -289,6 +289,7 @@ export class PageService {
         'icon',
         'position',
         'parentPageId',
+        'pageType',
         'spaceId',
         'creatorId',
         'deletedAt',
