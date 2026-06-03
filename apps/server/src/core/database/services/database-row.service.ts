@@ -90,14 +90,20 @@ export class DatabaseRowService {
     await this.assertRowInDatabase(dto.pageId, database);
 
     // Empty values are expressed by clearValue (no row), not setValue(null).
-    // relation target page membership is not verified here (kept minimal; see
-    // #10 Relation type).
     assertPropertyType(property.type);
     const value = validateValueForType(
       property.type,
       dto.value,
       property.config as { options?: any[] },
     );
+
+    if (property.type === 'relation') {
+      await this.assertRelationMembership(
+        value.value as string[],
+        property.config as { targetDatabaseId?: string },
+        database.workspaceId,
+      );
+    }
 
     return this.valueRepo.setValue({
       pageId: dto.pageId,
@@ -141,6 +147,34 @@ export class DatabaseRowService {
       throw new ForbiddenException();
     }
     return database;
+  }
+
+  // Ensure every referenced page id is a live row of the relation's target
+  // database. Empty arrays are allowed (clear-equivalent). See conventions §1.
+  private async assertRelationMembership(
+    pageIds: string[],
+    config: { targetDatabaseId?: string },
+    workspaceId: string,
+  ): Promise<void> {
+    if (pageIds.length === 0) return;
+
+    const targetDatabase = await this.databaseRepo.findById(
+      config.targetDatabaseId as string,
+    );
+    if (!targetDatabase) {
+      throw new BadRequestException('Relation target database not found');
+    }
+
+    const pages = await this.pageRepo.findManyByIds(pageIds, { workspaceId });
+    const byId = new Map(pages.map((p) => [p.id, p]));
+    for (const id of pageIds) {
+      const page = byId.get(id);
+      if (!page || page.parentPageId !== targetDatabase.pageId) {
+        throw new BadRequestException(
+          'Relation value references a page that is not a row of the target database',
+        );
+      }
+    }
   }
 
   // Ensure the target page is actually a live row of this database, so values
