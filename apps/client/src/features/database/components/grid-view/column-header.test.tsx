@@ -12,7 +12,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDeletePropertyMutation: () => ({ mutate: deleteMutate }),
 }));
 
-import { ColumnHeader } from "./column-header";
+import { ColumnHeader, canDragColumn } from "./column-header";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
 const property: IDatabaseProperty = {
@@ -62,6 +62,24 @@ describe("ColumnHeader", () => {
       propertyId: "prop1",
       name: "Stage",
     });
+  });
+
+  it("renames the property when committing with Enter", () => {
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Rename"));
+    const input = screen.getByLabelText("Rename column");
+    fireEvent.change(input, { target: { value: "Stage" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      name: "Stage",
+    });
+  });
+
+  it("disables column drag while renaming", () => {
+    expect(canDragColumn(false)).toBe(true);
+    expect(canDragColumn(true)).toBe(false);
   });
 
   it("deletes the property from the menu", () => {

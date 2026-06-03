@@ -25,6 +25,13 @@ import { resolveReorderTarget } from "./reorder";
 // Isolate column DnD from the page tree's drag adapter.
 const COLUMN_DRAG = Symbol("database-column");
 
+// Renaming uses an inline input inside the draggable header; the drag adapter
+// would otherwise swallow the pointer interactions, so drag is disabled while
+// the input is open.
+export function canDragColumn(renaming: boolean): boolean {
+  return !renaming;
+}
+
 const TYPE_OPTIONS: { value: PropertyType; label: string }[] = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
@@ -52,6 +59,10 @@ export function ColumnHeader({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
+  // Read the latest renaming flag inside the drag adapter callbacks without
+  // re-running the effect on every toggle.
+  const renamingRef = useRef(renaming);
+  renamingRef.current = renaming;
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
@@ -63,12 +74,15 @@ export function ColumnHeader({
     return combine(
       draggable({
         element: el,
+        canDrag: () => canDragColumn(renamingRef.current),
         getInitialData: () => ({ id: property.id, context: COLUMN_DRAG }),
       }),
       dropTargetForElements({
         element: el,
         canDrop: ({ source }) =>
-          source.data.context === COLUMN_DRAG && source.data.id !== property.id,
+          !renamingRef.current &&
+          source.data.context === COLUMN_DRAG &&
+          source.data.id !== property.id,
         getData: ({ input, element }) =>
           attachClosestEdge(
             { id: property.id, context: COLUMN_DRAG },
