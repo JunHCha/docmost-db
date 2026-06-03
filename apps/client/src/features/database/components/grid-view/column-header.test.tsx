@@ -162,33 +162,9 @@ describe("ColumnHeader", () => {
     );
   }
 
-  it("does not offer Edit options for a text column", () => {
-    renderHeader();
-    fireEvent.click(screen.getByLabelText("Column options"));
-    expect(screen.queryByText("Edit options")).toBeNull();
-  });
-
-  it("offers Edit options for a select column", () => {
+  it("no longer offers a header Edit options entry (now in the cell dropdown)", () => {
     renderHeaderWith({ type: "select", config: { options: [] } });
     fireEvent.click(screen.getByLabelText("Column options"));
-    expect(screen.getByText("Edit options")).toBeTruthy();
-  });
-
-  it("offers Edit options for a multi_select column", () => {
-    renderHeaderWith({ type: "multi_select", config: { options: [] } });
-    fireEvent.click(screen.getByLabelText("Column options"));
-    expect(screen.getByText("Edit options")).toBeTruthy();
-  });
-
-  it("opens the options editor when Edit options is chosen", () => {
-    renderHeaderWith({
-      type: "select",
-      config: { options: [{ id: "o1", label: "Todo", color: "blue" }] },
-    });
-    fireEvent.click(screen.getByLabelText("Column options"));
-    fireEvent.click(screen.getByText("Edit options"));
-    // The editor renders each option as a pill plus a per-option ⋯ menu.
-    expect(screen.getByText("Todo")).toBeTruthy();
-    expect(screen.getByLabelText("Options for Todo")).toBeTruthy();
+    expect(screen.queryByText("Edit options")).toBeNull();
   });
 });

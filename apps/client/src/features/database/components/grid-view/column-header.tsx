@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Group,
-  Menu,
-  ActionIcon,
-  Modal,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -28,7 +21,6 @@ import {
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
-import { SelectOptionsEditor } from "@/features/database/components/property/select-options-editor.tsx";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
 
 // Isolate column DnD from the page tree's drag adapter.
@@ -61,9 +53,6 @@ export function ColumnHeader({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
-  const [editingOptions, setEditingOptions] = useState(false);
-  const hasOptions =
-    property.type === "select" || property.type === "multi_select";
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
@@ -180,11 +169,6 @@ export function ColumnHeader({
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
-                {hasOptions && (
-                  <Menu.Item onClick={() => setEditingOptions(true)}>
-                    {t("Edit options")}
-                  </Menu.Item>
-                )}
                 <Menu.Label>{t("Type")}</Menu.Label>
                 {/* Each type is a Menu.Item, not a nested <Select>: a Select
                     renders its options in a portal, and clicking one counts
@@ -231,20 +215,6 @@ export function ColumnHeader({
             </Menu>
           </Group>
         </div>
-      )}
-      {hasOptions && (
-        <Modal
-          opened={editingOptions}
-          onClose={() => setEditingOptions(false)}
-          title={t("Edit options")}
-          size="xs"
-          // Background/escape close + a title come for free with Modal; the
-          // previous Popover did not close on outside click.
-          centered
-          transitionProps={{ duration: 0 }}
-        >
-          <SelectOptionsEditor property={property} databaseId={databaseId} />
-        </Modal>
       )}
       {closestEdge && (
         <div
