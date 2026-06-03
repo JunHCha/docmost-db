@@ -101,7 +101,10 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
         <MemoizedPageHeader readOnly={!canEdit} />
 
         {page.pageType === "database" ? (
-          <DatabaseViewContainer page={page} />
+          // Key by page id so switching between database pages remounts the
+          // container and resets its local state (e.g. the title input);
+          // otherwise the previous page's title lingers. Mirrors the editor below.
+          <DatabaseViewContainer key={page.id} page={page} />
         ) : (
           <MemoizedFullEditor
             key={page.id}

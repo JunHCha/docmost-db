@@ -203,8 +203,15 @@ export function useUpdatePropertyMutation(databaseId: string) {
   const { t } = useTranslation();
   return useMutation<IDatabaseProperty, Error, IUpdatePropertyParams>({
     mutationFn: (data) => updateProperty(data),
-    onSuccess: (property) => {
+    onSuccess: (property, variables) => {
       patchProperty(queryClient, databaseId, property);
+      // A type change can migrate existing row values server-side (e.g.
+      // select -> text rewrites option ids to labels), so refetch the rows.
+      if (variables.type !== undefined) {
+        queryClient.invalidateQueries({
+          queryKey: databaseRowsKey(databaseId),
+        });
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({

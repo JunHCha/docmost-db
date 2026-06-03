@@ -21,6 +21,7 @@ import {
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
+import { getOptions } from "@/features/database/components/property/option-config.ts";
 
 // Isolate column DnD from the page tree's drag adapter.
 const COLUMN_DRAG = Symbol("database-column");
@@ -170,10 +171,10 @@ export function ColumnHeader({
                 <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
                 <Menu.Label>{t("Type")}</Menu.Label>
                 {/* Each type is a Menu.Item, not a nested <Select>: a Select
-                    renders its options in a portal, and clicking one counts as
-                    an outside-click that closes this Menu and unmounts the
-                    Select before its onChange commits — so the type never
-                    actually changed. Menu.Item clicks commit reliably. */}
+                    renders its options in a portal, and clicking one counts
+                    as an outside-click that closes this Menu and unmounts
+                    the Select before its onChange commits — so the type
+                    never actually changed. Menu.Item clicks commit. */}
                 {TYPE_OPTIONS.map((opt) => (
                   <Menu.Item
                     key={opt.value}
@@ -183,12 +184,21 @@ export function ColumnHeader({
                       </span>
                     }
                     onClick={() => {
-                      if (opt.value !== property.type) {
-                        update.mutate({
-                          propertyId: property.id,
-                          type: opt.value,
-                        });
-                      }
+                      if (opt.value === property.type) return;
+                      const needsOptions =
+                        opt.value === "select" ||
+                        opt.value === "multi_select";
+                      update.mutate({
+                        propertyId: property.id,
+                        type: opt.value,
+                        // select/multi_select require a config.options array
+                        // server-side (a missing array is rejected with 400).
+                        // Echo existing options — preserved when switching
+                        // select↔multi_select, empty otherwise.
+                        ...(needsOptions
+                          ? { config: { options: getOptions(property.config) } }
+                          : {}),
+                      });
                     }}
                   >
                     {t(opt.label)}

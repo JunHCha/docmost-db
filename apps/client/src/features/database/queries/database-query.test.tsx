@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import {
@@ -190,5 +190,39 @@ describe("useCreateRowMutation success path", () => {
     // Rows are not surfaced as sidebar child pages (Notion-like), so the
     // sidebar create cache must not be touched.
     expect(invalidateOnCreatePage).not.toHaveBeenCalled();
+  });
+});
+
+describe("useUpdatePropertyMutation success path", () => {
+  let invalidateSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    service.updateProperty.mockResolvedValue({ id: "prop1", type: "text" });
+    invalidateSpy = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+  });
+  afterEach(() => invalidateSpy.mockRestore());
+
+  it("refetches rows on a type change (values may be migrated server-side)", async () => {
+    const { result } = renderHook(() => useUpdatePropertyMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ propertyId: "prop1", type: "text" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databaseRowsKey(dbId),
+    });
+  });
+
+  it("does not refetch rows when only the name changes", async () => {
+    const { result } = renderHook(() => useUpdatePropertyMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ propertyId: "prop1", name: "Renamed" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
+      queryKey: databaseRowsKey(dbId),
+    });
   });
 });

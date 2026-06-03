@@ -13,6 +13,7 @@ import {
 import { IPage } from "@/features/page/types/page.types.ts";
 import { ColumnHeader } from "./column-header";
 import { GridCell } from "./grid-cell";
+import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
 
 interface RowTitleCellProps {
   row: IPage;
@@ -39,8 +40,9 @@ function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
     return (
       <TextInput
         autoFocus
-        size="xs"
+        size="sm"
         variant="unstyled"
+        styles={inlineInputStyles}
         value={draft}
         aria-label={t("Row title")}
         onChange={(e) => setDraft(e.currentTarget.value)}
@@ -57,6 +59,7 @@ function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
     <Text
       size="sm"
       c={row.title ? undefined : "dimmed"}
+      style={inlineDisplayStyle}
       onClick={() => {
         setDraft(row.title ?? "");
         setEditing(true);
