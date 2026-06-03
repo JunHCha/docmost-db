@@ -10,14 +10,19 @@ import {
   createDatabase,
   createProperty,
   createRow,
+  createView,
   deleteProperty,
+  deleteView,
   getDatabaseInfo,
   listDatabases,
   listProperties,
   listRows,
+  listViews,
   reorderProperty,
+  setDefaultView,
   setValue,
   updateProperty,
+  updateView,
 } from "@/features/database/services/database-service.ts";
 import {
   IClearValueParams,
@@ -30,10 +35,14 @@ import {
   IDatabaseProperty,
   IDatabasePropertyValue,
   IDatabaseRow,
+  IDatabaseView,
+  ICreateViewParams,
   IDeletePropertyParams,
   IReorderPropertyParams,
   ISetValueParams,
   IUpdatePropertyParams,
+  IUpdateViewParams,
+  IViewIdParams,
 } from "@/features/database/types/database.types.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
 import {
@@ -42,6 +51,7 @@ import {
   databaseInfoKey,
   databasePropertiesKey,
   databaseRowsKey,
+  databaseViewsKey,
   databasesKey,
   patchProperty,
   patchRowTitle,
@@ -55,6 +65,10 @@ import {
 } from "@/features/page/queries/page-query.ts";
 import { updatePage } from "@/features/page/services/page-service.ts";
 import { queryClient } from "@/main.tsx";
+
+// Rows are not view-scoped on the server yet, so invalidate every cached view
+// for the database via the shared prefix.
+const rowsPrefix = (databaseId: string) => ["database-rows", databaseId];
 
 interface IUpdateRowTitleParams {
   pageId: string;
@@ -113,12 +127,31 @@ export function useDatabasePropertiesQuery(
 
 export function useDatabaseRowsQuery(
   databaseId: string,
+  viewId: string,
 ): UseQueryResult<IDatabaseRow[], Error> {
   return useQuery({
-    queryKey: databaseRowsKey(databaseId),
+    queryKey: databaseRowsKey(databaseId, viewId),
     queryFn: () => listRows({ databaseId }),
+    enabled: !!databaseId && !!viewId,
+  });
+}
+
+export function useDatabaseViewsQuery(
+  databaseId: string,
+): UseQueryResult<IDatabaseView[], Error> {
+  return useQuery({
+    queryKey: databaseViewsKey(databaseId),
+    queryFn: () => listViews({ databaseId }),
     enabled: !!databaseId,
   });
+}
+
+// The view whose rows a read-only consumer (relation picker, row panel) should
+// load. Rows are identical across views, so any view works; prefer the default.
+export function useDefaultViewId(databaseId: string): string {
+  const { data } = useDatabaseViewsQuery(databaseId);
+  if (!data || data.length === 0) return "";
+  return (data.find((v) => v.isDefault) ?? data[0]).id;
 }
 
 export function useSetValueMutation(databaseId: string) {
@@ -131,7 +164,7 @@ export function useSetValueMutation(databaseId: string) {
     onError: () => {
       // Force a resync so a failed patch never leaves the cache out of step
       // with the server.
-      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
+      queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
       notifications.show({ message: t("Failed to update value"), color: "red" });
     },
   });
@@ -150,7 +183,7 @@ export function useClearValueMutation(databaseId: string) {
       );
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
+      queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
       notifications.show({ message: t("Failed to clear value"), color: "red" });
     },
   });
@@ -167,7 +200,7 @@ export function useCreateRowMutation(databaseId: string) {
       // sidebar create cache here.
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
+      queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
       notifications.show({ message: t("Failed to create row"), color: "red" });
     },
   });
@@ -184,7 +217,7 @@ export function useUpdateRowTitleMutation(databaseId: string) {
       updatePageData(page);
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
+      queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
       notifications.show({
         message: t("Failed to update row title"),
         color: "red",
@@ -222,7 +255,7 @@ export function useUpdatePropertyMutation(databaseId: string) {
       // select -> text rewrites option ids to labels), so refetch the rows.
       if (variables.type !== undefined) {
         queryClient.invalidateQueries({
-          queryKey: databaseRowsKey(databaseId),
+          queryKey: rowsPrefix(databaseId),
         });
       }
     },
@@ -275,6 +308,60 @@ export function useReorderPropertyMutation(databaseId: string) {
         message: t("Failed to reorder property"),
         color: "red",
       });
+    },
+  });
+}
+
+function invalidateViews(databaseId: string) {
+  queryClient.invalidateQueries({ queryKey: databaseViewsKey(databaseId) });
+}
+
+export function useCreateViewMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<IDatabaseView, Error, ICreateViewParams>({
+    mutationFn: (data) => createView(data),
+    onSuccess: () => invalidateViews(databaseId),
+    onError: () => {
+      notifications.show({ message: t("Failed to create view"), color: "red" });
+    },
+  });
+}
+
+export function useUpdateViewMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<IDatabaseView, Error, IUpdateViewParams>({
+    mutationFn: (data) => updateView(data),
+    onSuccess: () => invalidateViews(databaseId),
+    onError: () => {
+      invalidateViews(databaseId);
+      notifications.show({ message: t("Failed to update view"), color: "red" });
+    },
+  });
+}
+
+export function useSetDefaultViewMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<void, Error, IViewIdParams>({
+    mutationFn: (data) => setDefaultView(data),
+    onSuccess: () => invalidateViews(databaseId),
+    onError: () => {
+      invalidateViews(databaseId);
+      notifications.show({
+        message: t("Failed to set default view"),
+        color: "red",
+      });
+    },
+  });
+}
+
+export function useDeleteViewMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<void, Error, IViewIdParams>({
+    mutationFn: (data) => deleteView(data),
+    onSuccess: () => invalidateViews(databaseId),
+    onError: () => {
+      invalidateViews(databaseId);
+      notifications.show({ message: t("Failed to delete view"), color: "red" });
     },
   });
 }

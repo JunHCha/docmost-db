@@ -6,9 +6,6 @@ import {
   IDatabaseRow,
 } from "@/features/database/types/database.types.ts";
 
-// Single implicit view per database for now, so the viewId slot is a constant.
-export const DEFAULT_VIEW = "default";
-
 // Info is looked up by the entry pageId, not the databaseId, so it gets its
 // own namespace to avoid colliding with the ["database", databaseId] slot (§6).
 export function databaseInfoKey(pageId: string): QueryKey {
@@ -24,8 +21,26 @@ export function databasePropertiesKey(databaseId: string): QueryKey {
   return ["database-properties", databaseId];
 }
 
-export function databaseRowsKey(databaseId: string): QueryKey {
-  return ["database-rows", databaseId, DEFAULT_VIEW];
+export function databaseViewsKey(databaseId: string): QueryKey {
+  return ["database-views", databaseId];
+}
+
+export function databaseRowsKey(databaseId: string, viewId: string): QueryKey {
+  return ["database-rows", databaseId, viewId];
+}
+
+// Rows are identical across views (filtering/sorting is a later issue), so
+// optimistic patches target every cached view via the [database-rows, dbId]
+// prefix rather than a single viewId slot.
+function patchRows(
+  qc: QueryClient,
+  databaseId: string,
+  updater: (rows: IDatabaseRow[]) => IDatabaseRow[],
+) {
+  qc.setQueriesData<IDatabaseRow[]>(
+    { queryKey: ["database-rows", databaseId] },
+    (old) => (old ? updater(old) : old),
+  );
 }
 
 export function patchRowValue(
@@ -33,16 +48,15 @@ export function patchRowValue(
   databaseId: string,
   value: IDatabasePropertyValue,
 ) {
-  qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(databaseId), (old) => {
-    if (!old) return old;
-    return old.map((row) => {
+  patchRows(qc, databaseId, (rows) =>
+    rows.map((row) => {
       if (row.row.id !== value.pageId) return row;
       const others = row.values.filter(
         (v) => v.propertyId !== value.propertyId,
       );
       return { ...row, values: [...others, value] };
-    });
-  });
+    }),
+  );
 }
 
 export function removeRowValue(
@@ -51,16 +65,15 @@ export function removeRowValue(
   pageId: string,
   propertyId: string,
 ) {
-  qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(databaseId), (old) => {
-    if (!old) return old;
-    return old.map((row) => {
+  patchRows(qc, databaseId, (rows) =>
+    rows.map((row) => {
       if (row.row.id !== pageId) return row;
       return {
         ...row,
         values: row.values.filter((v) => v.propertyId !== propertyId),
       };
-    });
-  });
+    }),
+  );
 }
 
 export function patchRowTitle(
@@ -69,21 +82,15 @@ export function patchRowTitle(
   pageId: string,
   title: string,
 ) {
-  qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(databaseId), (old) => {
-    if (!old) return old;
-    return old.map((row) =>
-      row.row.id === pageId
-        ? { ...row, row: { ...row.row, title } }
-        : row,
-    );
-  });
+  patchRows(qc, databaseId, (rows) =>
+    rows.map((row) =>
+      row.row.id === pageId ? { ...row, row: { ...row.row, title } } : row,
+    ),
+  );
 }
 
 export function appendRow(qc: QueryClient, databaseId: string, page: IPage) {
-  qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(databaseId), (old) => {
-    if (!old) return old;
-    return [...old, { row: page, values: [] }];
-  });
+  patchRows(qc, databaseId, (rows) => [...rows, { row: page, values: [] }]);
 }
 
 export function appendProperty(

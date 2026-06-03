@@ -19,6 +19,11 @@ import {
   IReorderPropertyParams,
   ISetValueParams,
   IUpdatePropertyParams,
+  ICreateViewParams,
+  IDatabaseView,
+  IListViewsParams,
+  IUpdateViewParams,
+  IViewIdParams,
 } from "@/features/database/types/database.types.ts";
 
 export async function createDatabase(
@@ -108,4 +113,33 @@ export async function setValue(
 
 export async function clearValue(data: IClearValueParams): Promise<void> {
   await api.post<void>("/databases/values/clear", data);
+}
+
+export async function listViews(
+  data: IListViewsParams,
+): Promise<IDatabaseView[]> {
+  const req = await api.post<IDatabaseView[]>("/databases/views/list", data);
+  return req.data;
+}
+
+export async function createView(
+  data: ICreateViewParams,
+): Promise<IDatabaseView> {
+  const req = await api.post<IDatabaseView>("/databases/views/create", data);
+  return req.data;
+}
+
+export async function updateView(
+  data: IUpdateViewParams,
+): Promise<IDatabaseView> {
+  const req = await api.post<IDatabaseView>("/databases/views/update", data);
+  return req.data;
+}
+
+export async function setDefaultView(data: IViewIdParams): Promise<void> {
+  await api.post<void>("/databases/views/set-default", data);
+}
+
+export async function deleteView(data: IViewIdParams): Promise<void> {
+  await api.post<void>("/databases/views/delete", data);
 }

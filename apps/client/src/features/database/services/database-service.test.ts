@@ -18,6 +18,11 @@ import {
   createRow,
   setValue,
   clearValue,
+  listViews,
+  createView,
+  updateView,
+  deleteView,
+  setDefaultView,
 } from "./database-service";
 
 describe("database-service", () => {
@@ -174,6 +179,64 @@ describe("database-service", () => {
     expect(post).toHaveBeenCalledWith("/databases/values/clear", {
       pageId: "p1",
       propertyId: "prop1",
+    });
+  });
+
+  it("listViews posts to /databases/views/list and returns data", async () => {
+    const data = [{ id: "v1" }];
+    post.mockResolvedValue({ data });
+
+    const result = await listViews({ databaseId: "db1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/views/list", {
+      databaseId: "db1",
+    });
+    expect(result).toBe(data);
+  });
+
+  it("createView posts to /databases/views/create and returns data", async () => {
+    const data = { id: "v2" };
+    post.mockResolvedValue({ data });
+
+    const result = await createView({ databaseId: "db1", name: "Grid" });
+
+    expect(post).toHaveBeenCalledWith("/databases/views/create", {
+      databaseId: "db1",
+      name: "Grid",
+    });
+    expect(result).toBe(data);
+  });
+
+  it("updateView posts to /databases/views/update and returns data", async () => {
+    const data = { id: "v1" };
+    post.mockResolvedValue({ data });
+
+    const result = await updateView({ viewId: "v1", name: "Renamed" });
+
+    expect(post).toHaveBeenCalledWith("/databases/views/update", {
+      viewId: "v1",
+      name: "Renamed",
+    });
+    expect(result).toBe(data);
+  });
+
+  it("setDefaultView posts to /databases/views/set-default", async () => {
+    post.mockResolvedValue({ data: undefined });
+
+    await setDefaultView({ viewId: "v1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/views/set-default", {
+      viewId: "v1",
+    });
+  });
+
+  it("deleteView posts to /databases/views/delete", async () => {
+    post.mockResolvedValue({ data: undefined });
+
+    await deleteView({ viewId: "v1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/views/delete", {
+      viewId: "v1",
     });
   });
 });

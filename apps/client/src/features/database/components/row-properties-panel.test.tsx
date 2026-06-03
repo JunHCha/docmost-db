@@ -13,6 +13,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabasePropertiesQuery: (databaseId: string) =>
     propertiesQuery(databaseId),
   useDatabaseRowsQuery: (databaseId: string) => rowsQuery(databaseId),
+  useDefaultViewId: () => "v1",
   useSetValueMutation: () => ({ mutate: setMutate }),
   useClearValueMutation: () => ({ mutate: clearMutate }),
 }));

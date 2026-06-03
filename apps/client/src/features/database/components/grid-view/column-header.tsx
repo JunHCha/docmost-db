@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
@@ -43,6 +43,12 @@ interface ColumnHeaderProps {
   databaseId: string;
   spaceId: string;
   orderedProperties: IDatabaseProperty[];
+  // Active-view column config: current width (px) plus persistence callbacks.
+  // Resize previews locally and commits once on pointer-up; hide commits
+  // immediately. Both are owned by GridView (full-config echo, see view-columns).
+  width: number;
+  onHide: () => void;
+  onResize: (width: number) => void;
 }
 
 export function ColumnHeader({
@@ -50,6 +56,9 @@ export function ColumnHeader({
   databaseId,
   spaceId,
   orderedProperties,
+  width,
+  onHide,
+  onResize,
 }: ColumnHeaderProps) {
   const { t } = useTranslation();
   const dragRef = useRef<HTMLDivElement>(null);
@@ -119,6 +128,38 @@ export function ColumnHeader({
       }),
     );
   }, [property.id, orderedProperties, reorder, renaming]);
+
+  // Width resize: track the drag on the handle, preview locally via the parent
+  // <th> width, and commit once on pointer-up. Pointer capture keeps events
+  // flowing even when the cursor leaves the 4px handle.
+  const MIN_WIDTH = 80;
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  function resizeWidth(clientX: number): number {
+    const r = resizeRef.current;
+    if (!r) return width;
+    return Math.max(MIN_WIDTH, Math.round(r.startWidth + (clientX - r.startX)));
+  }
+
+  function onResizePointerDown(e: React.PointerEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resizeRef.current = { startX: e.clientX, startWidth: width };
+  }
+
+  function onResizePointerMove(e: React.PointerEvent) {
+    if (!resizeRef.current) return;
+    const th = e.currentTarget.closest("th");
+    if (th) (th as HTMLElement).style.width = `${resizeWidth(e.clientX)}px`;
+  }
+
+  function onResizePointerUp(e: React.PointerEvent) {
+    if (!resizeRef.current) return;
+    const next = resizeWidth(e.clientX);
+    resizeRef.current = null;
+    if (next !== width) onResize(next);
+  }
 
   function startRename() {
     setNameDraft(property.name);
@@ -218,6 +259,7 @@ export function ColumnHeader({
                 ) : (
                   <>
                     <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
+                    <Menu.Item onClick={onHide}>{t("Hide column")}</Menu.Item>
                     <Menu.Label>{t("Type")}</Menu.Label>
                     {/* Each type is a Menu.Item, not a nested <Select>: a Select
                         renders its options in a portal, and clicking one counts
@@ -278,6 +320,23 @@ export function ColumnHeader({
           </Group>
         </div>
       )}
+      <div
+        role="separator"
+        aria-label={t("Resize column")}
+        aria-orientation="vertical"
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          right: -3,
+          width: 6,
+          cursor: "col-resize",
+          touchAction: "none",
+        }}
+      />
       {closestEdge && (
         <div
           data-testid="column-drop-indicator"

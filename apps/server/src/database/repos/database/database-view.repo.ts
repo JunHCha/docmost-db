@@ -61,4 +61,24 @@ export class DatabaseViewRepo {
       .where('id', '=', viewId)
       .execute();
   }
+
+  async deleteView(viewId: string, trx?: KyselyTransaction): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    await db.deleteFrom('databaseViews').where('id', '=', viewId).execute();
+  }
+
+  // Reset every view's default flag for a database so set-default can flip a new
+  // one without violating the partial-unique "one default per database" index.
+  async clearDefaultViews(
+    databaseId: string,
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    await db
+      .updateTable('databaseViews')
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where('databaseId', '=', databaseId)
+      .where('isDefault', '=', true)
+      .execute();
+  }
 }
