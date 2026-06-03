@@ -81,6 +81,18 @@ describe("RowPropertiesPanel", () => {
     expect(screen.queryByText("Status")).toBeNull();
   });
 
+  it("renders nothing when info resolves with database: null", () => {
+    // The parent page exists but is a plain document, so info returns
+    // database: null (200, not 404). The panel must stay hidden.
+    infoQuery.mockReturnValue({
+      data: { database: null, page: {} },
+      isLoading: false,
+    });
+    const { container } = renderPanel();
+    expect(container.querySelector(".mantine-Stack-root")).toBeNull();
+    expect(screen.queryByText("Status")).toBeNull();
+  });
+
   it("renders nothing when the page has no parent page", () => {
     // Mirrors the query's `enabled: !!pageId` — no parent means no DB lookup.
     infoQuery.mockReturnValue({ data: undefined, isLoading: false });

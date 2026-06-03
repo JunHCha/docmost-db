@@ -17,7 +17,7 @@ interface RowPropertiesPanelProps {
 // this is a plain document and the panel renders nothing (regression guard).
 export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
   const infoQuery = useDatabaseInfoQuery(page.parentPageId ?? "");
-  const databaseId = infoQuery.data?.database.id ?? "";
+  const databaseId = infoQuery.data?.database?.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
   const rowsQuery = useDatabaseRowsQuery(databaseId);
 
