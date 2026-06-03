@@ -149,8 +149,9 @@ export function useCreateRowMutation(databaseId: string) {
     mutationFn: (data) => createRow(data),
     onSuccess: (page) => {
       appendRow(queryClient, databaseId, page);
-      // The row is also a page, so keep the sidebar tree consistent.
-      invalidateOnCreatePage(page);
+      // A row is a page parented to the database, but it is intentionally not
+      // surfaced in the sidebar tree (Notion-like), so we don't patch the
+      // sidebar create cache here.
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });

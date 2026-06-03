@@ -28,6 +28,20 @@ vi.mock("@mantine/notifications", () => ({
   notifications: { show: vi.fn() },
 }));
 
+const invalidateOnCreatePage = vi.fn();
+vi.mock("@/features/page/queries/page-query.ts", () => ({
+  invalidateOnCreatePage: (...a: unknown[]) => invalidateOnCreatePage(...a),
+  updatePageData: vi.fn(),
+}));
+
+const appendRow = vi.fn();
+vi.mock("@/features/database/queries/database-cache.ts", async () => {
+  const actual = await vi.importActual<
+    typeof import("./database-cache.ts")
+  >("./database-cache.ts");
+  return { ...actual, appendRow: (...a: unknown[]) => appendRow(...a) };
+});
+
 const service = {
   setValue: vi.fn(),
   clearValue: vi.fn(),
@@ -156,5 +170,25 @@ describe("database mutations resync the cache on error", () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: databasePropertiesKey(dbId),
     });
+  });
+});
+
+describe("useCreateRowMutation success path", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    appendRow.mockReset();
+    invalidateOnCreatePage.mockReset();
+  });
+
+  it("appends the row to the grid cache but does not expose it in the sidebar", async () => {
+    const page = { id: "row1", title: "" };
+    service.createRow.mockResolvedValue(page);
+    const { result } = renderHook(() => useCreateRowMutation(dbId), { wrapper });
+    result.current.mutate({ databaseId: dbId } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(appendRow).toHaveBeenCalled();
+    // Rows are not surfaced as sidebar child pages (Notion-like), so the
+    // sidebar create cache must not be touched.
+    expect(invalidateOnCreatePage).not.toHaveBeenCalled();
   });
 });
