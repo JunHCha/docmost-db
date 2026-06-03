@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 const reorderMutate = vi.fn();
@@ -12,7 +12,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDeletePropertyMutation: () => ({ mutate: deleteMutate }),
 }));
 
-import { ColumnHeader, canDragColumn } from "./column-header";
+import { ColumnHeader } from "./column-header";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
 const property: IDatabaseProperty = {
@@ -51,11 +51,16 @@ describe("ColumnHeader", () => {
     expect(screen.getByText("Status")).toBeTruthy();
   });
 
-  it("renames the property after editing the inline input", () => {
-    renderHeader();
+  async function openRename() {
     fireEvent.click(screen.getByLabelText("Column options"));
     fireEvent.click(screen.getByText("Rename"));
-    const input = screen.getByLabelText("Rename column");
+    // The input is mounted after the menu closes (deferred a tick), so wait.
+    return waitFor(() => screen.getByLabelText("Rename column"));
+  }
+
+  it("renames the property after editing the inline input", async () => {
+    renderHeader();
+    const input = await openRename();
     fireEvent.change(input, { target: { value: "Stage" } });
     fireEvent.blur(input);
     expect(updateMutate).toHaveBeenCalledWith({
@@ -64,11 +69,9 @@ describe("ColumnHeader", () => {
     });
   });
 
-  it("renames the property when committing with Enter", () => {
+  it("renames the property when committing with Enter", async () => {
     renderHeader();
-    fireEvent.click(screen.getByLabelText("Column options"));
-    fireEvent.click(screen.getByText("Rename"));
-    const input = screen.getByLabelText("Rename column");
+    const input = await openRename();
     fireEvent.change(input, { target: { value: "Stage" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(updateMutate).toHaveBeenCalledWith({
@@ -77,9 +80,14 @@ describe("ColumnHeader", () => {
     });
   });
 
-  it("disables column drag while renaming", () => {
-    expect(canDragColumn(false)).toBe(true);
-    expect(canDragColumn(true)).toBe(false);
+  it("drops the draggable attribute while renaming", async () => {
+    const { container } = renderHeader();
+    // The header is draggable when not editing.
+    expect(container.querySelector('[draggable="true"]')).toBeTruthy();
+    await openRename();
+    // While renaming, the drag adapter is unregistered so its pointer
+    // interception no longer steals focus/selection from the input.
+    expect(container.querySelector('[draggable="true"]')).toBeNull();
   });
 
   it("deletes the property from the menu", () => {

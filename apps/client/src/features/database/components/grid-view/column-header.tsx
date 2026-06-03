@@ -25,13 +25,6 @@ import { resolveReorderTarget } from "./reorder";
 // Isolate column DnD from the page tree's drag adapter.
 const COLUMN_DRAG = Symbol("database-column");
 
-// Renaming uses an inline input inside the draggable header; the drag adapter
-// would otherwise swallow the pointer interactions, so drag is disabled while
-// the input is open.
-export function canDragColumn(renaming: boolean): boolean {
-  return !renaming;
-}
-
 const TYPE_OPTIONS: { value: PropertyType; label: string }[] = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
@@ -59,10 +52,6 @@ export function ColumnHeader({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
-  // Read the latest renaming flag inside the drag adapter callbacks without
-  // re-running the effect on every toggle.
-  const renamingRef = useRef(renaming);
-  renamingRef.current = renaming;
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
@@ -70,17 +59,20 @@ export function ColumnHeader({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    // While renaming we skip registration entirely. The drag adapter sets a
+    // `draggable="true"` DOM attribute that survives a `canDrag: false` gate
+    // and lets the browser hijack pointer interactions (caret placement,
+    // selection, focus) inside the inline input. Unregistering removes the
+    // attribute via cleanup, so the input behaves normally.
+    if (!el || renaming) return;
     return combine(
       draggable({
         element: el,
-        canDrag: () => canDragColumn(renamingRef.current),
         getInitialData: () => ({ id: property.id, context: COLUMN_DRAG }),
       }),
       dropTargetForElements({
         element: el,
         canDrop: ({ source }) =>
-          !renamingRef.current &&
           source.data.context === COLUMN_DRAG &&
           source.data.id !== property.id,
         getData: ({ input, element }) =>
@@ -111,7 +103,7 @@ export function ColumnHeader({
         },
       }),
     );
-  }, [property.id, orderedProperties, reorder]);
+  }, [property.id, orderedProperties, reorder, renaming]);
 
   function commitRename() {
     setRenaming(false);
@@ -161,7 +153,10 @@ export function ColumnHeader({
             <Menu.Item
               onClick={() => {
                 setNameDraft(property.name);
-                setRenaming(true);
+                // Defer mounting the input until the menu has finished
+                // closing; otherwise its focus handling blurs the autofocused
+                // input immediately and commits an empty rename.
+                setTimeout(() => setRenaming(true), 0);
               }}
             >
               {t("Rename")}
