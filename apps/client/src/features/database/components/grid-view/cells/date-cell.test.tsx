@@ -58,6 +58,41 @@ describe("DateCell", () => {
     expect(clearMutate).not.toHaveBeenCalled();
   });
 
+  it("commits on change and does not re-commit on the trailing blur", () => {
+    renderCell(undefined);
+    fireEvent.click(screen.getByText("", { selector: "p" }));
+    const input = screen.getByLabelText("Due");
+    // onChange owns the commit; the input stays open so the user can adjust.
+    fireEvent.change(input, { target: { value: "June 1, 2026" } });
+    expect(setMutate).toHaveBeenCalledTimes(1);
+    expect(setMutate).toHaveBeenCalledWith({
+      pageId: "page1",
+      propertyId: "prop1",
+      value: { type: "date", value: "2026-06-01" },
+    });
+    // Still editing after a commit (blur, not change, terminates editing).
+    expect(screen.queryByLabelText("Due")).not.toBeNull();
+    // The trailing blur (Mantine echoes the raw text) must not re-commit.
+    fireEvent.blur(input);
+    expect(setMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-fire the mutation when the same date is committed twice", () => {
+    renderCell(undefined);
+    fireEvent.click(screen.getByText("", { selector: "p" }));
+    const input = screen.getByLabelText("Due");
+    fireEvent.change(input, { target: { value: "June 1, 2026" } });
+    fireEvent.change(input, { target: { value: "June 1, 2026" } });
+    expect(setMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("pre-fills the input with the stored date when editing starts", () => {
+    renderCell({ type: "date", value: "2026-06-01" });
+    fireEvent.click(screen.getByText("2026-06-01"));
+    const input = screen.getByLabelText("Due") as HTMLInputElement;
+    expect(input.value).toBe("2026-06-01");
+  });
+
   it("clears the value when emptied", () => {
     renderCell({ type: "date", value: "2026-06-01" });
     fireEvent.click(screen.getByText("2026-06-01"));

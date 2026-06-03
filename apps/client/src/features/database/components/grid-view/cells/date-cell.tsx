@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
@@ -23,11 +23,15 @@ export function DateCell({ property, value, pageId, databaseId }: CellProps) {
   const clearValue = useClearValueMutation(databaseId);
   const stored = typeof value?.value === "string" ? value.value : "";
   const [editing, setEditing] = useState(false);
+  // Remember the last value we committed so a repeated onChange can't re-fire the
+  // same mutation while `stored` is still stale. Seed with a sentinel so an empty
+  // commit (clear) on first edit is not mistaken for a duplicate.
+  const lastCommitted = useRef<string | null>(null);
 
   function commit(next: string | Date | null) {
-    setEditing(false);
     const iso = toIso(next);
-    if (iso === stored) return;
+    if (iso === stored || iso === lastCommitted.current) return;
+    lastCommitted.current = iso;
     if (iso === "") {
       clearValue.mutate({ pageId, propertyId: property.id });
     } else {
@@ -50,7 +54,7 @@ export function DateCell({ property, value, pageId, databaseId }: CellProps) {
         defaultValue={stored || null}
         aria-label={property.name}
         onChange={commit}
-        onBlur={(e) => commit(e.currentTarget.value)}
+        onBlur={() => setEditing(false)}
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(false);
         }}
