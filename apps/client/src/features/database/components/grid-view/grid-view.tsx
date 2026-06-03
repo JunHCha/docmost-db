@@ -19,7 +19,7 @@ interface RowTitleCellProps {
   databaseId: string;
 }
 
-// The leading "Name" column shows the row's page title with inline editing.
+// The leading "Title" column shows the row's page title with inline editing.
 // Opening the row as a full page (#9) is intentionally out of scope here.
 function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
   const { t } = useTranslation();
@@ -89,7 +89,7 @@ export function GridView({ databaseId, properties, rows }: GridViewProps) {
         <Table.Tr>
           <Table.Th>
             <Text size="sm" fw={500}>
-              {t("Name")}
+              {t("Title")}
             </Text>
           </Table.Th>
           {ordered.map((property) => (

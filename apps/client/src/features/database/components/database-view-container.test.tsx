@@ -56,7 +56,7 @@ describe("DatabaseViewContainer", () => {
         {
           id: "p1",
           databaseId: "db1",
-          name: "Title",
+          name: "Status",
           type: "text",
           config: {},
           position: "a0",
@@ -69,7 +69,7 @@ describe("DatabaseViewContainer", () => {
     });
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     renderContainer();
-    expect(screen.getByText("Title")).toBeTruthy();
+    expect(screen.getByText("Status")).toBeTruthy();
   });
 
   it("renders the page title in the title input and commits edits", () => {

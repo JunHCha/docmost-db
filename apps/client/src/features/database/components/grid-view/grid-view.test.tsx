@@ -29,7 +29,7 @@ const properties: IDatabaseProperty[] = [
   {
     id: "p1",
     databaseId: "db1",
-    name: "Title",
+    name: "Status",
     type: "text",
     config: {},
     position: "a0",
@@ -83,16 +83,16 @@ describe("GridView", () => {
 
   it("renders a header per property", () => {
     renderGrid();
-    expect(screen.getByText("Title")).toBeTruthy();
+    expect(screen.getByText("Status")).toBeTruthy();
     expect(screen.getByText("Done")).toBeTruthy();
   });
 
-  it("renders a leading Name column header", () => {
+  it("renders a leading Title column header", () => {
     renderGrid();
-    expect(screen.getByText("Name")).toBeTruthy();
+    expect(screen.getByText("Title")).toBeTruthy();
   });
 
-  it("renders each row's page title in the Name column", () => {
+  it("renders each row's page title in the Title column", () => {
     renderGrid();
     expect(screen.getByText("First")).toBeTruthy();
   });
