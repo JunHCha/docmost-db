@@ -14,6 +14,7 @@ import { Button } from "@mantine/core";
 import { Link } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { DatabaseViewContainer } from "@/features/database/components/database-view-container.tsx";
+import { RowPropertiesPanel } from "@/features/database/components/row-properties-panel.tsx";
 const MemoizedFullEditor = React.memo(FullEditor);
 const MemoizedPageHeader = React.memo(PageHeader);
 const MemoizedHistoryModal = React.memo(HistoryModal);
@@ -106,18 +107,22 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
           // otherwise the previous page's title lingers. Mirrors the editor below.
           <DatabaseViewContainer key={page.id} page={page} />
         ) : (
-          <MemoizedFullEditor
-            key={page.id}
-            pageId={page.id}
-            title={page.title}
-            content={page.content}
-            slugId={page.slugId}
-            spaceSlug={page?.space?.slug}
-            editable={canEdit}
-            creator={page.creator}
-            contributors={page.contributors}
-            canComment={canComment}
-          />
+          <>
+            {/* Renders nothing unless this doc is a database row (#9). */}
+            <RowPropertiesPanel page={page} />
+            <MemoizedFullEditor
+              key={page.id}
+              pageId={page.id}
+              title={page.title}
+              content={page.content}
+              slugId={page.slugId}
+              spaceSlug={page?.space?.slug}
+              editable={canEdit}
+              creator={page.creator}
+              contributors={page.contributors}
+              canComment={canComment}
+            />
+          </>
         )}
         <MemoizedHistoryModal pageId={page.id} />
       </div>
