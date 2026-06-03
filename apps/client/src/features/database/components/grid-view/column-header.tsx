@@ -48,7 +48,7 @@ export function ColumnHeader({
   orderedProperties,
 }: ColumnHeaderProps) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
@@ -58,12 +58,14 @@ export function ColumnHeader({
   const remove = useDeletePropertyMutation(databaseId);
 
   useEffect(() => {
-    const el = ref.current;
-    // While renaming we skip registration entirely. The drag adapter sets a
-    // `draggable="true"` DOM attribute that survives a `canDrag: false` gate
-    // and lets the browser hijack pointer interactions (caret placement,
-    // selection, focus) inside the inline input. Unregistering removes the
-    // attribute via cleanup, so the input behaves normally.
+    // The draggable wrapper only exists in the non-editing view (see render),
+    // so `dragRef.current` is null while renaming and registration is skipped.
+    // Keeping the rename input OUTSIDE the drag element is deliberate: the drag
+    // adapter sets a `draggable="true"` attribute that makes the browser hijack
+    // pointer interactions (caret placement, text selection, focus) inside any
+    // descendant input. `renaming` stays in the deps so the adapter re-registers
+    // once editing ends and the wrapper remounts.
+    const el = dragRef.current;
     if (!el || renaming) return;
     return combine(
       draggable({
@@ -105,6 +107,11 @@ export function ColumnHeader({
     );
   }, [property.id, orderedProperties, reorder, renaming]);
 
+  function startRename() {
+    setNameDraft(property.name);
+    setRenaming(true);
+  }
+
   function commitRename() {
     setRenaming(false);
     const next = nameDraft.trim();
@@ -114,89 +121,91 @@ export function ColumnHeader({
   }
 
   return (
-    <div ref={ref} style={{ position: "relative", width: "100%" }}>
-      <Group justify="space-between" gap={4} wrap="nowrap">
-        {renaming ? (
-          <TextInput
-            autoFocus
-            size="xs"
-            variant="unstyled"
-            value={nameDraft}
-            aria-label={t("Rename column")}
-            onChange={(e) => setNameDraft(e.currentTarget.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename();
-              if (e.key === "Escape") setRenaming(false);
-            }}
-          />
-        ) : (
-          <Text size="sm" fw={500} truncate>
-            {property.name}
-          </Text>
-        )}
-        <Menu
-          position="bottom-end"
-          withinPortal={false}
-          transitionProps={{ duration: 0 }}
-        >
-          <Menu.Target>
-            <ActionIcon
-              size="xs"
-              variant="subtle"
-              aria-label={t("Column options")}
+    <div style={{ position: "relative", width: "100%" }}>
+      {renaming ? (
+        // Rendered outside the draggable wrapper so the drag adapter cannot
+        // intercept typing/caret placement. The menu is unmounted while editing,
+        // so there is no focus-return race against the autofocused input.
+        <TextInput
+          autoFocus
+          size="xs"
+          variant="unstyled"
+          value={nameDraft}
+          aria-label={t("Rename column")}
+          onChange={(e) => setNameDraft(e.currentTarget.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRename();
+            if (e.key === "Escape") setRenaming(false);
+          }}
+        />
+      ) : (
+        <div ref={dragRef}>
+          <Group justify="space-between" gap={4} wrap="nowrap">
+            <Text
+              size="sm"
+              fw={500}
+              truncate
+              style={{ flex: 1, cursor: "text" }}
+              onDoubleClick={startRename}
             >
-              ⋯
-            </ActionIcon>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Item
-              onClick={() => {
-                setNameDraft(property.name);
-                // Defer mounting the input until the menu has finished
-                // closing; otherwise its focus handling blurs the autofocused
-                // input immediately and commits an empty rename.
-                setTimeout(() => setRenaming(true), 0);
-              }}
+              {property.name}
+            </Text>
+            <Menu
+              position="bottom-end"
+              withinPortal={false}
+              returnFocus={false}
+              transitionProps={{ duration: 0 }}
             >
-              {t("Rename")}
-            </Menu.Item>
-            <Menu.Label>{t("Type")}</Menu.Label>
-            {/* Each type is a Menu.Item, not a nested <Select>: a Select renders
-                its options in a portal, and clicking one counts as an
-                outside-click that closes this Menu and unmounts the Select
-                before its onChange commits — so the type never actually
-                changed. Menu.Item clicks commit reliably. */}
-            {TYPE_OPTIONS.map((opt) => (
-              <Menu.Item
-                key={opt.value}
-                leftSection={
-                  <span style={{ display: "inline-block", width: 12 }}>
-                    {opt.value === property.type ? "✓" : ""}
-                  </span>
-                }
-                onClick={() => {
-                  if (opt.value !== property.type) {
-                    update.mutate({
-                      propertyId: property.id,
-                      type: opt.value,
-                    });
-                  }
-                }}
-              >
-                {t(opt.label)}
-              </Menu.Item>
-            ))}
-            <Menu.Divider />
-            <Menu.Item
-              color="red"
-              onClick={() => remove.mutate({ propertyId: property.id })}
-            >
-              {t("Delete")}
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
-      </Group>
+              <Menu.Target>
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  aria-label={t("Column options")}
+                >
+                  ⋯
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
+                <Menu.Label>{t("Type")}</Menu.Label>
+                {/* Each type is a Menu.Item, not a nested <Select>: a Select
+                    renders its options in a portal, and clicking one counts as
+                    an outside-click that closes this Menu and unmounts the
+                    Select before its onChange commits — so the type never
+                    actually changed. Menu.Item clicks commit reliably. */}
+                {TYPE_OPTIONS.map((opt) => (
+                  <Menu.Item
+                    key={opt.value}
+                    leftSection={
+                      <span style={{ display: "inline-block", width: 12 }}>
+                        {opt.value === property.type ? "✓" : ""}
+                      </span>
+                    }
+                    onClick={() => {
+                      if (opt.value !== property.type) {
+                        update.mutate({
+                          propertyId: property.id,
+                          type: opt.value,
+                        });
+                      }
+                    }}
+                  >
+                    {t(opt.label)}
+                  </Menu.Item>
+                ))}
+                <Menu.Divider />
+                <Menu.Item
+                  color="red"
+                  onClick={() => remove.mutate({ propertyId: property.id })}
+                >
+                  {t("Delete")}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+        </div>
+      )}
       {closestEdge && (
         <div
           data-testid="column-drop-indicator"

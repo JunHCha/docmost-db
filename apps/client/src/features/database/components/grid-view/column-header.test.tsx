@@ -80,6 +80,18 @@ describe("ColumnHeader", () => {
     });
   });
 
+  it("renames via double-click on the column name", async () => {
+    renderHeader();
+    fireEvent.doubleClick(screen.getByText("Status"));
+    const input = await waitFor(() => screen.getByLabelText("Rename column"));
+    fireEvent.change(input, { target: { value: "Stage" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      name: "Stage",
+    });
+  });
+
   it("drops the draggable attribute while renaming", async () => {
     const { container } = renderHeader();
     // The header is draggable when not editing.
