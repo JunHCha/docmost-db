@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { Table, Button, ActionIcon, Group, Text, TextInput } from "@mantine/core";
+import {
+  Table,
+  Button,
+  ActionIcon,
+  Group,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import { IconArrowsDiagonal } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -80,9 +87,7 @@ function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
         variant="subtle"
         size="sm"
         aria-label={t("Open row")}
-        onClick={() =>
-          navigate(buildPageUrl(spaceSlug, row.slugId, row.title))
-        }
+        onClick={() => navigate(buildPageUrl(spaceSlug, row.slugId, row.title))}
       >
         <IconArrowsDiagonal size={16} />
       </ActionIcon>
@@ -113,76 +118,87 @@ export function GridView({
   );
 
   return (
-    <Table withTableBorder withColumnBorders striped highlightOnHover>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>
-            <Text size="sm" fw={500}>
-              {t("Title")}
-            </Text>
-          </Table.Th>
-          {ordered.map((property) => (
-            <Table.Th key={property.id}>
-              <ColumnHeader
-                property={property}
-                databaseId={databaseId}
-                orderedProperties={ordered}
-              />
+    // Scroll horizontally when columns overflow the page width instead of
+    // squeezing them. max-content lets the table grow to its natural width;
+    // minWidth keeps it filling the page when there are only a few columns.
+    <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+      <Table
+        withTableBorder
+        withColumnBorders
+        striped
+        highlightOnHover
+        style={{ minWidth: "100%", width: "max-content" }}
+      >
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>
+              <Text size="sm" fw={500}>
+                {t("Title")}
+              </Text>
             </Table.Th>
-          ))}
-          <Table.Th style={{ width: 48 }}>
-            <ActionIcon
-              variant="subtle"
-              aria-label={t("Add column")}
-              onClick={() =>
-                createProperty.mutate({
-                  databaseId,
-                  name: t("New column"),
-                  type: "text",
-                })
-              }
-            >
-              +
-            </ActionIcon>
-          </Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {rows.map(({ row, values }) => (
-          <Table.Tr key={row.id}>
-            <Table.Td>
-              <RowTitleCell
-                row={row}
-                databaseId={databaseId}
-                spaceSlug={spaceSlug}
-              />
-            </Table.Td>
             {ordered.map((property) => (
-              <Table.Td key={property.id}>
-                <GridCell
+              <Table.Th key={property.id}>
+                <ColumnHeader
                   property={property}
-                  value={values.find((v) => v.propertyId === property.id)}
-                  pageId={row.id}
                   databaseId={databaseId}
+                  orderedProperties={ordered}
+                />
+              </Table.Th>
+            ))}
+            <Table.Th style={{ width: 48 }}>
+              <ActionIcon
+                variant="subtle"
+                aria-label={t("Add column")}
+                onClick={() =>
+                  createProperty.mutate({
+                    databaseId,
+                    name: t("New column"),
+                    type: "text",
+                  })
+                }
+              >
+                +
+              </ActionIcon>
+            </Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {rows.map(({ row, values }) => (
+            <Table.Tr key={row.id}>
+              <Table.Td>
+                <RowTitleCell
+                  row={row}
+                  databaseId={databaseId}
+                  spaceSlug={spaceSlug}
                 />
               </Table.Td>
-            ))}
-            <Table.Td />
+              {ordered.map((property) => (
+                <Table.Td key={property.id}>
+                  <GridCell
+                    property={property}
+                    value={values.find((v) => v.propertyId === property.id)}
+                    pageId={row.id}
+                    databaseId={databaseId}
+                  />
+                </Table.Td>
+              ))}
+              <Table.Td />
+            </Table.Tr>
+          ))}
+          <Table.Tr>
+            <Table.Td colSpan={ordered.length + 2}>
+              <Button
+                variant="subtle"
+                size="xs"
+                onClick={() => createRow.mutate({ databaseId })}
+              >
+                {t("+ Row")}
+              </Button>
+            </Table.Td>
           </Table.Tr>
-        ))}
-        <Table.Tr>
-          <Table.Td colSpan={ordered.length + 2}>
-            <Button
-              variant="subtle"
-              size="xs"
-              onClick={() => createRow.mutate({ databaseId })}
-            >
-              {t("+ Row")}
-            </Button>
-          </Table.Td>
-        </Table.Tr>
-      </Table.Tbody>
-    </Table>
+        </Table.Tbody>
+      </Table>
+    </div>
   );
 }
 
