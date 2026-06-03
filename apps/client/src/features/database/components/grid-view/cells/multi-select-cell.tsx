@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Badge,
   Combobox,
   Group,
   Text,
@@ -16,7 +15,7 @@ import {
   appendOption,
   getOptions,
 } from "@/features/database/components/property/option-config.ts";
-import { resolveOptionColor } from "@/features/database/components/property/option-colors.ts";
+import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
 import { CellProps } from "./cell-props";
 
 export function MultiSelectCell({
@@ -101,14 +100,7 @@ export function MultiSelectCell({
         >
           <Group gap={4}>
             {selectedOptions.map((o) => (
-              <Badge
-                key={o.id}
-                color={resolveOptionColor(o.color)}
-                variant="light"
-                radius="sm"
-              >
-                {o.label}
-              </Badge>
+              <OptionPill key={o.id} color={o.color} label={o.label} />
             ))}
           </Group>
         </UnstyledButton>
@@ -125,13 +117,7 @@ export function MultiSelectCell({
               {filtered.map((o) => (
                 <Combobox.Option value={o.id} key={o.id}>
                   <Group gap="xs" justify="space-between">
-                    <Badge
-                      color={resolveOptionColor(o.color)}
-                      variant="light"
-                      radius="sm"
-                    >
-                      {o.label}
-                    </Badge>
+                    <OptionPill color={o.color} label={o.label} />
                     {selectedIds.includes(o.id) && <Text size="xs">✓</Text>}
                   </Group>
                 </Combobox.Option>

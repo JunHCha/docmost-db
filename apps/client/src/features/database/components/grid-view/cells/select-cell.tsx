@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Badge,
   Combobox,
   Group,
   Text,
@@ -16,7 +15,7 @@ import {
   appendOption,
   getOptions,
 } from "@/features/database/components/property/option-config.ts";
-import { resolveOptionColor } from "@/features/database/components/property/option-colors.ts";
+import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
 import { CellProps } from "./cell-props";
 
 export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
@@ -89,13 +88,7 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
           style={{ width: "100%", minHeight: 20, textAlign: "left" }}
         >
           {selected ? (
-            <Badge
-              color={resolveOptionColor(selected.color)}
-              variant="light"
-              radius="sm"
-            >
-              {selected.label}
-            </Badge>
+            <OptionPill color={selected.color} label={selected.label} />
           ) : (
             <Text size="sm" c="dimmed">
               {""}
@@ -115,13 +108,7 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
               {filtered.map((o) => (
                 <Combobox.Option value={o.id} key={o.id}>
                   <Group gap="xs">
-                    <Badge
-                      color={resolveOptionColor(o.color)}
-                      variant="light"
-                      radius="sm"
-                    >
-                      {o.label}
-                    </Badge>
+                    <OptionPill color={o.color} label={o.label} />
                   </Group>
                 </Combobox.Option>
               ))}
