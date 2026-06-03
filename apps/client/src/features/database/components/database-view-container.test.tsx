@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 const infoQuery = vi.fn();
 const propertiesQuery = vi.fn();
 const rowsQuery = vi.fn();
+const updatePageMutate = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseInfoQuery: () => infoQuery(),
@@ -17,6 +18,11 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useReorderPropertyMutation: () => ({ mutate: vi.fn() }),
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
+  useUpdateRowTitleMutation: () => ({ mutate: vi.fn() }),
+}));
+
+vi.mock("@/features/page/queries/page-query.ts", () => ({
+  useUpdatePageMutation: () => ({ mutate: updatePageMutate }),
 }));
 
 import { DatabaseViewContainer } from "./database-view-container";
@@ -64,5 +70,24 @@ describe("DatabaseViewContainer", () => {
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     renderContainer();
     expect(screen.getByText("Title")).toBeTruthy();
+  });
+
+  it("renders the page title in the title input and commits edits", () => {
+    updatePageMutate.mockReset();
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    rowsQuery.mockReturnValue({ data: [], isLoading: false });
+    renderContainer();
+    const input = screen.getByLabelText("Database title") as HTMLInputElement;
+    expect(input.value).toBe("Tasks");
+    fireEvent.change(input, { target: { value: "Projects" } });
+    fireEvent.blur(input);
+    expect(updatePageMutate).toHaveBeenCalledWith({
+      pageId: "page1",
+      title: "Projects",
+    });
   });
 });
