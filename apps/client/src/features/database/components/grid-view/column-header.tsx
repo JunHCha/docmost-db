@@ -3,7 +3,7 @@ import {
   Group,
   Menu,
   ActionIcon,
-  Popover,
+  Modal,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -163,93 +163,88 @@ export function ColumnHeader({
             >
               {property.name}
             </Text>
-            <Popover
+            <Menu
               position="bottom-end"
               withinPortal={false}
-              opened={editingOptions}
-              onChange={setEditingOptions}
+              returnFocus={false}
               transitionProps={{ duration: 0 }}
-              width={280}
             >
-              <Popover.Target>
-                <Menu
-                  position="bottom-end"
-                  withinPortal={false}
-                  returnFocus={false}
-                  transitionProps={{ duration: 0 }}
+              <Menu.Target>
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  aria-label={t("Column options")}
                 >
-                  <Menu.Target>
-                    <ActionIcon
-                      size="xs"
-                      variant="subtle"
-                      aria-label={t("Column options")}
-                    >
-                      ⋯
-                    </ActionIcon>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
-                    {hasOptions && (
-                      <Menu.Item onClick={() => setEditingOptions(true)}>
-                        {t("Edit options")}
-                      </Menu.Item>
-                    )}
-                    <Menu.Label>{t("Type")}</Menu.Label>
-                    {/* Each type is a Menu.Item, not a nested <Select>: a Select
-                        renders its options in a portal, and clicking one counts
-                        as an outside-click that closes this Menu and unmounts
-                        the Select before its onChange commits — so the type
-                        never actually changed. Menu.Item clicks commit. */}
-                    {TYPE_OPTIONS.map((opt) => (
-                      <Menu.Item
-                        key={opt.value}
-                        leftSection={
-                          <span style={{ display: "inline-block", width: 12 }}>
-                            {opt.value === property.type ? "✓" : ""}
-                          </span>
-                        }
-                        onClick={() => {
-                          if (opt.value === property.type) return;
-                          const needsOptions =
-                            opt.value === "select" ||
-                            opt.value === "multi_select";
-                          update.mutate({
-                            propertyId: property.id,
-                            type: opt.value,
-                            // select/multi_select require a config.options array
-                            // server-side (a missing array is rejected with 400).
-                            // Echo existing options — preserved when switching
-                            // select↔multi_select, empty otherwise.
-                            ...(needsOptions
-                              ? { config: { options: getOptions(property.config) } }
-                              : {}),
-                          });
-                        }}
-                      >
-                        {t(opt.label)}
-                      </Menu.Item>
-                    ))}
-                    <Menu.Divider />
-                    <Menu.Item
-                      color="red"
-                      onClick={() => remove.mutate({ propertyId: property.id })}
-                    >
-                      {t("Delete")}
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              </Popover.Target>
-              <Popover.Dropdown>
+                  ⋯
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
                 {hasOptions && (
-                  <SelectOptionsEditor
-                    property={property}
-                    databaseId={databaseId}
-                  />
+                  <Menu.Item onClick={() => setEditingOptions(true)}>
+                    {t("Edit options")}
+                  </Menu.Item>
                 )}
-              </Popover.Dropdown>
-            </Popover>
+                <Menu.Label>{t("Type")}</Menu.Label>
+                {/* Each type is a Menu.Item, not a nested <Select>: a Select
+                    renders its options in a portal, and clicking one counts
+                    as an outside-click that closes this Menu and unmounts
+                    the Select before its onChange commits — so the type
+                    never actually changed. Menu.Item clicks commit. */}
+                {TYPE_OPTIONS.map((opt) => (
+                  <Menu.Item
+                    key={opt.value}
+                    leftSection={
+                      <span style={{ display: "inline-block", width: 12 }}>
+                        {opt.value === property.type ? "✓" : ""}
+                      </span>
+                    }
+                    onClick={() => {
+                      if (opt.value === property.type) return;
+                      const needsOptions =
+                        opt.value === "select" ||
+                        opt.value === "multi_select";
+                      update.mutate({
+                        propertyId: property.id,
+                        type: opt.value,
+                        // select/multi_select require a config.options array
+                        // server-side (a missing array is rejected with 400).
+                        // Echo existing options — preserved when switching
+                        // select↔multi_select, empty otherwise.
+                        ...(needsOptions
+                          ? { config: { options: getOptions(property.config) } }
+                          : {}),
+                      });
+                    }}
+                  >
+                    {t(opt.label)}
+                  </Menu.Item>
+                ))}
+                <Menu.Divider />
+                <Menu.Item
+                  color="red"
+                  onClick={() => remove.mutate({ propertyId: property.id })}
+                >
+                  {t("Delete")}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </Group>
         </div>
+      )}
+      {hasOptions && (
+        <Modal
+          opened={editingOptions}
+          onClose={() => setEditingOptions(false)}
+          title={t("Edit options")}
+          size="xs"
+          // Background/escape close + a title come for free with Modal; the
+          // previous Popover did not close on outside click.
+          centered
+          transitionProps={{ duration: 0 }}
+        >
+          <SelectOptionsEditor property={property} databaseId={databaseId} />
+        </Modal>
       )}
       {closestEdge && (
         <div

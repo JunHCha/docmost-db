@@ -75,26 +75,39 @@ function OptionRow({ option, onRename, onRecolor, onDelete }: OptionRowProps) {
 
   const current = resolveOptionColor(option.color);
 
+  // Label on its own full-width row (otherwise the 10-swatch row squeezed the
+  // input to near-zero width and clipped the label text); swatches wrap below.
   return (
-    <Group gap="xs" wrap="nowrap" align="center">
-      <TextInput
-        size="xs"
-        value={draft}
-        aria-label={`${option.label} label`}
-        onChange={(e) => setDraft(e.currentTarget.value)}
-        onBlur={commitRename}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitRename();
-        }}
-        style={{ flex: 1 }}
-      />
-      <Group gap={4} wrap="nowrap">
+    <Stack gap={4}>
+      <Group gap={4} wrap="nowrap" align="center">
+        <TextInput
+          size="xs"
+          value={draft}
+          aria-label={`${option.label} label`}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRename();
+          }}
+          style={{ flex: 1 }}
+        />
+        <ActionIcon
+          size="xs"
+          variant="subtle"
+          color="red"
+          aria-label={`Delete ${option.label}`}
+          onClick={onDelete}
+        >
+          ✕
+        </ActionIcon>
+      </Group>
+      <Group gap={4} wrap="wrap">
         {OPTION_COLORS.map((c) => (
           <ColorSwatch
             key={c}
             component="button"
             color={`var(--mantine-color-${c}-5)`}
-            size={16}
+            size={14}
             aria-label={`Set ${option.label} color ${c}`}
             onClick={() => onRecolor(c)}
             withShadow={c === current}
@@ -106,16 +119,7 @@ function OptionRow({ option, onRename, onRecolor, onDelete }: OptionRowProps) {
           />
         ))}
       </Group>
-      <ActionIcon
-        size="sm"
-        variant="subtle"
-        color="red"
-        aria-label={`Delete ${option.label}`}
-        onClick={onDelete}
-      >
-        ✕
-      </ActionIcon>
-    </Group>
+    </Stack>
   );
 }
 
