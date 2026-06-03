@@ -33,7 +33,9 @@ function view(id: string, name: string, isDefault = false): IDatabaseView {
 
 const views = [view("v1", "Grid", true), view("v2", "Backlog")];
 
-function renderSwitcher(opts: { activeViewId?: string; onActivate?: (id: string) => void } = {}) {
+function renderSwitcher(
+  opts: { activeViewId?: string; onActivate?: (id: string) => void } = {},
+) {
   return render(
     <MantineProvider>
       <ViewSwitcher
@@ -62,16 +64,28 @@ describe("ViewSwitcher", () => {
 
   it("marks the active tab", () => {
     renderSwitcher({ activeViewId: "v2" });
-    expect(screen.getByLabelText("View Backlog").getAttribute("data-active")).toBe(
-      "true",
-    );
+    expect(
+      screen.getByLabelText("View Backlog").getAttribute("data-active"),
+    ).toBe("true");
   });
 
-  it("activates a view when its tab is clicked", () => {
+  // Notion-style: clicking an inactive tab switches to it (no menu).
+  it("activates a view when an inactive tab is clicked", () => {
     const onActivate = vi.fn();
     renderSwitcher({ onActivate });
     fireEvent.click(screen.getByText("Backlog"));
     expect(onActivate).toHaveBeenCalledWith("v2");
+    expect(screen.queryByText("Rename")).toBeNull();
+  });
+
+  // Notion-style: clicking the already-active tab opens its config menu
+  // instead of re-activating.
+  it("opens the config menu (not re-activate) when the active tab is clicked", () => {
+    const onActivate = vi.fn();
+    renderSwitcher({ activeViewId: "v2", onActivate });
+    fireEvent.click(screen.getByText("Backlog"));
+    expect(onActivate).not.toHaveBeenCalled();
+    expect(screen.getByText("Rename")).toBeTruthy();
   });
 
   it("creates a grid view when the add button is clicked", () => {
@@ -84,26 +98,29 @@ describe("ViewSwitcher", () => {
     });
   });
 
-  it("renames a view from its tab menu", () => {
-    renderSwitcher();
-    fireEvent.click(screen.getByLabelText("View Backlog options"));
+  it("renames a view from its active-tab menu", () => {
+    renderSwitcher({ activeViewId: "v2" });
+    fireEvent.click(screen.getByText("Backlog"));
     fireEvent.click(screen.getByText("Rename"));
     const input = screen.getByLabelText("Rename view") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Sprint" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(updateViewMutate).toHaveBeenCalledWith({ viewId: "v2", name: "Sprint" });
+    expect(updateViewMutate).toHaveBeenCalledWith({
+      viewId: "v2",
+      name: "Sprint",
+    });
   });
 
-  it("sets a view as default from its tab menu", () => {
-    renderSwitcher();
-    fireEvent.click(screen.getByLabelText("View Backlog options"));
+  it("sets a view as default from its active-tab menu", () => {
+    renderSwitcher({ activeViewId: "v2" });
+    fireEvent.click(screen.getByText("Backlog"));
     fireEvent.click(screen.getByText("Set as default"));
     expect(setDefaultMutate).toHaveBeenCalledWith({ viewId: "v2" });
   });
 
-  it("deletes a view from its tab menu", () => {
-    renderSwitcher();
-    fireEvent.click(screen.getByLabelText("View Backlog options"));
+  it("deletes a view from its active-tab menu", () => {
+    renderSwitcher({ activeViewId: "v2" });
+    fireEvent.click(screen.getByText("Backlog"));
     fireEvent.click(screen.getByText("Delete"));
     expect(deleteViewMutate).toHaveBeenCalledWith({ viewId: "v2" });
   });
@@ -119,7 +136,7 @@ describe("ViewSwitcher", () => {
         />
       </MantineProvider>,
     );
-    fireEvent.click(screen.getByLabelText("View Grid options"));
+    fireEvent.click(screen.getByText("Grid"));
     expect(screen.queryByText("Delete")).toBeNull();
   });
 });

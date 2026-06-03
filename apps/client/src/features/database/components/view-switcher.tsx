@@ -40,6 +40,7 @@ function ViewTab({
   const { t } = useTranslation();
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(view.name);
+  const [menuOpened, setMenuOpened] = useState(false);
 
   function commit() {
     setRenaming(false);
@@ -65,56 +66,58 @@ function ViewTab({
     );
   }
 
+  // Notion-style tab: clicking an inactive tab switches to it; clicking the
+  // already-active tab opens its config menu. The menu is only allowed to open
+  // while active, so the onChange guard ignores Mantine's toggle on inactive
+  // tabs (where the click instead activates the view).
   return (
-    <Group gap={2} wrap="nowrap">
-      <UnstyledButton
-        aria-label={`${t("View")} ${view.name}`}
-        data-active={active}
-        onClick={onActivate}
-        style={{
-          fontSize: "var(--mantine-font-size-sm)",
-          fontWeight: active ? 600 : 400,
-          padding: "2px 6px",
-          borderBottom: active
-            ? "2px solid var(--mantine-color-blue-5)"
-            : "2px solid transparent",
-        }}
-      >
-        {view.name}
-      </UnstyledButton>
-      <Menu position="bottom-start" transitionProps={{ duration: 0 }}>
-        <Menu.Target>
-          <ActionIcon
-            size="xs"
-            variant="subtle"
-            aria-label={`${t("View")} ${view.name} ${t("options")}`}
-          >
-            ⋯
-          </ActionIcon>
-        </Menu.Target>
-        <Menu.Dropdown>
-          <Menu.Item
-            onClick={() => {
-              setDraft(view.name);
-              setRenaming(true);
-            }}
-          >
-            {t("Rename")}
-          </Menu.Item>
-          {!view.isDefault && (
-            <Menu.Item onClick={onSetDefault}>{t("Set as default")}</Menu.Item>
-          )}
-          {canDelete && (
-            <>
-              <Menu.Divider />
-              <Menu.Item color="red" onClick={onDelete}>
-                {t("Delete")}
-              </Menu.Item>
-            </>
-          )}
-        </Menu.Dropdown>
-      </Menu>
-    </Group>
+    <Menu
+      opened={active && menuOpened}
+      onChange={(o) => active && setMenuOpened(o)}
+      position="bottom-start"
+      transitionProps={{ duration: 0 }}
+    >
+      <Menu.Target>
+        <UnstyledButton
+          aria-label={`${t("View")} ${view.name}`}
+          data-active={active}
+          onClick={() => {
+            if (!active) onActivate();
+          }}
+          style={{
+            fontSize: "var(--mantine-font-size-sm)",
+            fontWeight: active ? 600 : 400,
+            padding: "2px 6px",
+            borderBottom: active
+              ? "2px solid var(--mantine-color-blue-5)"
+              : "2px solid transparent",
+          }}
+        >
+          {view.name}
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item
+          onClick={() => {
+            setDraft(view.name);
+            setRenaming(true);
+          }}
+        >
+          {t("Rename")}
+        </Menu.Item>
+        {!view.isDefault && (
+          <Menu.Item onClick={onSetDefault}>{t("Set as default")}</Menu.Item>
+        )}
+        {canDelete && (
+          <>
+            <Menu.Divider />
+            <Menu.Item color="red" onClick={onDelete}>
+              {t("Delete")}
+            </Menu.Item>
+          </>
+        )}
+      </Menu.Dropdown>
+    </Menu>
   );
 }
 
