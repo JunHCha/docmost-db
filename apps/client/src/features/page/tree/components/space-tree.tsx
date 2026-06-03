@@ -99,7 +99,19 @@ export default function SpaceTree({ spaceId, readOnly }: SpaceTreeProps) {
         if (spaceIdRef.current !== effectSpaceId) return;
 
         if (ancestors && ancestors.length > 1) {
-          let flatTreeItems = [...buildTree(ancestors)];
+          // Database rows are pages too, but they must not surface in the
+          // sidebar tree (the grid is their home — mirrors the server-side
+          // getSidebarPages filter). Drop any ancestor that is a direct child
+          // of a database page in this chain. Order-independent.
+          const databasePageIds = new Set(
+            ancestors.filter((a) => a.pageType === "database").map((a) => a.id),
+          );
+          const visibleAncestors = ancestors.filter(
+            (a) => !databasePageIds.has(a.parentPageId),
+          );
+          if (visibleAncestors.length === 0) return;
+
+          let flatTreeItems = [...buildTree(visibleAncestors)];
 
           const fetchAndUpdateChildren = async (ancestor: IPage) => {
             // we don't want to fetch the children of the opened page
@@ -117,7 +129,7 @@ export default function SpaceTree({ spaceId, readOnly }: SpaceTreeProps) {
             ];
           };
 
-          const fetchPromises = ancestors.map((ancestor) =>
+          const fetchPromises = visibleAncestors.map((ancestor) =>
             fetchAndUpdateChildren(ancestor),
           );
 
