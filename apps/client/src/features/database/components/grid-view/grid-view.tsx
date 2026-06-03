@@ -121,12 +121,11 @@ export function GridView({
     // Scroll horizontally when columns overflow the page width instead of
     // squeezing them. max-content lets the table grow to its natural width;
     // minWidth keeps it filling the page when there are only a few columns.
-    // minHeight reserves vertical room so the column-header config menu (which
-    // renders inline, not in a portal) has space to open below the header even
-    // when the grid has zero or one row.
+    // The column-header config menu opens in a portal (see column-header), so
+    // it is not clipped by this overflow container — no min-height needed.
     <div
       data-testid="grid-view"
-      style={{ overflowX: "auto", maxWidth: "100%", minHeight: 320 }}
+      style={{ overflowX: "auto", maxWidth: "100%" }}
     >
       <Table
         withTableBorder

@@ -107,13 +107,12 @@ describe("GridView", () => {
     expect(screen.getByText("Title")).toBeTruthy();
   });
 
-  it("reserves vertical space so the inline column-config dropdown is not clipped", () => {
-    // The column-header type/option menu renders inline (withinPortal=false).
-    // With few rows the table is short, so the scroll container needs a
-    // min-height to give the dropdown room to open below the header.
+  it("scrolls horizontally instead of squeezing columns when they overflow", () => {
+    // Wide databases should scroll sideways; the column-config dropdown opens
+    // in a portal (see column-header) so it is not clipped by this container.
     renderGrid();
     const container = screen.getByTestId("grid-view");
-    expect(container.style.minHeight).not.toBe("");
+    expect(container.style.overflowX).toBe("auto");
   });
 
   it("renders each row's page title in the Title column", () => {
