@@ -12,6 +12,7 @@ import {
   createRow,
   deleteProperty,
   getDatabaseInfo,
+  listDatabases,
   listProperties,
   listRows,
   reorderProperty,
@@ -25,6 +26,7 @@ import {
   ICreatePropertyParams,
   ICreateRowParams,
   IDatabaseInfoResponse,
+  IDatabaseListItem,
   IDatabaseProperty,
   IDatabasePropertyValue,
   IDatabaseRow,
@@ -40,6 +42,7 @@ import {
   databaseInfoKey,
   databasePropertiesKey,
   databaseRowsKey,
+  databasesKey,
   patchProperty,
   patchRowTitle,
   patchRowValue,
@@ -85,6 +88,16 @@ export function useDatabaseInfoQuery(pageId: string): UseQueryResult<
     queryKey: databaseInfoKey(pageId),
     queryFn: () => getDatabaseInfo({ pageId }),
     enabled: !!pageId,
+  });
+}
+
+export function useListDatabasesQuery(
+  spaceId: string,
+): UseQueryResult<IDatabaseListItem[], Error> {
+  return useQuery({
+    queryKey: databasesKey(spaceId),
+    queryFn: () => listDatabases({ spaceId }),
+    enabled: !!spaceId,
   });
 }
 

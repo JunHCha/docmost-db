@@ -15,6 +15,11 @@ export function databaseInfoKey(pageId: string): QueryKey {
   return ["database-info", pageId];
 }
 
+// Space-scoped list of databases (used by the relation target picker, §6).
+export function databasesKey(spaceId: string): QueryKey {
+  return ["databases", spaceId];
+}
+
 export function databasePropertiesKey(databaseId: string): QueryKey {
   return ["database-properties", databaseId];
 }

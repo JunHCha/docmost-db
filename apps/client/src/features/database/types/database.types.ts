@@ -25,6 +25,17 @@ export interface IDatabase {
   deletedAt: Date | null;
 }
 
+export interface IDatabaseListItem {
+  id: string;
+  pageId: string;
+  title: string | null;
+  icon: string | null;
+}
+
+export interface IListDatabasesParams {
+  spaceId: string;
+}
+
 export interface IDatabaseProperty {
   id: string;
   databaseId: string;

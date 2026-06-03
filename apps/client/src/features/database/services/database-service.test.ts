@@ -8,6 +8,7 @@ vi.mock("@/lib/api-client", () => ({
 import {
   createDatabase,
   getDatabaseInfo,
+  listDatabases,
   listProperties,
   createProperty,
   updateProperty,
@@ -44,6 +45,16 @@ describe("database-service", () => {
     const result = await getDatabaseInfo({ pageId: "p1" });
 
     expect(post).toHaveBeenCalledWith("/databases/info", { pageId: "p1" });
+    expect(result).toBe(data);
+  });
+
+  it("listDatabases posts to /databases/list and returns data", async () => {
+    const data = [{ id: "db1", pageId: "p1", title: "Tasks", icon: null }];
+    post.mockResolvedValue({ data });
+
+    const result = await listDatabases({ spaceId: "s1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/list", { spaceId: "s1" });
     expect(result).toBe(data);
   });
 
