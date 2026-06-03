@@ -16,6 +16,7 @@ import { CheckboxCell } from "./checkbox-cell";
 import { UrlCell } from "./url-cell";
 import { DateCell } from "./date-cell";
 import { SelectCell } from "./select-cell";
+import { MultiSelectCell } from "./multi-select-cell";
 
 describe("cell registry", () => {
   it("returns the registered component for known types", () => {
@@ -25,6 +26,7 @@ describe("cell registry", () => {
     expect(getCellComponent("url")).toBe(UrlCell);
     expect(getCellComponent("date")).toBe(DateCell);
     expect(getCellComponent("select")).toBe(SelectCell);
+    expect(getCellComponent("multi_select")).toBe(MultiSelectCell);
   });
 
   it("falls back for relation (lands in #10)", () => {
