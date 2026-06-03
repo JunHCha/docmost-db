@@ -96,4 +96,23 @@ describe("ColumnHeader", () => {
     fireEvent.click(screen.getByText("Delete"));
     expect(deleteMutate).toHaveBeenCalledWith({ propertyId: "prop1" });
   });
+
+  it("changes the property type from the menu", () => {
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    // Each type is a Menu.Item; clicking one commits the change (a nested
+    // <Select> would close the menu before its onChange fired).
+    fireEvent.click(screen.getByText("Number"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      type: "number",
+    });
+  });
+
+  it("does not re-fire when picking the current type", () => {
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Text"));
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
 });

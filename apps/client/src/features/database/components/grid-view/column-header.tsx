@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Group, Menu, ActionIcon, Text, TextInput, Select } from "@mantine/core";
+import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -162,22 +162,31 @@ export function ColumnHeader({
               {t("Rename")}
             </Menu.Item>
             <Menu.Label>{t("Type")}</Menu.Label>
-            <div style={{ padding: "0 8px 8px" }}>
-              <Select
-                size="xs"
-                data={TYPE_OPTIONS}
-                value={property.type}
-                aria-label={t("Property type")}
-                onChange={(value) => {
-                  if (value && value !== property.type) {
+            {/* Each type is a Menu.Item, not a nested <Select>: a Select renders
+                its options in a portal, and clicking one counts as an
+                outside-click that closes this Menu and unmounts the Select
+                before its onChange commits — so the type never actually
+                changed. Menu.Item clicks commit reliably. */}
+            {TYPE_OPTIONS.map((opt) => (
+              <Menu.Item
+                key={opt.value}
+                leftSection={
+                  <span style={{ display: "inline-block", width: 12 }}>
+                    {opt.value === property.type ? "✓" : ""}
+                  </span>
+                }
+                onClick={() => {
+                  if (opt.value !== property.type) {
                     update.mutate({
                       propertyId: property.id,
-                      type: value as PropertyType,
+                      type: opt.value,
                     });
                   }
                 }}
-              />
-            </div>
+              >
+                {t(opt.label)}
+              </Menu.Item>
+            ))}
             <Menu.Divider />
             <Menu.Item
               color="red"
