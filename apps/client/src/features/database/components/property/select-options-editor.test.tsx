@@ -43,15 +43,20 @@ describe("SelectOptionsEditor", () => {
     return updateMutate.mock.calls.at(-1)![0].config.options;
   }
 
-  it("renders an input per existing option", () => {
+  function openMenu(label: string) {
+    fireEvent.click(screen.getByLabelText(`Options for ${label}`));
+  }
+
+  it("renders a pill per existing option", () => {
     renderEditor();
-    expect((screen.getByDisplayValue("Todo") as HTMLInputElement)).toBeTruthy();
-    expect((screen.getByDisplayValue("Doing") as HTMLInputElement)).toBeTruthy();
+    expect(screen.getByText("Todo")).toBeTruthy();
+    expect(screen.getByText("Doing")).toBeTruthy();
   });
 
   it("renames an option via full-replace echo (all ids preserved)", () => {
     renderEditor();
-    const input = screen.getByDisplayValue("Todo");
+    openMenu("Todo");
+    const input = screen.getByLabelText("Todo label");
     fireEvent.change(input, { target: { value: "Backlog" } });
     fireEvent.blur(input);
     expect(updateMutate.mock.calls[0][0].propertyId).toBe("prop1");
@@ -69,16 +74,18 @@ describe("SelectOptionsEditor", () => {
     expect(opts).toHaveLength(3);
   });
 
-  it("deletes an option, echoing the remaining full array", () => {
+  it("deletes an option from its menu, echoing the remaining full array", () => {
     renderEditor();
+    openMenu("Todo");
     fireEvent.click(screen.getByLabelText("Delete Todo"));
     expect(lastConfigOptions()).toEqual([
       { id: "o2", label: "Doing", color: "green" },
     ]);
   });
 
-  it("recolors an option, preserving id and label", () => {
+  it("recolors an option from its menu, preserving id and label", () => {
     renderEditor();
+    openMenu("Todo");
     fireEvent.click(screen.getByLabelText("Set Todo color red"));
     expect(lastConfigOptions()).toEqual([
       { id: "o1", label: "Todo", color: "red" },

@@ -187,6 +187,8 @@ describe("ColumnHeader", () => {
     });
     fireEvent.click(screen.getByLabelText("Column options"));
     fireEvent.click(screen.getByText("Edit options"));
-    expect(screen.getByDisplayValue("Todo")).toBeTruthy();
+    // The editor renders each option as a pill plus a per-option ⋯ menu.
+    expect(screen.getByText("Todo")).toBeTruthy();
+    expect(screen.getByLabelText("Options for Todo")).toBeTruthy();
   });
 });
