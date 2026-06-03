@@ -69,8 +69,10 @@ export interface IGetDatabaseInfoParams {
 }
 
 export interface IDatabaseInfoResponse {
-  database: IDatabase;
-  page: IPage;
+  // null when the addressed page is a plain document, not a database. The
+  // server answers 200 with null rather than 404 (see database.service info).
+  database: IDatabase | null;
+  page: IPage | null;
 }
 
 export interface IListPropertiesParams {

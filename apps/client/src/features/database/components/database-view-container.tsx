@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Center, Loader, Stack, Text, TextInput } from "@mantine/core";
+import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { IPage } from "@/features/page/types/page.types.ts";
 import {
@@ -16,8 +17,9 @@ interface DatabaseViewContainerProps {
 
 export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   const { t } = useTranslation();
+  const { spaceSlug } = useParams();
   const infoQuery = useDatabaseInfoQuery(page.id);
-  const databaseId = infoQuery.data?.database.id ?? "";
+  const databaseId = infoQuery.data?.database?.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
   const rowsQuery = useDatabaseRowsQuery(databaseId);
   const updatePage = useUpdatePageMutation();
@@ -30,11 +32,22 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
     }
   }
 
-  if (infoQuery.isLoading || !databaseId) {
+  if (infoQuery.isLoading) {
     return (
       <Center p="xl">
         <Loader />
       </Center>
+    );
+  }
+
+  // info resolved but the page carries no database (the server returns
+  // database: null for plain pages). Render a notice instead of hanging on a
+  // loader that would never resolve.
+  if (!databaseId) {
+    return (
+      <Stack p="md">
+        <Text c="dimmed">{t("This page is not a database")}</Text>
+      </Stack>
     );
   }
 
@@ -73,6 +86,7 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
         databaseId={databaseId}
         properties={propertiesQuery.data ?? []}
         rows={rowsQuery.data ?? []}
+        spaceSlug={spaceSlug}
       />
     </Stack>
   );
