@@ -17,6 +17,7 @@ import {
 } from "@/features/database/types/database.types.ts";
 import {
   useDeletePropertyMutation,
+  useListDatabasesQuery,
   useReorderPropertyMutation,
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
@@ -40,12 +41,14 @@ const TYPE_OPTIONS: { value: PropertyType; label: string }[] = [
 interface ColumnHeaderProps {
   property: IDatabaseProperty;
   databaseId: string;
+  spaceId: string;
   orderedProperties: IDatabaseProperty[];
 }
 
 export function ColumnHeader({
   property,
   databaseId,
+  spaceId,
   orderedProperties,
 }: ColumnHeaderProps) {
   const { t } = useTranslation();
@@ -53,10 +56,19 @@ export function ColumnHeader({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
+  // Swaps the type menu for a target-database picker (relation needs a
+  // targetDatabaseId, otherwise the server rejects the update with 400).
+  const [pickingRelation, setPickingRelation] = useState(false);
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
   const remove = useDeletePropertyMutation(databaseId);
+  const { data: databases } = useListDatabasesQuery(spaceId);
+  const currentTargetId =
+    property.type === "relation" &&
+    typeof property.config?.targetDatabaseId === "string"
+      ? property.config.targetDatabaseId
+      : undefined;
 
   useEffect(() => {
     // The draggable wrapper only exists in the non-editing view (see render),
@@ -159,6 +171,7 @@ export function ColumnHeader({
               // caused a scroll-snap glitch when the table was short.
               returnFocus={false}
               transitionProps={{ duration: 0 }}
+              onClose={() => setPickingRelation(false)}
             >
               <Menu.Target>
                 <ActionIcon
@@ -170,49 +183,96 @@ export function ColumnHeader({
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
-                <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
-                <Menu.Label>{t("Type")}</Menu.Label>
-                {/* Each type is a Menu.Item, not a nested <Select>: a Select
-                    renders its options in a portal, and clicking one counts
-                    as an outside-click that closes this Menu and unmounts
-                    the Select before its onChange commits — so the type
-                    never actually changed. Menu.Item clicks commit. */}
-                {TYPE_OPTIONS.map((opt) => (
-                  <Menu.Item
-                    key={opt.value}
-                    leftSection={
-                      <span style={{ display: "inline-block", width: 12 }}>
-                        {opt.value === property.type ? "✓" : ""}
-                      </span>
-                    }
-                    onClick={() => {
-                      if (opt.value === property.type) return;
-                      const needsOptions =
-                        opt.value === "select" ||
-                        opt.value === "multi_select";
-                      update.mutate({
-                        propertyId: property.id,
-                        type: opt.value,
-                        // select/multi_select require a config.options array
-                        // server-side (a missing array is rejected with 400).
-                        // Echo existing options — preserved when switching
-                        // select↔multi_select, empty otherwise.
-                        ...(needsOptions
-                          ? { config: { options: getOptions(property.config) } }
-                          : {}),
-                      });
-                    }}
-                  >
-                    {t(opt.label)}
-                  </Menu.Item>
-                ))}
-                <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  onClick={() => remove.mutate({ propertyId: property.id })}
-                >
-                  {t("Delete")}
-                </Menu.Item>
+                {pickingRelation ? (
+                  // Relation target picker: list the space's other databases.
+                  // Committing without a targetDatabaseId is rejected (400),
+                  // so the type change only fires once a target is chosen.
+                  <>
+                    <Menu.Label>{t("Relation to")}</Menu.Label>
+                    {(databases ?? [])
+                      .filter((db) => db.id !== databaseId)
+                      .map((db) => (
+                        <Menu.Item
+                          key={db.id}
+                          leftSection={
+                            <span
+                              style={{ display: "inline-block", width: 12 }}
+                            >
+                              {db.id === currentTargetId ? "✓" : ""}
+                            </span>
+                          }
+                          onClick={() => {
+                            setPickingRelation(false);
+                            if (db.id === currentTargetId) return;
+                            update.mutate({
+                              propertyId: property.id,
+                              type: "relation",
+                              config: { targetDatabaseId: db.id },
+                            });
+                          }}
+                        >
+                          {db.title || t("Untitled")}
+                        </Menu.Item>
+                      ))}
+                  </>
+                ) : (
+                  <>
+                    <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
+                    <Menu.Label>{t("Type")}</Menu.Label>
+                    {/* Each type is a Menu.Item, not a nested <Select>: a Select
+                        renders its options in a portal, and clicking one counts
+                        as an outside-click that closes this Menu and unmounts
+                        the Select before its onChange commits — so the type
+                        never actually changed. Menu.Item clicks commit. */}
+                    {TYPE_OPTIONS.map((opt) => (
+                      <Menu.Item
+                        key={opt.value}
+                        closeMenuOnClick={opt.value !== "relation"}
+                        leftSection={
+                          <span style={{ display: "inline-block", width: 12 }}>
+                            {opt.value === property.type ? "✓" : ""}
+                          </span>
+                        }
+                        onClick={() => {
+                          // Relation needs a target database, so open the
+                          // picker instead of committing here.
+                          if (opt.value === "relation") {
+                            setPickingRelation(true);
+                            return;
+                          }
+                          if (opt.value === property.type) return;
+                          const needsOptions =
+                            opt.value === "select" ||
+                            opt.value === "multi_select";
+                          update.mutate({
+                            propertyId: property.id,
+                            type: opt.value,
+                            // select/multi_select require a config.options array
+                            // server-side (a missing array is rejected with 400).
+                            // Echo existing options — preserved when switching
+                            // select↔multi_select, empty otherwise.
+                            ...(needsOptions
+                              ? {
+                                  config: {
+                                    options: getOptions(property.config),
+                                  },
+                                }
+                              : {}),
+                          });
+                        }}
+                      >
+                        {t(opt.label)}
+                      </Menu.Item>
+                    ))}
+                    <Menu.Divider />
+                    <Menu.Item
+                      color="red"
+                      onClick={() => remove.mutate({ propertyId: property.id })}
+                    >
+                      {t("Delete")}
+                    </Menu.Item>
+                  </>
+                )}
               </Menu.Dropdown>
             </Menu>
           </Group>

@@ -24,6 +24,8 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
   useUpdateRowTitleMutation: () => ({ mutate: updateRowTitleMutate }),
+  useListDatabasesQuery: () => ({ data: [] }),
+  useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
 import { GridView } from "./grid-view";
@@ -79,6 +81,7 @@ function renderGrid(spaceSlug?: string) {
       <MemoryRouter>
         <GridView
           databaseId="db1"
+          spaceId="space1"
           properties={properties}
           rows={rows}
           spaceSlug={spaceSlug ?? "my-space"}

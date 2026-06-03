@@ -7,9 +7,10 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: vi.fn() }),
   useClearValueMutation: () => ({ mutate: vi.fn() }),
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
+  useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
-import { getCellComponent, FallbackCell } from "./registry";
+import { getCellComponent } from "./registry";
 import { TextCell } from "./text-cell";
 import { NumberCell } from "./number-cell";
 import { CheckboxCell } from "./checkbox-cell";
@@ -17,6 +18,7 @@ import { UrlCell } from "./url-cell";
 import { DateCell } from "./date-cell";
 import { SelectCell } from "./select-cell";
 import { MultiSelectCell } from "./multi-select-cell";
+import { RelationCell } from "./relation-cell";
 
 describe("cell registry", () => {
   it("returns the registered component for known types", () => {
@@ -27,9 +29,6 @@ describe("cell registry", () => {
     expect(getCellComponent("date")).toBe(DateCell);
     expect(getCellComponent("select")).toBe(SelectCell);
     expect(getCellComponent("multi_select")).toBe(MultiSelectCell);
-  });
-
-  it("falls back for relation (lands in #10)", () => {
-    expect(getCellComponent("relation")).toBe(FallbackCell);
+    expect(getCellComponent("relation")).toBe(RelationCell);
   });
 });
