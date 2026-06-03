@@ -484,6 +484,9 @@ export class PageRepo {
       )
       .whereRef('child.parentPageId', '=', 'pages.id')
       .where('child.deletedAt', 'is', null)
+      // Database rows are children of the database page but are not shown in
+      // the tree, so a database page must not get an expand chevron from them.
+      .where('pages.pageType', '!=', 'database')
       .limit(1)
       .as('hasChildren');
   }

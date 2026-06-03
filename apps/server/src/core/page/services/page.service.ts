@@ -319,6 +319,20 @@ export class PageService {
       query = query.where('parentPageId', 'is', null);
     }
 
+    // Database rows are pages parented to a database page, but they must not
+    // appear in the sidebar tree (Notion-like). Exclude any page whose parent
+    // is a database.
+    query = query.where(({ not, exists, selectFrom }) =>
+      not(
+        exists(
+          selectFrom('pages as parent')
+            .select('parent.id')
+            .whereRef('parent.id', '=', 'pages.parentPageId')
+            .where('parent.pageType', '=', 'database'),
+        ),
+      ),
+    );
+
     const result = await executeWithCursorPagination(query, {
       perPage: pagination.limit,
       cursor: pagination.cursor,
