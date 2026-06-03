@@ -5,10 +5,10 @@ import { TextCell } from "./text-cell";
 import { UrlCell } from "./url-cell";
 import { NumberCell } from "./number-cell";
 import { CheckboxCell } from "./checkbox-cell";
+import { DateCell } from "./date-cell";
 
-// Read-only renderer for property types not yet supported in #7 (date, select,
-// multi_select, relation). Stringifies the stored value so the data is at least
-// visible until the full editors land in #8.
+// Read-only renderer for property types without a dedicated editor (relation
+// lands in #10). Stringifies the stored value so the data is at least visible.
 export function FallbackCell({ value }: CellProps) {
   const text =
     value?.value === undefined || value?.value === null
@@ -28,6 +28,7 @@ const registry: Partial<Record<PropertyType, CellComponent>> = {
   url: UrlCell,
   number: NumberCell,
   checkbox: CheckboxCell,
+  date: DateCell,
 };
 
 export function getCellComponent(type: PropertyType): CellComponent {

@@ -13,6 +13,7 @@ import { TextCell } from "./text-cell";
 import { NumberCell } from "./number-cell";
 import { CheckboxCell } from "./checkbox-cell";
 import { UrlCell } from "./url-cell";
+import { DateCell } from "./date-cell";
 
 describe("cell registry", () => {
   it("returns the registered component for known types", () => {
@@ -20,12 +21,10 @@ describe("cell registry", () => {
     expect(getCellComponent("number")).toBe(NumberCell);
     expect(getCellComponent("checkbox")).toBe(CheckboxCell);
     expect(getCellComponent("url")).toBe(UrlCell);
+    expect(getCellComponent("date")).toBe(DateCell);
   });
 
-  it("falls back for types not in #7 scope", () => {
-    expect(getCellComponent("date")).toBe(FallbackCell);
-    expect(getCellComponent("select")).toBe(FallbackCell);
-    expect(getCellComponent("multi_select")).toBe(FallbackCell);
+  it("falls back for relation (lands in #10)", () => {
     expect(getCellComponent("relation")).toBe(FallbackCell);
   });
 });
