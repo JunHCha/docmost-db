@@ -58,6 +58,22 @@ export function removeRowValue(
   });
 }
 
+export function patchRowTitle(
+  qc: QueryClient,
+  databaseId: string,
+  pageId: string,
+  title: string,
+) {
+  qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(databaseId), (old) => {
+    if (!old) return old;
+    return old.map((row) =>
+      row.row.id === pageId
+        ? { ...row, row: { ...row.row, title } }
+        : row,
+    );
+  });
+}
+
 export function appendRow(qc: QueryClient, databaseId: string, page: IPage) {
   qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(databaseId), (old) => {
     if (!old) return old;

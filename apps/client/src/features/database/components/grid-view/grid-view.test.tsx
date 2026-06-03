@@ -6,6 +6,7 @@ const setMutate = vi.fn();
 const clearMutate = vi.fn();
 const createRowMutate = vi.fn();
 const createPropertyMutate = vi.fn();
+const updateRowTitleMutate = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
@@ -15,6 +16,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useReorderPropertyMutation: () => ({ mutate: vi.fn() }),
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
+  useUpdateRowTitleMutation: () => ({ mutate: updateRowTitleMutate }),
 }));
 
 import { GridView } from "./grid-view";
@@ -76,12 +78,35 @@ describe("GridView", () => {
   beforeEach(() => {
     createRowMutate.mockReset();
     createPropertyMutate.mockReset();
+    updateRowTitleMutate.mockReset();
   });
 
   it("renders a header per property", () => {
     renderGrid();
     expect(screen.getByText("Title")).toBeTruthy();
     expect(screen.getByText("Done")).toBeTruthy();
+  });
+
+  it("renders a leading Name column header", () => {
+    renderGrid();
+    expect(screen.getByText("Name")).toBeTruthy();
+  });
+
+  it("renders each row's page title in the Name column", () => {
+    renderGrid();
+    expect(screen.getByText("First")).toBeTruthy();
+  });
+
+  it("commits an edited row title through useUpdateRowTitleMutation", () => {
+    renderGrid();
+    fireEvent.click(screen.getByText("First"));
+    const input = screen.getByLabelText("Row title") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Second" } });
+    fireEvent.blur(input);
+    expect(updateRowTitleMutate).toHaveBeenCalledWith({
+      pageId: "row1",
+      title: "Second",
+    });
   });
 
   it("renders each row's cell values", () => {

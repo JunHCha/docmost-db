@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Table, Button, ActionIcon } from "@mantine/core";
+import { useMemo, useState } from "react";
+import { Table, Button, ActionIcon, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -8,9 +8,64 @@ import {
 import {
   useCreatePropertyMutation,
   useCreateRowMutation,
+  useUpdateRowTitleMutation,
 } from "@/features/database/queries/database-query.ts";
+import { IPage } from "@/features/page/types/page.types.ts";
 import { ColumnHeader } from "./column-header";
 import { GridCell } from "./grid-cell";
+
+interface RowTitleCellProps {
+  row: IPage;
+  databaseId: string;
+}
+
+// The leading "Name" column shows the row's page title with inline editing.
+// Opening the row as a full page (#9) is intentionally out of scope here.
+function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
+  const { t } = useTranslation();
+  const update = useUpdateRowTitleMutation(databaseId);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(row.title ?? "");
+
+  function commit() {
+    setEditing(false);
+    const next = draft.trim();
+    if (next && next !== row.title) {
+      update.mutate({ pageId: row.id, title: next });
+    }
+  }
+
+  if (editing) {
+    return (
+      <TextInput
+        autoFocus
+        size="xs"
+        variant="unstyled"
+        value={draft}
+        aria-label={t("Row title")}
+        onChange={(e) => setDraft(e.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setEditing(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <Text
+      size="sm"
+      c={row.title ? undefined : "dimmed"}
+      onClick={() => {
+        setDraft(row.title ?? "");
+        setEditing(true);
+      }}
+    >
+      {row.title || t("Untitled")}
+    </Text>
+  );
+}
 
 interface GridViewProps {
   databaseId: string;
@@ -32,6 +87,11 @@ export function GridView({ databaseId, properties, rows }: GridViewProps) {
     <Table withTableBorder withColumnBorders striped highlightOnHover>
       <Table.Thead>
         <Table.Tr>
+          <Table.Th>
+            <Text size="sm" fw={500}>
+              {t("Name")}
+            </Text>
+          </Table.Th>
           {ordered.map((property) => (
             <Table.Th key={property.id}>
               <ColumnHeader
@@ -61,6 +121,9 @@ export function GridView({ databaseId, properties, rows }: GridViewProps) {
       <Table.Tbody>
         {rows.map(({ row, values }) => (
           <Table.Tr key={row.id}>
+            <Table.Td>
+              <RowTitleCell row={row} databaseId={databaseId} />
+            </Table.Td>
             {ordered.map((property) => (
               <Table.Td key={property.id}>
                 <GridCell
@@ -75,7 +138,7 @@ export function GridView({ databaseId, properties, rows }: GridViewProps) {
           </Table.Tr>
         ))}
         <Table.Tr>
-          <Table.Td colSpan={ordered.length + 1}>
+          <Table.Td colSpan={ordered.length + 2}>
             <Button
               variant="subtle"
               size="xs"

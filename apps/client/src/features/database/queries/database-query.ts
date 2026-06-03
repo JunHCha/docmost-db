@@ -41,12 +41,22 @@ import {
   databasePropertiesKey,
   databaseRowsKey,
   patchProperty,
+  patchRowTitle,
   patchRowValue,
   removeProperty,
   removeRowValue,
 } from "@/features/database/queries/database-cache.ts";
-import { invalidateOnCreatePage } from "@/features/page/queries/page-query.ts";
+import {
+  invalidateOnCreatePage,
+  updatePageData,
+} from "@/features/page/queries/page-query.ts";
+import { updatePage } from "@/features/page/services/page-service.ts";
 import { queryClient } from "@/main.tsx";
+
+interface IUpdateRowTitleParams {
+  pageId: string;
+  title: string;
+}
 
 export function useCreateDatabaseMutation() {
   const { t } = useTranslation();
@@ -145,6 +155,26 @@ export function useCreateRowMutation(databaseId: string) {
     onError: () => {
       queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
       notifications.show({ message: t("Failed to create row"), color: "red" });
+    },
+  });
+}
+
+export function useUpdateRowTitleMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<IPage, Error, IUpdateRowTitleParams>({
+    mutationFn: ({ pageId, title }) => updatePage({ pageId, title }),
+    onSuccess: (page) => {
+      // Keep both the rows cache (Name column) and the page cache / sidebar
+      // in step — a row is a real page.
+      patchRowTitle(queryClient, databaseId, page.id, page.title);
+      updatePageData(page);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: databaseRowsKey(databaseId) });
+      notifications.show({
+        message: t("Failed to update row title"),
+        color: "red",
+      });
     },
   });
 }

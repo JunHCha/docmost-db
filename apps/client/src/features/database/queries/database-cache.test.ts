@@ -10,6 +10,7 @@ import {
   appendProperty,
   patchProperty,
   removeProperty,
+  patchRowTitle,
 } from "./database-cache";
 import {
   IDatabaseProperty,
@@ -148,6 +149,24 @@ describe("database-cache", () => {
     );
     expect(props).toHaveLength(1);
     expect(props![0].id).toBe("prop2");
+  });
+
+  it("patchRowTitle updates the matching row's title", () => {
+    qc.setQueryData(databaseRowsKey(dbId), [
+      { row: { id: "p1", title: "Old" } as any, values: [] },
+      makeRow("p2"),
+    ]);
+
+    patchRowTitle(qc, dbId, "p1", "New");
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId));
+    expect(rows![0].row.title).toBe("New");
+    expect(rows![1].row.id).toBe("p2");
+  });
+
+  it("patchRowTitle is a no-op when the cache is empty", () => {
+    expect(() => patchRowTitle(qc, dbId, "p1", "New")).not.toThrow();
+    expect(qc.getQueryData(databaseRowsKey(dbId))).toBeUndefined();
   });
 
   it("databaseInfoKey is namespaced by pageId, distinct from the databaseId slot", () => {
