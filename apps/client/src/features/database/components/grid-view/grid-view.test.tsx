@@ -107,6 +107,15 @@ describe("GridView", () => {
     expect(screen.getByText("Title")).toBeTruthy();
   });
 
+  it("reserves vertical space so the inline column-config dropdown is not clipped", () => {
+    // The column-header type/option menu renders inline (withinPortal=false).
+    // With few rows the table is short, so the scroll container needs a
+    // min-height to give the dropdown room to open below the header.
+    renderGrid();
+    const container = screen.getByTestId("grid-view");
+    expect(container.style.minHeight).not.toBe("");
+  });
+
   it("renders each row's page title in the Title column", () => {
     renderGrid();
     expect(screen.getByText("First")).toBeTruthy();
