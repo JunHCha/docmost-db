@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
+import {
+  Group,
+  Menu,
+  ActionIcon,
+  Popover,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -21,6 +28,7 @@ import {
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
+import { SelectOptionsEditor } from "@/features/database/components/property/select-options-editor.tsx";
 
 // Isolate column DnD from the page tree's drag adapter.
 const COLUMN_DRAG = Symbol("database-column");
@@ -52,6 +60,9 @@ export function ColumnHeader({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
+  const [editingOptions, setEditingOptions] = useState(false);
+  const hasOptions =
+    property.type === "select" || property.type === "multi_select";
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
@@ -151,58 +162,82 @@ export function ColumnHeader({
             >
               {property.name}
             </Text>
-            <Menu
+            <Popover
               position="bottom-end"
               withinPortal={false}
-              returnFocus={false}
+              opened={editingOptions}
+              onChange={setEditingOptions}
               transitionProps={{ duration: 0 }}
+              width={280}
             >
-              <Menu.Target>
-                <ActionIcon
-                  size="xs"
-                  variant="subtle"
-                  aria-label={t("Column options")}
+              <Popover.Target>
+                <Menu
+                  position="bottom-end"
+                  withinPortal={false}
+                  returnFocus={false}
+                  transitionProps={{ duration: 0 }}
                 >
-                  ⋯
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
-                <Menu.Label>{t("Type")}</Menu.Label>
-                {/* Each type is a Menu.Item, not a nested <Select>: a Select
-                    renders its options in a portal, and clicking one counts as
-                    an outside-click that closes this Menu and unmounts the
-                    Select before its onChange commits — so the type never
-                    actually changed. Menu.Item clicks commit reliably. */}
-                {TYPE_OPTIONS.map((opt) => (
-                  <Menu.Item
-                    key={opt.value}
-                    leftSection={
-                      <span style={{ display: "inline-block", width: 12 }}>
-                        {opt.value === property.type ? "✓" : ""}
-                      </span>
-                    }
-                    onClick={() => {
-                      if (opt.value !== property.type) {
-                        update.mutate({
-                          propertyId: property.id,
-                          type: opt.value,
-                        });
-                      }
-                    }}
-                  >
-                    {t(opt.label)}
-                  </Menu.Item>
-                ))}
-                <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  onClick={() => remove.mutate({ propertyId: property.id })}
-                >
-                  {t("Delete")}
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+                  <Menu.Target>
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      aria-label={t("Column options")}
+                    >
+                      ⋯
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
+                    {hasOptions && (
+                      <Menu.Item onClick={() => setEditingOptions(true)}>
+                        {t("Edit options")}
+                      </Menu.Item>
+                    )}
+                    <Menu.Label>{t("Type")}</Menu.Label>
+                    {/* Each type is a Menu.Item, not a nested <Select>: a Select
+                        renders its options in a portal, and clicking one counts
+                        as an outside-click that closes this Menu and unmounts
+                        the Select before its onChange commits — so the type
+                        never actually changed. Menu.Item clicks commit. */}
+                    {TYPE_OPTIONS.map((opt) => (
+                      <Menu.Item
+                        key={opt.value}
+                        leftSection={
+                          <span style={{ display: "inline-block", width: 12 }}>
+                            {opt.value === property.type ? "✓" : ""}
+                          </span>
+                        }
+                        onClick={() => {
+                          if (opt.value !== property.type) {
+                            update.mutate({
+                              propertyId: property.id,
+                              type: opt.value,
+                            });
+                          }
+                        }}
+                      >
+                        {t(opt.label)}
+                      </Menu.Item>
+                    ))}
+                    <Menu.Divider />
+                    <Menu.Item
+                      color="red"
+                      onClick={() => remove.mutate({ propertyId: property.id })}
+                    >
+                      {t("Delete")}
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </Popover.Target>
+              <Popover.Dropdown>
+                {hasOptions && (
+                  <SelectOptionsEditor
+                    property={property}
+                    databaseId={databaseId}
+                  />
+                )}
+              </Popover.Dropdown>
+            </Popover>
           </Group>
         </div>
       )}

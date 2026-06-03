@@ -127,4 +127,41 @@ describe("ColumnHeader", () => {
     fireEvent.click(screen.getByText("Text"));
     expect(updateMutate).not.toHaveBeenCalled();
   });
+
+  function renderHeaderWith(prop: Partial<IDatabaseProperty>) {
+    const p = { ...property, ...prop } as IDatabaseProperty;
+    return render(
+      <MantineProvider>
+        <ColumnHeader property={p} databaseId="db1" orderedProperties={[p]} />
+      </MantineProvider>,
+    );
+  }
+
+  it("does not offer Edit options for a text column", () => {
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    expect(screen.queryByText("Edit options")).toBeNull();
+  });
+
+  it("offers Edit options for a select column", () => {
+    renderHeaderWith({ type: "select", config: { options: [] } });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    expect(screen.getByText("Edit options")).toBeTruthy();
+  });
+
+  it("offers Edit options for a multi_select column", () => {
+    renderHeaderWith({ type: "multi_select", config: { options: [] } });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    expect(screen.getByText("Edit options")).toBeTruthy();
+  });
+
+  it("opens the options editor when Edit options is chosen", () => {
+    renderHeaderWith({
+      type: "select",
+      config: { options: [{ id: "o1", label: "Todo", color: "blue" }] },
+    });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Edit options"));
+    expect(screen.getByDisplayValue("Todo")).toBeTruthy();
+  });
 });
