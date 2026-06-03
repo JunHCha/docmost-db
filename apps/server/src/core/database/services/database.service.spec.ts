@@ -31,7 +31,10 @@ describe('DatabaseService', () => {
   let service: DatabaseService;
   let pageService: jest.Mocked<Pick<PageService, 'create'>>;
   let databaseRepo: jest.Mocked<
-    Pick<DatabaseRepo, 'insertDatabase' | 'findById' | 'findBySpaceId'>
+    Pick<
+      DatabaseRepo,
+      'insertDatabase' | 'findById' | 'findByPageId' | 'findBySpaceId'
+    >
   >;
   let pageRepo: jest.Mocked<Pick<PageRepo, 'findById' | 'deletePage'>>;
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
@@ -41,6 +44,7 @@ describe('DatabaseService', () => {
     databaseRepo = {
       insertDatabase: jest.fn(),
       findById: jest.fn(),
+      findByPageId: jest.fn(),
       findBySpaceId: jest.fn(),
     } as any;
     pageRepo = { findById: jest.fn(), deletePage: jest.fn() } as any;
@@ -167,6 +171,64 @@ describe('DatabaseService', () => {
       const result = await service.info(user, { databaseId: 'db-1' } as any);
 
       expect(result).toEqual({ database, page });
+    });
+
+    describe('by pageId', () => {
+      it('resolves the database via findByPageId and returns it with its page', async () => {
+        const database: any = {
+          id: 'db-1',
+          pageId: 'page-1',
+          spaceId: 'space-1',
+        };
+        const page: any = { id: 'page-1' };
+        databaseRepo.findByPageId.mockResolvedValue(database);
+        spaceAbility.createForUser.mockResolvedValue(abilityMock(true) as any);
+        pageRepo.findById.mockResolvedValue(page);
+
+        const result = await service.info(user, { pageId: 'page-1' } as any);
+
+        expect(databaseRepo.findByPageId).toHaveBeenCalledWith('page-1');
+        expect(databaseRepo.findById).not.toHaveBeenCalled();
+        expect(result).toEqual({ database, page });
+      });
+
+      it('throws NotFound when no database exists for the page', async () => {
+        databaseRepo.findByPageId.mockResolvedValue(undefined);
+
+        await expect(
+          service.info(user, { pageId: 'missing' } as any),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+
+      it('throws Forbidden when lacking read permission', async () => {
+        databaseRepo.findByPageId.mockResolvedValue({
+          id: 'db-1',
+          pageId: 'page-1',
+          spaceId: 'space-1',
+        } as any);
+        spaceAbility.createForUser.mockResolvedValue(abilityMock(false) as any);
+
+        await expect(
+          service.info(user, { pageId: 'page-1' } as any),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+
+      it('throws NotFound when the database page is trashed (soft-deleted)', async () => {
+        databaseRepo.findByPageId.mockResolvedValue({
+          id: 'db-1',
+          pageId: 'page-1',
+          spaceId: 'space-1',
+        } as any);
+        spaceAbility.createForUser.mockResolvedValue(abilityMock(true) as any);
+        pageRepo.findById.mockResolvedValue({
+          id: 'page-1',
+          deletedAt: new Date(),
+        } as any);
+
+        await expect(
+          service.info(user, { pageId: 'page-1' } as any),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
     });
   });
 

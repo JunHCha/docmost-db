@@ -1,0 +1,55 @@
+# Dev infrastructure only — Postgres + Redis.
+#
+# The app (server + client) is NOT containerized here; you run it from source
+# with `pnpm dev` so you can QA local branches. These services just provide the
+# datastores that `.env` points at (localhost:5432 / localhost:6379).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d      # start datastores
+#   pnpm --filter server migration:latest               # apply migrations
+#   pnpm --filter @docmost/editor-ext build             # build shared editor ext
+#   pnpm dev                                             # run client + server from source
+#   docker compose -f docker-compose.dev.yml down        # stop (keep data)
+#   docker compose -f docker-compose.dev.yml down -v      # stop + wipe data
+#
+# Credentials/ports below MUST match .env:
+#   DATABASE_URL=postgresql://postgres:password@localhost:5432/docmost?schema=public
+#   REDIS_URL=redis://127.0.0.1:6379
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: docmost
+    ports:
+      - "5432:5432"
+    volumes:
+      # postgres:18 stores data in a version-specific subdir, so the mount must
+      # be the parent /var/lib/postgresql (NOT .../data) or the container aborts.
+      - dev_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docmost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - dev_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  dev_pgdata:
+  dev_redis_data:

@@ -73,7 +73,12 @@ export class DatabaseService {
   }
 
   async info(user: User, dto: DatabaseInfoDto) {
-    const database = await this.databaseRepo.findById(dto.databaseId);
+    // The database can be addressed either directly (databaseId) or through
+    // its page (pageId); the DTO guarantees exactly one is present. Only the
+    // lookup branches — permission, page resolution and the response are shared.
+    const database = dto.pageId
+      ? await this.databaseRepo.findByPageId(dto.pageId)
+      : await this.databaseRepo.findById(dto.databaseId);
     if (!database) {
       throw new NotFoundException('Database not found');
     }
