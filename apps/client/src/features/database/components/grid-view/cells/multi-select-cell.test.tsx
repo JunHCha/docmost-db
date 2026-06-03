@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 const setMutate = vi.fn();
 const clearMutate = vi.fn();
 const updateMutate = vi.fn();
+const updateMutateAsync = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
   useClearValueMutation: () => ({ mutate: clearMutate }),
-  useUpdatePropertyMutation: () => ({ mutate: updateMutate }),
+  useUpdatePropertyMutation: () => ({
+    mutate: updateMutate,
+    mutateAsync: updateMutateAsync,
+  }),
 }));
 
 import { MultiSelectCell } from "./multi-select-cell";
@@ -50,6 +54,8 @@ describe("MultiSelectCell", () => {
     setMutate.mockReset();
     clearMutate.mockReset();
     updateMutate.mockReset();
+    updateMutateAsync.mockReset();
+    updateMutateAsync.mockResolvedValue(undefined);
   });
 
   it("renders a badge for each selected option", () => {
@@ -103,24 +109,44 @@ describe("MultiSelectCell", () => {
     expect(setMutate).not.toHaveBeenCalled();
   });
 
-  it("inline-creates an option (full echo) then adds its id", () => {
+  it("inline-creates an option (full echo) then adds its id after it resolves", async () => {
     renderCell({ type: "multi_select", value: ["o1"] });
     fireEvent.click(screen.getByLabelText("Tags"));
     const search = screen.getByPlaceholderText("Search or create...");
     fireEvent.change(search, { target: { value: "Blue" } });
     fireEvent.click(screen.getByText('Create "Blue"'));
 
-    const call = updateMutate.mock.calls[0][0];
+    expect(updateMutateAsync).toHaveBeenCalledTimes(1);
+    const call = updateMutateAsync.mock.calls[0][0];
     expect(call.propertyId).toBe("prop1");
     const opts = call.config.options;
     expect(opts.slice(0, 2)).toEqual(property.config.options);
     expect(opts).toHaveLength(3);
     expect(opts[2].label).toBe("Blue");
 
+    await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
     expect(setMutate).toHaveBeenCalledWith({
       pageId: "page1",
       propertyId: "prop1",
       value: { type: "multi_select", value: ["o1", opts[2].id] },
     });
+  });
+
+  it("does not add the value before the config write resolves", async () => {
+    let resolveUpdate: () => void = () => {};
+    updateMutateAsync.mockImplementation(
+      () => new Promise<void>((res) => (resolveUpdate = res)),
+    );
+    renderCell({ type: "multi_select", value: ["o1"] });
+    fireEvent.click(screen.getByLabelText("Tags"));
+    const search = screen.getByPlaceholderText("Search or create...");
+    fireEvent.change(search, { target: { value: "Blue" } });
+    fireEvent.click(screen.getByText('Create "Blue"'));
+
+    expect(updateMutateAsync).toHaveBeenCalledTimes(1);
+    expect(setMutate).not.toHaveBeenCalled();
+
+    resolveUpdate();
+    await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
   });
 });

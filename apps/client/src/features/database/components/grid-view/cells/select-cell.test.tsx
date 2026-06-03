@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 const setMutate = vi.fn();
 const clearMutate = vi.fn();
 const updateMutate = vi.fn();
+const updateMutateAsync = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
   useClearValueMutation: () => ({ mutate: clearMutate }),
-  useUpdatePropertyMutation: () => ({ mutate: updateMutate }),
+  useUpdatePropertyMutation: () => ({
+    mutate: updateMutate,
+    mutateAsync: updateMutateAsync,
+  }),
 }));
 
 import { SelectCell } from "./select-cell";
@@ -45,6 +49,8 @@ describe("SelectCell", () => {
     setMutate.mockReset();
     clearMutate.mockReset();
     updateMutate.mockReset();
+    updateMutateAsync.mockReset();
+    updateMutateAsync.mockResolvedValue(undefined);
   });
 
   it("renders the label of the selected option", () => {
@@ -81,15 +87,15 @@ describe("SelectCell", () => {
     });
   });
 
-  it("inline-creates an option: echoes all existing options + new one, then sets value", () => {
+  it("inline-creates an option: persists config, then sets value after it resolves", async () => {
     renderCell(undefined);
     fireEvent.click(screen.getByLabelText("Status"));
     const search = screen.getByPlaceholderText("Search or create...");
     fireEvent.change(search, { target: { value: "Done" } });
     fireEvent.click(screen.getByText('Create "Done"'));
 
-    expect(updateMutate).toHaveBeenCalledTimes(1);
-    const call = updateMutate.mock.calls[0][0];
+    expect(updateMutateAsync).toHaveBeenCalledTimes(1);
+    const call = updateMutateAsync.mock.calls[0][0];
     expect(call.propertyId).toBe("prop1");
     const opts = call.config.options;
     // full-replace echo: existing options preserved with ids
@@ -97,11 +103,31 @@ describe("SelectCell", () => {
     expect(opts).toHaveLength(3);
     expect(opts[2].label).toBe("Done");
 
-    // then selects the brand new option's id
+    // setValue must wait for the config write to resolve
+    await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
     expect(setMutate).toHaveBeenCalledWith({
       pageId: "page1",
       propertyId: "prop1",
       value: { type: "select", value: opts[2].id },
     });
+  });
+
+  it("does not set value before the config write resolves", async () => {
+    let resolveUpdate: () => void = () => {};
+    updateMutateAsync.mockImplementation(
+      () => new Promise<void>((res) => (resolveUpdate = res)),
+    );
+    renderCell(undefined);
+    fireEvent.click(screen.getByLabelText("Status"));
+    const search = screen.getByPlaceholderText("Search or create...");
+    fireEvent.change(search, { target: { value: "Done" } });
+    fireEvent.click(screen.getByText('Create "Done"'));
+
+    // config write pending → value must not be sent yet
+    expect(updateMutateAsync).toHaveBeenCalledTimes(1);
+    expect(setMutate).not.toHaveBeenCalled();
+
+    resolveUpdate();
+    await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
   });
 });

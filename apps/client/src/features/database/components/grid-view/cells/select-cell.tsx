@@ -51,12 +51,17 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
     clearValue.mutate({ pageId, propertyId: property.id });
   }
 
-  function createAndSelect() {
+  async function createAndSelect() {
     const label = search.trim();
     if (!label) return;
     // Full-replace echo: send every existing option (with id) plus the new one.
     const { options: next, newOptionId } = appendOption(options, label);
-    updateProperty.mutate({ propertyId: property.id, config: { options: next } });
+    // Persist the option before selecting it: the backend rejects a select
+    // value whose id is not yet present in config.options (assertOptionId).
+    await updateProperty.mutateAsync({
+      propertyId: property.id,
+      config: { options: next },
+    });
     select(newOptionId);
   }
 

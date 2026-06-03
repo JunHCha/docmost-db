@@ -62,13 +62,15 @@ export function MultiSelectCell({
     commit(next);
   }
 
-  function createAndAdd() {
+  async function createAndAdd() {
     const label = search.trim();
     if (!label) return;
     setSearch("");
     // Full-replace echo: keep every existing option (with id), append the new.
     const { options: nextOptions, newOptionId } = appendOption(options, label);
-    updateProperty.mutate({
+    // Persist the option before adding it: the backend rejects a multi_select
+    // value whose id is not yet present in config.options (assertOptionId).
+    await updateProperty.mutateAsync({
       propertyId: property.id,
       config: { options: nextOptions },
     });
