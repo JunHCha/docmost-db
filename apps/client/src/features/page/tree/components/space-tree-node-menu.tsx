@@ -196,16 +196,18 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
                 {t("Duplicate")}
               </Menu.Item>
 
-              <Menu.Item
-                leftSection={<IconDatabase size={16} />}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleCreateDatabase(node.id);
-                }}
-              >
-                {t("Create database")}
-              </Menu.Item>
+              {node.pageType !== "database" && (
+                <Menu.Item
+                  leftSection={<IconDatabase size={16} />}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCreateDatabase(node.id);
+                  }}
+                >
+                  {t("Create database")}
+                </Menu.Item>
+              )}
 
               <Menu.Item
                 leftSection={<IconArrowRight size={16} />}

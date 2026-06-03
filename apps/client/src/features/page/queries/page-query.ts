@@ -356,6 +356,7 @@ export function invalidateOnCreatePage(data: Partial<IPage>) {
     icon: data.icon,
     id: data.id,
     parentPageId: data.parentPageId,
+    pageType: data.pageType,
     position: data.position,
     slugId: data.slugId,
     spaceId: data.spaceId,

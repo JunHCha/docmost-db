@@ -82,7 +82,14 @@ export class DatabaseService {
       ? await this.databaseRepo.findByPageId(dto.pageId)
       : await this.databaseRepo.findById(dto.databaseId);
     if (!database) {
-      throw new NotFoundException('Database not found');
+      // A page can be addressed here that simply isn't a database (any plain
+      // nested document). Instead of a 404 — which is noise the client has to
+      // swallow on every doc — answer 200 with database: null. The page is
+      // still resolved when addressed by pageId so callers can react.
+      const page = dto.pageId
+        ? ((await this.pageRepo.findById(dto.pageId)) ?? null)
+        : null;
+      return { database: null, page };
     }
 
     const ability = await this.spaceAbility.createForUser(

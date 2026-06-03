@@ -304,6 +304,7 @@ export class PageService {
         'icon',
         'position',
         'parentPageId',
+        'pageType',
         'spaceId',
         'creatorId',
         'isBase',
@@ -866,6 +867,7 @@ export class PageService {
             'isBase',
             'position',
             'parentPageId',
+            'pageType',
             'spaceId',
             'deletedAt',
           ])
@@ -882,6 +884,7 @@ export class PageService {
                 'p.isBase',
                 'p.position',
                 'p.parentPageId',
+                'p.pageType',
                 'p.spaceId',
                 'p.deletedAt',
               ])

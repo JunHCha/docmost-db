@@ -19,6 +19,7 @@ import { useHasFeature } from "@/ee/hooks/use-feature";
 import { Feature } from "@/ee/features";
 import { getPageTitle } from "@/features/page/page.utils";
 import { DatabaseViewContainer } from "@/features/database/components/database-view-container.tsx";
+import { RowPropertiesPanel } from "@/features/database/components/row-properties-panel.tsx";
 const MemoizedFullEditor = React.memo(FullEditor);
 const MemoizedTitleEditor = React.memo(TitleEditor);
 const MemoizedPageHeader = React.memo(PageHeader);
@@ -36,7 +37,12 @@ export default function Page() {
           icon={IconAlertTriangle}
           title={t("Failed to load page. An error occurred.")}
           action={
-            <Button variant="default" size="sm" mt="xs" onClick={resetErrorBoundary}>
+            <Button
+              variant="default"
+              size="sm"
+              mt="xs"
+              onClick={resetErrorBoundary}
+            >
               {t("Try again")}
             </Button>
           }
@@ -62,8 +68,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
   const hasBases = useHasFeature(Feature.BASES);
   const canEdit = !page?.deletedAt && (page?.permissions?.canEdit ?? false);
   const canComment =
-    canEdit ||
-    (space?.settings?.comments?.allowViewerComments === true);
+    canEdit || space?.settings?.comments?.allowViewerComments === true;
 
   if (isLoading) {
     return <></>;
@@ -79,7 +84,13 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
             "This page may have been deleted, moved, or you may not have access.",
           )}
           action={
-            <Button component={Link} to="/home" variant="default" size="sm" mt="xs">
+            <Button
+              component={Link}
+              to="/home"
+              variant="default"
+              size="sm"
+              mt="xs"
+            >
               {t("Go to homepage")}
             </Button>
           }
@@ -87,10 +98,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
       );
     }
     return (
-      <EmptyState
-        icon={IconFileOff}
-        title={t("Error fetching page data.")}
-      />
+      <EmptyState icon={IconFileOff} title={t("Error fetching page data.")} />
     );
   }
 
@@ -183,6 +191,9 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
             creator={page.creator}
             contributors={page.contributors}
             canComment={canComment}
+            // Renders nothing unless this doc is a database row (#9); shown
+            // Notion-style under the title.
+            belowTitle={<RowPropertiesPanel page={page} />}
           />
         )}
         <MemoizedHistoryModal pageId={page.id} />

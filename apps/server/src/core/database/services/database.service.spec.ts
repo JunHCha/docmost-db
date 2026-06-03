@@ -119,12 +119,25 @@ describe('DatabaseService', () => {
   });
 
   describe('info', () => {
-    it('throws NotFound when the database does not exist', async () => {
+    it('returns database: null (no throw) when the database does not exist', async () => {
       databaseRepo.findById.mockResolvedValue(undefined);
 
-      await expect(
-        service.info(user, { databaseId: 'missing' } as any),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      const result = await service.info(user, { databaseId: 'missing' } as any);
+
+      expect(result).toEqual({ database: null, page: null });
+      // No database means no page to resolve and no permission to check.
+      expect(pageRepo.findById).not.toHaveBeenCalled();
+      expect(spaceAbility.createForUser).not.toHaveBeenCalled();
+    });
+
+    it('returns database: null with the page when only the page exists', async () => {
+      const page: any = { id: 'page-1' };
+      databaseRepo.findByPageId.mockResolvedValue(undefined);
+      pageRepo.findById.mockResolvedValue(page);
+
+      const result = await service.info(user, { pageId: 'page-1' } as any);
+
+      expect(result).toEqual({ database: null, page });
     });
 
     it('throws Forbidden when lacking read permission', async () => {
@@ -192,12 +205,13 @@ describe('DatabaseService', () => {
         expect(result).toEqual({ database, page });
       });
 
-      it('throws NotFound when no database exists for the page', async () => {
+      it('returns database: null (no throw) when no database exists for the page', async () => {
         databaseRepo.findByPageId.mockResolvedValue(undefined);
+        pageRepo.findById.mockResolvedValue(undefined as any);
 
-        await expect(
-          service.info(user, { pageId: 'missing' } as any),
-        ).rejects.toBeInstanceOf(NotFoundException);
+        const result = await service.info(user, { pageId: 'missing' } as any);
+
+        expect(result).toEqual({ database: null, page: null });
       });
 
       it('throws Forbidden when lacking read permission', async () => {

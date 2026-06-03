@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import { MemoryRouter } from "react-router-dom";
 
 const infoQuery = vi.fn();
 const propertiesQuery = vi.fn();
@@ -32,7 +33,9 @@ const page = { id: "page1", title: "Tasks" } as any;
 function renderContainer() {
   return render(
     <MantineProvider>
-      <DatabaseViewContainer page={page} />
+      <MemoryRouter>
+        <DatabaseViewContainer page={page} />
+      </MemoryRouter>
     </MantineProvider>,
   );
 }
@@ -44,6 +47,19 @@ describe("DatabaseViewContainer", () => {
     rowsQuery.mockReturnValue({ data: undefined });
     const { container } = renderContainer();
     expect(container.querySelector(".mantine-Loader-root")).toBeTruthy();
+  });
+
+  it("shows an empty notice instead of an infinite loader when the page is not a database", () => {
+    // info resolved with database: null (a plain page) — must not hang on a loader.
+    infoQuery.mockReturnValue({
+      data: { database: null, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: undefined });
+    rowsQuery.mockReturnValue({ data: undefined });
+    const { container } = renderContainer();
+    expect(container.querySelector(".mantine-Loader-root")).toBeNull();
+    expect(screen.getByText("This page is not a database")).toBeTruthy();
   });
 
   it("renders the grid once info, properties and rows resolve", () => {
