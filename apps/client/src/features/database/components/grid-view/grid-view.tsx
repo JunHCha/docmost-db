@@ -13,17 +13,20 @@ import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
   IDatabaseRow,
+  IDatabaseView,
 } from "@/features/database/types/database.types.ts";
 import {
   useCreatePropertyMutation,
   useCreateRowMutation,
   useUpdateRowTitleMutation,
+  useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { ColumnHeader } from "./column-header";
 import { GridCell } from "./grid-cell";
 import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
+import { echoColumns, resolveColumns } from "./view-columns";
 
 interface RowTitleCellProps {
   row: IPage;
@@ -100,6 +103,7 @@ interface GridViewProps {
   spaceId: string;
   properties: IDatabaseProperty[];
   rows: IDatabaseRow[];
+  activeView: IDatabaseView;
   spaceSlug?: string;
 }
 
@@ -108,16 +112,32 @@ export function GridView({
   spaceId,
   properties,
   rows,
+  activeView,
   spaceSlug,
 }: GridViewProps) {
   const { t } = useTranslation();
   const createRow = useCreateRowMutation(databaseId);
   const createProperty = useCreatePropertyMutation(databaseId);
+  const updateView = useUpdateViewMutation(databaseId);
 
-  const ordered = useMemo(
-    () => [...properties].sort((a, b) => a.position.localeCompare(b.position)),
-    [properties],
+  const configColumns = activeView.config.columns;
+  const columns = useMemo(
+    () => resolveColumns(properties, configColumns),
+    [properties, configColumns],
   );
+  const ordered = useMemo(() => columns.map((c) => c.property), [columns]);
+
+  // Persist a single column's config change as a full echoed columns array —
+  // the view config is replaced wholesale on update (see echoColumns).
+  function commitColumn(propertyId: string, patch: { visible?: boolean; width?: number }) {
+    updateView.mutate({
+      viewId: activeView.id,
+      config: {
+        ...activeView.config,
+        columns: echoColumns(properties, configColumns, { propertyId, ...patch }),
+      },
+    });
+  }
 
   return (
     // Scroll horizontally when columns overflow the page width instead of
@@ -134,22 +154,29 @@ export function GridView({
         withColumnBorders
         striped
         highlightOnHover
-        style={{ minWidth: "100%", width: "max-content" }}
+        // Fixed layout keeps every column at its declared width, so switching a
+        // cell into edit mode (input/caret) can't reflow the column. width is
+        // the sum of declared widths so it still grows past the page (the
+        // wrapper scrolls horizontally) rather than being squeezed.
+        style={{ minWidth: "100%", width: "max-content", tableLayout: "fixed" }}
       >
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>
+            <Table.Th style={{ width: 220 }}>
               <Text size="sm" fw={500}>
                 {t("Title")}
               </Text>
             </Table.Th>
-            {ordered.map((property) => (
-              <Table.Th key={property.id}>
+            {columns.map(({ property, width }) => (
+              <Table.Th key={property.id} style={{ width }}>
                 <ColumnHeader
                   property={property}
                   databaseId={databaseId}
                   spaceId={spaceId}
                   orderedProperties={ordered}
+                  width={width}
+                  onHide={() => commitColumn(property.id, { visible: false })}
+                  onResize={(next) => commitColumn(property.id, { width: next })}
                 />
               </Table.Th>
             ))}
@@ -180,8 +207,8 @@ export function GridView({
                   spaceSlug={spaceSlug}
                 />
               </Table.Td>
-              {ordered.map((property) => (
-                <Table.Td key={property.id}>
+              {columns.map(({ property, width }) => (
+                <Table.Td key={property.id} style={{ width }}>
                   <GridCell
                     property={property}
                     value={values.find((v) => v.propertyId === property.id)}
@@ -194,7 +221,7 @@ export function GridView({
             </Table.Tr>
           ))}
           <Table.Tr>
-            <Table.Td colSpan={ordered.length + 2}>
+            <Table.Td colSpan={columns.length + 2}>
               <Button
                 variant="subtle"
                 size="xs"

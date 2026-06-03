@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 
@@ -14,6 +14,7 @@ const clearMutate = vi.fn();
 const createRowMutate = vi.fn();
 const createPropertyMutate = vi.fn();
 const updateRowTitleMutate = vi.fn();
+const updateViewMutate = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
@@ -23,6 +24,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useReorderPropertyMutation: () => ({ mutate: vi.fn() }),
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
+  useUpdateViewMutation: () => ({ mutate: updateViewMutate }),
   useUpdateRowTitleMutation: () => ({ mutate: updateRowTitleMutate }),
   useListDatabasesQuery: () => ({ data: [] }),
   useDatabaseRowsQuery: () => ({ data: [] }),
@@ -32,6 +34,7 @@ import { GridView } from "./grid-view";
 import {
   IDatabaseProperty,
   IDatabaseRow,
+  IDatabaseView,
 } from "@/features/database/types/database.types.ts";
 
 const properties: IDatabaseProperty[] = [
@@ -75,7 +78,21 @@ const rows: IDatabaseRow[] = [
   },
 ];
 
-function renderGrid(spaceSlug?: string) {
+function view(config: IDatabaseView["config"]): IDatabaseView {
+  return {
+    id: "v1",
+    databaseId: "db1",
+    name: "Grid",
+    type: "grid",
+    config,
+    isDefault: true,
+    position: "a0",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function renderGrid(opts: { spaceSlug?: string; activeView?: IDatabaseView } = {}) {
   return render(
     <MantineProvider>
       <MemoryRouter>
@@ -84,7 +101,8 @@ function renderGrid(spaceSlug?: string) {
           spaceId="space1"
           properties={properties}
           rows={rows}
-          spaceSlug={spaceSlug ?? "my-space"}
+          spaceSlug={opts.spaceSlug ?? "my-space"}
+          activeView={opts.activeView ?? view({})}
         />
       </MemoryRouter>
     </MantineProvider>,
@@ -166,6 +184,85 @@ describe("GridView", () => {
       databaseId: "db1",
       name: "New column",
       type: "text",
+    });
+  });
+});
+
+describe("GridView active-view column config", () => {
+  beforeEach(() => updateViewMutate.mockReset());
+
+  it("hides a column whose view config marks it not visible", () => {
+    renderGrid({ activeView: view({ columns: [{ propertyId: "p1", visible: false }] }) });
+    expect(screen.queryByText("Status")).toBeNull();
+    expect(screen.getByText("Done")).toBeTruthy();
+  });
+
+  it("orders columns by the view config order", () => {
+    renderGrid({
+      activeView: view({
+        columns: [
+          { propertyId: "p2", visible: true },
+          { propertyId: "p1", visible: true },
+        ],
+      }),
+    });
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent ?? "");
+    const doneIdx = headers.findIndex((t) => t.includes("Done"));
+    const statusIdx = headers.findIndex((t) => t.includes("Status"));
+    expect(doneIdx).toBeLessThan(statusIdx);
+  });
+
+  it("applies the configured width to the column header", () => {
+    renderGrid({
+      activeView: view({ columns: [{ propertyId: "p1", visible: true, width: 320 }] }),
+    });
+    const statusHeader = screen
+      .getAllByRole("columnheader")
+      .find((h) => h.textContent?.includes("Status")) as HTMLElement;
+    expect(statusHeader.style.width).toBe("320px");
+  });
+
+  it("uses a fixed table layout with explicit column widths so edit mode can't reflow", () => {
+    const { container } = renderGrid({
+      activeView: view({ columns: [{ propertyId: "p1", visible: true, width: 240 }] }),
+    });
+    const table = container.querySelector("table") as HTMLTableElement;
+    expect(table.style.tableLayout).toBe("fixed");
+    const before = (
+      screen
+        .getAllByRole("columnheader")
+        .find((h) => h.textContent?.includes("Status")) as HTMLElement
+    ).style.width;
+    // Enter edit mode on a Name cell — the width must not change.
+    fireEvent.click(screen.getByText("First"));
+    expect(screen.getByLabelText("Row title")).toBeTruthy();
+    const after = (
+      screen
+        .getAllByRole("columnheader")
+        .find((h) => h.textContent?.includes("Status")) as HTMLElement
+    ).style.width;
+    expect(after).toBe(before);
+    expect(after).toBe("240px");
+  });
+
+  it("commits a hide toggle as a full echoed columns array via updateView", () => {
+    renderGrid();
+    // The hide action lives in the Status column's options menu.
+    const statusHeader = screen
+      .getAllByRole("columnheader")
+      .find((h) => h.textContent?.includes("Status")) as HTMLElement;
+    fireEvent.click(within(statusHeader).getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Hide column"));
+    expect(updateViewMutate).toHaveBeenCalledWith({
+      viewId: "v1",
+      config: {
+        columns: [
+          { propertyId: "p1", visible: false },
+          { propertyId: "p2", visible: true },
+        ],
+      },
     });
   });
 });
