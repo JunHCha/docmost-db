@@ -4,6 +4,7 @@ import {
   databaseInfoKey,
   databaseRowsKey,
   databasePropertiesKey,
+  databaseViewsKey,
   patchRowValue,
   removeRowValue,
   appendRow,
@@ -61,26 +62,26 @@ describe("database-cache", () => {
   });
 
   it("patchRowValue upserts a value into the matching row", () => {
-    qc.setQueryData(databaseRowsKey(dbId), [makeRow("p1"), makeRow("p2")]);
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1"), makeRow("p2")]);
     const value = makeValue("p1", "prop1", "hello");
 
     patchRowValue(qc, dbId, value);
 
-    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId));
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows![0].values).toEqual([value]);
     expect(rows![1].values).toEqual([]);
   });
 
   it("patchRowValue replaces an existing value for the same property", () => {
     const old = makeValue("p1", "prop1", "old");
-    qc.setQueryData(databaseRowsKey(dbId), [
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [
       { row: { id: "p1" } as any, values: [old] },
     ]);
     const next = makeValue("p1", "prop1", "new");
 
     patchRowValue(qc, dbId, next);
 
-    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId));
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows![0].values).toHaveLength(1);
     expect(rows![0].values[0].value.value).toBe("new");
   });
@@ -88,22 +89,22 @@ describe("database-cache", () => {
   it("removeRowValue removes the matching (pageId, propertyId) value", () => {
     const a = makeValue("p1", "prop1", "a");
     const b = makeValue("p1", "prop2", "b");
-    qc.setQueryData(databaseRowsKey(dbId), [
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [
       { row: { id: "p1" } as any, values: [a, b] },
     ]);
 
     removeRowValue(qc, dbId, "p1", "prop1");
 
-    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId));
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows![0].values).toEqual([b]);
   });
 
   it("appendRow appends a new row with empty values", () => {
-    qc.setQueryData(databaseRowsKey(dbId), [makeRow("p1")]);
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1")]);
 
     appendRow(qc, dbId, { id: "p2" } as any);
 
-    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId));
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows).toHaveLength(2);
     expect(rows![1]).toEqual({ row: { id: "p2" }, values: [] });
   });
@@ -152,21 +153,47 @@ describe("database-cache", () => {
   });
 
   it("patchRowTitle updates the matching row's title", () => {
-    qc.setQueryData(databaseRowsKey(dbId), [
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [
       { row: { id: "p1", title: "Old" } as any, values: [] },
       makeRow("p2"),
     ]);
 
     patchRowTitle(qc, dbId, "p1", "New");
 
-    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId));
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows![0].row.title).toBe("New");
     expect(rows![1].row.id).toBe("p2");
   });
 
   it("patchRowTitle is a no-op when the cache is empty", () => {
     expect(() => patchRowTitle(qc, dbId, "p1", "New")).not.toThrow();
-    expect(qc.getQueryData(databaseRowsKey(dbId))).toBeUndefined();
+    expect(qc.getQueryData(databaseRowsKey(dbId, "v1"))).toBeUndefined();
+  });
+
+  it("databaseRowsKey is namespaced by databaseId and viewId", () => {
+    expect(databaseRowsKey(dbId, "v1")).toEqual(["database-rows", dbId, "v1"]);
+    expect(databaseRowsKey(dbId, "v1")).not.toEqual(
+      databaseRowsKey(dbId, "v2"),
+    );
+  });
+
+  it("databaseViewsKey is namespaced by databaseId", () => {
+    expect(databaseViewsKey(dbId)).toEqual(["database-views", dbId]);
+  });
+
+  it("patchRowValue patches every cached view for the database", () => {
+    const value = makeValue("p1", "prop1", "x");
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1")]);
+    qc.setQueryData(databaseRowsKey(dbId, "v2"), [makeRow("p1")]);
+
+    patchRowValue(qc, dbId, value);
+
+    expect(
+      qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))![0].values,
+    ).toEqual([value]);
+    expect(
+      qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v2"))![0].values,
+    ).toEqual([value]);
   });
 
   it("databaseInfoKey is namespaced by pageId, distinct from the databaseId slot", () => {
@@ -179,6 +206,6 @@ describe("database-cache", () => {
     expect(() =>
       patchRowValue(qc, dbId, makeValue("p1", "prop1", "x")),
     ).not.toThrow();
-    expect(qc.getQueryData(databaseRowsKey(dbId))).toBeUndefined();
+    expect(qc.getQueryData(databaseRowsKey(dbId, "v1"))).toBeUndefined();
   });
 });

@@ -113,6 +113,50 @@ export interface IDeletePropertyParams {
   propertyId: string;
 }
 
+export interface IViewColumnConfig {
+  propertyId: string;
+  visible: boolean;
+  width?: number;
+}
+
+export interface IDatabaseViewConfig {
+  columns?: IViewColumnConfig[];
+  [key: string]: unknown;
+}
+
+export interface IDatabaseView {
+  id: string;
+  databaseId: string;
+  name: string;
+  type: string;
+  config: IDatabaseViewConfig;
+  isDefault: boolean;
+  position: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IListViewsParams {
+  databaseId: string;
+}
+
+export interface ICreateViewParams {
+  databaseId: string;
+  name: string;
+  type?: string;
+  config?: IDatabaseViewConfig;
+}
+
+export interface IUpdateViewParams {
+  viewId: string;
+  name?: string;
+  config?: IDatabaseViewConfig;
+}
+
+export interface IViewIdParams {
+  viewId: string;
+}
+
 export interface IListRowsParams {
   databaseId: string;
 }
