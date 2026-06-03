@@ -5,6 +5,7 @@ import {
   useDatabaseInfoQuery,
   useDatabasePropertiesQuery,
   useDatabaseRowsQuery,
+  useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
 import { GridCell } from "./grid-view/grid-cell";
 
@@ -19,7 +20,8 @@ export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
   const infoQuery = useDatabaseInfoQuery(page.parentPageId ?? "");
   const databaseId = infoQuery.data?.database?.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
-  const rowsQuery = useDatabaseRowsQuery(databaseId);
+  const viewId = useDefaultViewId(databaseId);
+  const rowsQuery = useDatabaseRowsQuery(databaseId, viewId);
 
   // The row's values share the grid's ["database-rows", ...] cache, so editing
   // here and viewing in the grid stay in step. Find this page in that list.

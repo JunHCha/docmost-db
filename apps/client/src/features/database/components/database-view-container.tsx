@@ -7,6 +7,7 @@ import {
   useDatabaseInfoQuery,
   useDatabasePropertiesQuery,
   useDatabaseRowsQuery,
+  useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
 import { useUpdatePageMutation } from "@/features/page/queries/page-query.ts";
 import { GridView } from "./grid-view/grid-view";
@@ -21,7 +22,8 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   const infoQuery = useDatabaseInfoQuery(page.id);
   const databaseId = infoQuery.data?.database?.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
-  const rowsQuery = useDatabaseRowsQuery(databaseId);
+  const viewId = useDefaultViewId(databaseId);
+  const rowsQuery = useDatabaseRowsQuery(databaseId, viewId);
   const updatePage = useUpdatePageMutation();
   const [titleDraft, setTitleDraft] = useState(page.title ?? "");
 

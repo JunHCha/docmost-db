@@ -12,6 +12,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseInfoQuery: () => infoQuery(),
   useDatabasePropertiesQuery: () => propertiesQuery(),
   useDatabaseRowsQuery: () => rowsQuery(),
+  useDefaultViewId: () => "v1",
   useSetValueMutation: () => ({ mutate: vi.fn() }),
   useClearValueMutation: () => ({ mutate: vi.fn() }),
   useCreateRowMutation: () => ({ mutate: vi.fn() }),

@@ -10,6 +10,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
   useClearValueMutation: () => ({ mutate: clearMutate }),
   useDatabaseRowsQuery: () => ({ data: rowsData }),
+  useDefaultViewId: () => "v1",
 }));
 
 import { RelationCell } from "./relation-cell";

@@ -146,6 +146,14 @@ export function useDatabaseViewsQuery(
   });
 }
 
+// The view whose rows a read-only consumer (relation picker, row panel) should
+// load. Rows are identical across views, so any view works; prefer the default.
+export function useDefaultViewId(databaseId: string): string {
+  const { data } = useDatabaseViewsQuery(databaseId);
+  if (!data || data.length === 0) return "";
+  return (data.find((v) => v.isDefault) ?? data[0]).id;
+}
+
 export function useSetValueMutation(databaseId: string) {
   const { t } = useTranslation();
   return useMutation<IDatabasePropertyValue, Error, ISetValueParams>({
