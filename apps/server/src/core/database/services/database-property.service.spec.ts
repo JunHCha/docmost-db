@@ -7,6 +7,7 @@ import {
 import { DatabasePropertyService } from './database-property.service';
 import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
+import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
   SpaceCaslAction,
@@ -14,7 +15,12 @@ import {
 } from '../../casl/interfaces/space-ability.type';
 
 const user: any = { id: 'user-1' };
-const database: any = { id: 'db-1', spaceId: 'space-1', workspaceId: 'ws-1' };
+const database: any = {
+  id: 'db-1',
+  pageId: 'dbpage-1',
+  spaceId: 'space-1',
+  workspaceId: 'ws-1',
+};
 
 function abilityMock(allowed: boolean) {
   return {
@@ -35,7 +41,10 @@ describe('DatabasePropertyService', () => {
       | 'softDeleteProperty'
     >
   >;
-  let databaseRepo: jest.Mocked<Pick<DatabaseRepo, 'findById'>>;
+  let databaseRepo: jest.Mocked<Pick<DatabaseRepo, 'findById' | 'listRows'>>;
+  let valueRepo: jest.Mocked<
+    Pick<DatabasePropertyValueRepo, 'setValue' | 'clearValue' | 'findByPageIds'>
+  >;
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
 
   beforeEach(async () => {
@@ -46,7 +55,15 @@ describe('DatabasePropertyService', () => {
       updateProperty: jest.fn(),
       softDeleteProperty: jest.fn(),
     } as any;
-    databaseRepo = { findById: jest.fn().mockResolvedValue(database) } as any;
+    databaseRepo = {
+      findById: jest.fn().mockResolvedValue(database),
+      listRows: jest.fn().mockResolvedValue([]),
+    } as any;
+    valueRepo = {
+      setValue: jest.fn(),
+      clearValue: jest.fn(),
+      findByPageIds: jest.fn().mockResolvedValue([]),
+    } as any;
     spaceAbility = {
       createForUser: jest.fn().mockResolvedValue(abilityMock(true)),
     } as any;
@@ -56,6 +73,7 @@ describe('DatabasePropertyService', () => {
         DatabasePropertyService,
         { provide: DatabasePropertyRepo, useValue: propertyRepo },
         { provide: DatabaseRepo, useValue: databaseRepo },
+        { provide: DatabasePropertyValueRepo, useValue: valueRepo },
         { provide: SpaceAbilityFactory, useValue: spaceAbility },
       ],
     }).compile();
@@ -169,7 +187,7 @@ describe('DatabasePropertyService', () => {
       propertyRepo.findById.mockResolvedValue({
         id: 'p1',
         databaseId: 'db-1',
-        type: 'text',
+        type: 'number',
         config: {},
       } as any);
       await expect(
@@ -197,6 +215,219 @@ describe('DatabasePropertyService', () => {
         'p1',
       );
       expect(result).toEqual({ id: 'p1', name: 'Renamed' });
+    });
+
+    it('does not migrate values when the type is unchanged', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce({
+          id: 'p1',
+          databaseId: 'db-1',
+          type: 'text',
+          config: {},
+        } as any)
+        .mockResolvedValueOnce({ id: 'p1', name: 'Renamed' } as any);
+
+      await service.update(user, {
+        propertyId: 'p1',
+        name: 'Renamed',
+      } as any);
+
+      expect(databaseRepo.listRows).not.toHaveBeenCalled();
+      expect(valueRepo.findByPageIds).not.toHaveBeenCalled();
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+      expect(valueRepo.clearValue).not.toHaveBeenCalled();
+    });
+
+    const selectProp: any = {
+      id: 'p1',
+      databaseId: 'db-1',
+      type: 'select',
+      config: {
+        options: [
+          { id: 'opt-todo', label: 'Todo' },
+          { id: 'opt-done', label: 'Done' },
+        ],
+      },
+    };
+
+    it('migrates select option ids to labels on select -> text', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(selectProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'text' } as any);
+      databaseRepo.listRows.mockResolvedValue([
+        { id: 'row-1' },
+        { id: 'row-2' },
+        { id: 'row-3' },
+      ] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'select', value: 'opt-todo' } },
+        { pageId: 'row-2', propertyId: 'p1', value: { type: 'select', value: 'unknown-id' } },
+        { pageId: 'row-3', propertyId: 'other', value: { type: 'select', value: 'opt-done' } },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'text' } as any);
+
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'p1',
+        value: { type: 'text', value: 'Todo' },
+      });
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('row-2', 'p1');
+      // other property's value must be left untouched
+      expect(valueRepo.setValue).toHaveBeenCalledTimes(1);
+      expect(valueRepo.clearValue).toHaveBeenCalledTimes(1);
+    });
+
+    it('joins multi_select labels with ", " on multi_select -> text', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce({
+          ...selectProp,
+          type: 'multi_select',
+        })
+        .mockResolvedValueOnce({ id: 'p1', type: 'text' } as any);
+      databaseRepo.listRows.mockResolvedValue([{ id: 'row-1' }] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        {
+          pageId: 'row-1',
+          propertyId: 'p1',
+          value: { type: 'multi_select', value: ['opt-todo', 'opt-done', 'gone'] },
+        },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'text' } as any);
+
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'p1',
+        value: { type: 'text', value: 'Todo, Done' },
+      });
+    });
+
+    it('clears values on select -> number (label not representable)', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(selectProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'number' } as any);
+      databaseRepo.listRows.mockResolvedValue([{ id: 'row-1' }] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'select', value: 'opt-todo' } },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'number' } as any);
+
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('row-1', 'p1');
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+    });
+
+    it('does not migrate on select -> multi_select (both option types)', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(selectProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'multi_select' } as any);
+
+      await service.update(user, {
+        propertyId: 'p1',
+        type: 'multi_select',
+        config: { options: selectProp.config.options },
+      } as any);
+
+      expect(databaseRepo.listRows).not.toHaveBeenCalled();
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+      expect(valueRepo.clearValue).not.toHaveBeenCalled();
+    });
+
+    const textProp: any = {
+      id: 'p1',
+      databaseId: 'db-1',
+      type: 'text',
+      config: {},
+    };
+
+    it('derives distinct options (case-insensitive) on text -> select', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(textProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'select' } as any);
+      databaseRepo.listRows.mockResolvedValue([
+        { id: 'row-1' },
+        { id: 'row-2' },
+        { id: 'row-3' },
+      ] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'text', value: 'Todo' } },
+        { pageId: 'row-2', propertyId: 'p1', value: { type: 'text', value: 'Doing' } },
+        { pageId: 'row-3', propertyId: 'p1', value: { type: 'text', value: 'todo' } },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'select' } as any);
+
+      const patch = propertyRepo.updateProperty.mock.calls[0][0] as any;
+      const options = patch.config.options;
+      expect(options).toHaveLength(2);
+      expect(options.map((o: any) => o.label)).toEqual(['Todo', 'Doing']);
+      options.forEach((o: any) => {
+        expect(o.id).toEqual(expect.any(String));
+        expect(o.color).toEqual(expect.any(String));
+      });
+
+      const byLabel = new Map(options.map((o: any) => [o.label, o.id]));
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'p1',
+        value: { type: 'select', value: byLabel.get('Todo') },
+      });
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-2',
+        propertyId: 'p1',
+        value: { type: 'select', value: byLabel.get('Doing') },
+      });
+      // 'todo' maps to the same option as 'Todo'
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-3',
+        propertyId: 'p1',
+        value: { type: 'select', value: byLabel.get('Todo') },
+      });
+    });
+
+    it('wraps each value in a one-element array on text -> multi_select', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(textProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'multi_select' } as any);
+      databaseRepo.listRows.mockResolvedValue([{ id: 'row-1' }] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'text', value: 'Todo' } },
+      ] as any);
+
+      await service.update(user, {
+        propertyId: 'p1',
+        type: 'multi_select',
+      } as any);
+
+      const patch = propertyRepo.updateProperty.mock.calls[0][0] as any;
+      const id = patch.config.options[0].id;
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'p1',
+        value: { type: 'multi_select', value: [id] },
+      });
+    });
+
+    it('skips blank text rows when deriving options on text -> select', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(textProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'select' } as any);
+      databaseRepo.listRows.mockResolvedValue([
+        { id: 'row-1' },
+        { id: 'row-2' },
+      ] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'text', value: 'Todo' } },
+        { pageId: 'row-2', propertyId: 'p1', value: { type: 'text', value: '   ' } },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'select' } as any);
+
+      const patch = propertyRepo.updateProperty.mock.calls[0][0] as any;
+      expect(patch.config.options).toHaveLength(1);
+      expect(valueRepo.setValue).toHaveBeenCalledTimes(1);
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('row-2', 'p1');
     });
   });
 

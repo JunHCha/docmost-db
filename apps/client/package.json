@@ -39,6 +39,7 @@
     "axios": "1.16.0",
     "blueimp-load-image": "5.16.0",
     "clsx": "2.1.1",
+    "dayjs": "1.11.19",
     "file-saver": "2.0.5",
     "highlightjs-sap-abap": "0.3.0",
     "i18next": "25.10.1",

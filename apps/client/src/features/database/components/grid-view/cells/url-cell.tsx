@@ -5,6 +5,11 @@ import {
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
+import {
+  INLINE_ROW_HEIGHT,
+  inlineDisplayStyle,
+  inlineInputStyles,
+} from "./inline-text";
 
 export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
   const setValue = useSetValueMutation(databaseId);
@@ -37,8 +42,9 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
     return (
       <TextInput
         autoFocus
-        size="xs"
+        size="sm"
         variant="unstyled"
+        styles={inlineInputStyles}
         value={draft}
         aria-label={property.name}
         onChange={(e) => setDraft(e.currentTarget.value)}
@@ -55,7 +61,7 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
     return (
       <div
         onClick={startEdit}
-        style={{ cursor: "text", minHeight: 20, width: "100%" }}
+        style={{ ...inlineDisplayStyle, width: "100%" }}
       />
     );
   }
@@ -70,6 +76,7 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
         e.preventDefault();
         startEdit();
       }}
+      style={{ display: "block", lineHeight: `${INLINE_ROW_HEIGHT}px` }}
     >
       {stored}
     </Anchor>

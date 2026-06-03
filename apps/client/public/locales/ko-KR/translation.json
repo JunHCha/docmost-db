@@ -357,6 +357,8 @@
   "Orange": "주황색",
   "Pink": "분홍색",
   "Gray": "회색",
+  "Brown": "갈색",
+  "An option with this name already exists": "같은 이름의 옵션이 이미 있습니다",
   "Embed link": "임베드 링크",
   "Invalid {{provider}} embed link": "유효하지 않은 {{provider}} 임베드 링크입니다",
   "Embed {{provider}}": "{{provider}} 임베드",

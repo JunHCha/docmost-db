@@ -360,6 +360,8 @@
   "Orange": "Orange",
   "Pink": "Pink",
   "Gray": "Gray",
+  "Brown": "Brown",
+  "An option with this name already exists": "An option with this name already exists",
   "Embed link": "Embed link",
   "Invalid {{provider}} embed link": "Invalid {{provider}} embed link",
   "Embed {{provider}}": "Embed {{provider}}",

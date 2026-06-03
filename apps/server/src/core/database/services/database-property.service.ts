@@ -4,9 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
 import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
+import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
   SpaceCaslAction,
@@ -15,6 +17,7 @@ import {
 import {
   Database,
   DatabaseProperty,
+  DatabasePropertyValue,
   UpdatableDatabaseProperty,
   User,
 } from '@docmost/db/types/entity.types';
@@ -22,6 +25,7 @@ import {
   assertPropertyType,
   normalizePropertyConfig,
   PropertyType,
+  SelectOption,
 } from '../utils/property-config';
 import { CreatePropertyDto } from '../dto/create-property.dto';
 import { UpdatePropertyDto } from '../dto/update-property.dto';
@@ -29,11 +33,26 @@ import { ReorderPropertyDto } from '../dto/reorder-property.dto';
 import { PropertyIdDto } from '../dto/property-id.dto';
 import { ListPropertiesDto } from '../dto/list-properties.dto';
 
+// Frontend option-colors palette keys (excluding 'default'); cycled when
+// auto-deriving select options from text values.
+const OPTION_COLORS = [
+  'gray',
+  'brown',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'purple',
+  'pink',
+  'red',
+] as const;
+
 @Injectable()
 export class DatabasePropertyService {
   constructor(
     private readonly propertyRepo: DatabasePropertyRepo,
     private readonly databaseRepo: DatabaseRepo,
+    private readonly valueRepo: DatabasePropertyValueRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
   ) {}
 
@@ -66,6 +85,11 @@ export class DatabasePropertyService {
       SpaceCaslAction.Edit,
     );
 
+    // Capture the old type/options before the config (option labels) is
+    // discarded, so values can be migrated from option ids to labels below.
+    const oldType = property.type as PropertyType;
+    const oldOptions = ((property.config as any)?.options ?? []) as SelectOption[];
+
     const patch: UpdatableDatabaseProperty = {};
     if (dto.name !== undefined) patch.name = dto.name;
 
@@ -74,13 +98,28 @@ export class DatabasePropertyService {
       assertPropertyType(dto.type);
       patch.type = dto.type;
     }
+    const newType = dto.type as PropertyType;
 
-    // Re-validate config whenever the type changes or a new config is supplied.
-    // Config is full-replace: for select/multi_select the client must echo the
-    // existing options (with their ids) — ids are preserved only when sent back,
-    // so omitting them regenerates ids. Changing the type discards the old
-    // config; existing property values are NOT migrated here (see #5).
-    if (typeChanged || dto.config !== undefined) {
+    // text/url -> select/multi_select: derive options from the existing string
+    // values instead of any client-supplied config, so the new options exist
+    // before values are converted to their ids below.
+    const stringToOption =
+      typeChanged &&
+      (oldType === 'text' || oldType === 'url') &&
+      (newType === 'select' || newType === 'multi_select');
+    let derivedValues: DatabasePropertyValue[] = [];
+    let derivedOptions: SelectOption[] = [];
+
+    if (stringToOption) {
+      derivedValues = await this.loadPropertyValues(database, dto.propertyId);
+      derivedOptions = this.deriveOptionsFromValues(derivedValues);
+      patch.config = { options: derivedOptions } as Record<string, any>;
+    } else if (typeChanged || dto.config !== undefined) {
+      // Re-validate config whenever the type changes or a new config is
+      // supplied. Config is full-replace: for select/multi_select the client
+      // must echo the existing options (with their ids) — ids are preserved
+      // only when sent back, so omitting them regenerates ids. Changing the
+      // type discards the old config.
       const nextType = (dto.type ?? property.type) as PropertyType;
       const rawConfig =
         dto.config ?? (typeChanged ? {} : (property.config as object));
@@ -88,7 +127,139 @@ export class DatabasePropertyService {
     }
 
     await this.propertyRepo.updateProperty(patch, dto.propertyId);
+
+    if (typeChanged && (oldType === 'select' || oldType === 'multi_select')) {
+      if (newType !== 'select' && newType !== 'multi_select') {
+        await this.migrateOptionValues(
+          database,
+          oldType,
+          oldOptions,
+          newType,
+          dto.propertyId,
+        );
+      }
+    } else if (stringToOption) {
+      await this.migrateStringValues(
+        derivedOptions,
+        newType,
+        dto.propertyId,
+        derivedValues,
+      );
+    }
+
     return this.propertyRepo.findById(dto.propertyId);
+  }
+
+  // Convert stale option-id values when a select/multi_select property changes
+  // to a non-option type. String types (text/url) keep the option labels;
+  // other types cannot represent labels, so their values are cleared.
+  private async migrateOptionValues(
+    database: Database,
+    oldType: PropertyType,
+    oldOptions: SelectOption[],
+    newType: PropertyType,
+    propertyId: string,
+  ): Promise<void> {
+    const labelById = new Map(oldOptions.map((o) => [o.id, o.label]));
+    const values = await this.loadPropertyValues(database, propertyId);
+
+    const toLabel = newType === 'text' || newType === 'url';
+
+    for (const v of values) {
+      const raw = v.value as { type: string; value: unknown };
+
+      if (!toLabel) {
+        await this.valueRepo.clearValue(v.pageId, propertyId);
+        continue;
+      }
+
+      let label = '';
+      if (oldType === 'multi_select') {
+        label = (Array.isArray(raw?.value) ? raw.value : [])
+          .map((id) => labelById.get(id as string))
+          .filter(Boolean)
+          .join(', ');
+      } else {
+        label = labelById.get(raw?.value as string) ?? '';
+      }
+
+      if (label) {
+        await this.valueRepo.setValue({
+          pageId: v.pageId,
+          propertyId,
+          value: { type: newType, value: label },
+        });
+      } else {
+        await this.valueRepo.clearValue(v.pageId, propertyId);
+      }
+    }
+  }
+
+  // Build select options from existing string values: trim, drop blanks, and
+  // dedupe case-insensitively (keeping the first label's casing). Colors cycle
+  // through a small palette matching the frontend option-colors keys.
+  private deriveOptionsFromValues(
+    values: DatabasePropertyValue[],
+  ): SelectOption[] {
+    const seen = new Map<string, SelectOption>();
+    let i = 0;
+    for (const v of values) {
+      const raw = v.value as { value?: unknown };
+      const label = typeof raw?.value === 'string' ? raw.value.trim() : '';
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        id: randomUUID(),
+        label,
+        color: OPTION_COLORS[i % OPTION_COLORS.length],
+      });
+      i += 1;
+    }
+    return [...seen.values()];
+  }
+
+  // Convert each existing string value to the derived option id. select stores
+  // the id directly; multi_select wraps it in a one-element array. Rows whose
+  // text is blank (no matching option) are cleared.
+  private async migrateStringValues(
+    options: SelectOption[],
+    newType: PropertyType,
+    propertyId: string,
+    values: DatabasePropertyValue[],
+  ): Promise<void> {
+    const idByLabel = new Map(
+      options.map((o) => [o.label.trim().toLowerCase(), o.id]),
+    );
+    for (const v of values) {
+      const raw = v.value as { value?: unknown };
+      const label = typeof raw?.value === 'string' ? raw.value.trim() : '';
+      const id = label ? idByLabel.get(label.toLowerCase()) : undefined;
+      if (id) {
+        await this.valueRepo.setValue({
+          pageId: v.pageId,
+          propertyId,
+          value:
+            newType === 'multi_select'
+              ? { type: 'multi_select', value: [id] }
+              : { type: 'select', value: id },
+        });
+      } else {
+        await this.valueRepo.clearValue(v.pageId, propertyId);
+      }
+    }
+  }
+
+  // Load all values for one property across the database's rows.
+  private async loadPropertyValues(
+    database: Database,
+    propertyId: string,
+  ): Promise<DatabasePropertyValue[]> {
+    const rows = await this.databaseRepo.listRows(database.pageId);
+    const pageIds = rows.map((r) => r.id);
+    return (await this.valueRepo.findByPageIds(pageIds)).filter(
+      (v) => v.propertyId === propertyId,
+    );
   }
 
   async reorder(user: User, dto: ReorderPropertyDto): Promise<void> {

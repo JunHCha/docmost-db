@@ -127,4 +127,44 @@ describe("ColumnHeader", () => {
     fireEvent.click(screen.getByText("Text"));
     expect(updateMutate).not.toHaveBeenCalled();
   });
+
+  it("sends an empty options config when switching a text column to Select", () => {
+    // The server rejects a select/multi_select update with no options array
+    // (400). Switching from text must include config.options.
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Select"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      type: "select",
+      config: { options: [] },
+    });
+  });
+
+  it("preserves existing options when switching Select to Multi-select", () => {
+    const opts = [{ id: "o1", label: "Todo", color: "blue" }];
+    renderHeaderWith({ type: "select", config: { options: opts } });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Multi-select"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      type: "multi_select",
+      config: { options: opts },
+    });
+  });
+
+  function renderHeaderWith(prop: Partial<IDatabaseProperty>) {
+    const p = { ...property, ...prop } as IDatabaseProperty;
+    return render(
+      <MantineProvider>
+        <ColumnHeader property={p} databaseId="db1" orderedProperties={[p]} />
+      </MantineProvider>,
+    );
+  }
+
+  it("no longer offers a header Edit options entry (now in the cell dropdown)", () => {
+    renderHeaderWith({ type: "select", config: { options: [] } });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    expect(screen.queryByText("Edit options")).toBeNull();
+  });
 });
