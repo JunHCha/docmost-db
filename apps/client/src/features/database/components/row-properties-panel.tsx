@@ -16,7 +16,7 @@ interface RowPropertiesPanelProps {
 // is itself a database, so we look the parent up by id — an empty result means
 // this is a plain document and the panel renders nothing (regression guard).
 export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
-  const infoQuery = useDatabaseInfoQuery(page.parentPageId);
+  const infoQuery = useDatabaseInfoQuery(page.parentPageId ?? "");
   const databaseId = infoQuery.data?.database.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
   const rowsQuery = useDatabaseRowsQuery(databaseId);
