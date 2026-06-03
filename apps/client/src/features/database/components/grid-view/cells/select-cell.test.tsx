@@ -130,4 +130,75 @@ describe("SelectCell", () => {
     resolveUpdate();
     await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
   });
+
+  function openEditPanel(label: string) {
+    fireEvent.click(screen.getByLabelText("Status"));
+    const edit = screen.getByLabelText(`Edit ${label}`);
+    // ⋯ must not submit the option (no setValue).
+    fireEvent.mouseDown(edit);
+    fireEvent.click(edit);
+  }
+
+  it("opens the inline edit panel from ⋯ without selecting the option", () => {
+    renderCell(undefined);
+    openEditPanel("Todo");
+    // Edit panel visible (rename input), list hidden.
+    expect(screen.getByLabelText("Todo label")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Search or create...")).toBeNull();
+    // ⋯ click did not select the option.
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("renames an option via full-replace echo (ids preserved)", () => {
+    renderCell(undefined);
+    openEditPanel("Todo");
+    const input = screen.getByLabelText("Todo label");
+    fireEvent.change(input, { target: { value: "Backlog" } });
+    fireEvent.blur(input);
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      config: {
+        options: [
+          { id: "o1", label: "Backlog", color: "blue" },
+          { id: "o2", label: "Doing", color: "green" },
+        ],
+      },
+    });
+  });
+
+  it("recolors an option via full-replace echo", () => {
+    renderCell(undefined);
+    openEditPanel("Todo");
+    fireEvent.click(screen.getByLabelText("Set Todo color red"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      config: {
+        options: [
+          { id: "o1", label: "Todo", color: "red" },
+          { id: "o2", label: "Doing", color: "green" },
+        ],
+      },
+    });
+  });
+
+  it("deletes an option echoing the remaining full array", () => {
+    renderCell(undefined);
+    openEditPanel("Todo");
+    fireEvent.click(screen.getByLabelText("Delete Todo"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      config: { options: [{ id: "o2", label: "Doing", color: "green" }] },
+    });
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
+
+  it("clears the cell when deleting the currently selected option", () => {
+    renderCell({ type: "select", value: "o1" });
+    openEditPanel("Todo");
+    fireEvent.click(screen.getByLabelText("Delete Todo"));
+    expect(clearMutate).toHaveBeenCalledWith({
+      pageId: "page1",
+      propertyId: "prop1",
+    });
+  });
 });
