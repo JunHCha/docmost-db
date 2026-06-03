@@ -7,11 +7,13 @@ import {
   ICreatePropertyParams,
   ICreateRowParams,
   IDatabaseInfoResponse,
+  IDatabaseListItem,
   IDatabaseProperty,
   IDatabasePropertyValue,
   IDatabaseRow,
   IDeletePropertyParams,
   IGetDatabaseInfoParams,
+  IListDatabasesParams,
   IListPropertiesParams,
   IListRowsParams,
   IReorderPropertyParams,
@@ -30,6 +32,13 @@ export async function getDatabaseInfo(
   data: IGetDatabaseInfoParams,
 ): Promise<IDatabaseInfoResponse> {
   const req = await api.post<IDatabaseInfoResponse>("/databases/info", data);
+  return req.data;
+}
+
+export async function listDatabases(
+  data: IListDatabasesParams,
+): Promise<IDatabaseListItem[]> {
+  const req = await api.post<IDatabaseListItem[]>("/databases/list", data);
   return req.data;
 }
 

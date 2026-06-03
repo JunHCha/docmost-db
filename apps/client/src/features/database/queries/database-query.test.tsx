@@ -50,6 +50,7 @@ const service = {
   updateProperty: vi.fn(),
   deleteProperty: vi.fn(),
   reorderProperty: vi.fn(),
+  listDatabases: vi.fn(),
 };
 
 vi.mock("@/features/database/services/database-service.ts", () => ({
@@ -64,6 +65,7 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   getDatabaseInfo: vi.fn(),
   listProperties: vi.fn(),
   listRows: vi.fn(),
+  listDatabases: (...a: unknown[]) => service.listDatabases(...a),
 }));
 
 import {
@@ -71,10 +73,12 @@ import {
   useCreatePropertyMutation,
   useCreateRowMutation,
   useDeletePropertyMutation,
+  useListDatabasesQuery,
   useReorderPropertyMutation,
   useSetValueMutation,
   useUpdatePropertyMutation,
 } from "./database-query.ts";
+import { databasesKey } from "./database-cache.ts";
 
 const dbId = "db1";
 
@@ -190,6 +194,35 @@ describe("useCreateRowMutation success path", () => {
     // Rows are not surfaced as sidebar child pages (Notion-like), so the
     // sidebar create cache must not be touched.
     expect(invalidateOnCreatePage).not.toHaveBeenCalled();
+  });
+});
+
+describe("useListDatabasesQuery", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+  });
+
+  it("queries databases for a space under the ['databases', spaceId] key", async () => {
+    const list = [{ id: "db1", pageId: "p1", title: "Tasks", icon: null }];
+    service.listDatabases.mockResolvedValue(list);
+
+    const { result } = renderHook(() => useListDatabasesQuery("space-1"), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(service.listDatabases).toHaveBeenCalledWith({ spaceId: "space-1" });
+    expect(result.current.data).toBe(list);
+    expect(
+      queryClient.getQueryData(databasesKey("space-1")),
+    ).toBe(list);
+  });
+
+  it("is disabled without a spaceId", () => {
+    const { result } = renderHook(() => useListDatabasesQuery(""), { wrapper });
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(service.listDatabases).not.toHaveBeenCalled();
   });
 });
 

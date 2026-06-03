@@ -8,9 +8,10 @@ import { CheckboxCell } from "./checkbox-cell";
 import { DateCell } from "./date-cell";
 import { SelectCell } from "./select-cell";
 import { MultiSelectCell } from "./multi-select-cell";
+import { RelationCell } from "./relation-cell";
 
-// Read-only renderer for property types without a dedicated editor (relation
-// lands in #10). Stringifies the stored value so the data is at least visible.
+// Read-only renderer for property types without a dedicated editor.
+// Stringifies the stored value so the data is at least visible.
 export function FallbackCell({ value }: CellProps) {
   const text =
     value?.value === undefined || value?.value === null
@@ -33,6 +34,7 @@ const registry: Partial<Record<PropertyType, CellComponent>> = {
   date: DateCell,
   select: SelectCell,
   multi_select: MultiSelectCell,
+  relation: RelationCell,
 };
 
 export function getCellComponent(type: PropertyType): CellComponent {

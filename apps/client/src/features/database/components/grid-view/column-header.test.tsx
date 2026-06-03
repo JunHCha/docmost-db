@@ -6,10 +6,13 @@ const reorderMutate = vi.fn();
 const updateMutate = vi.fn();
 const deleteMutate = vi.fn();
 
+let databasesData: any[] = [];
+
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useReorderPropertyMutation: () => ({ mutate: reorderMutate }),
   useUpdatePropertyMutation: () => ({ mutate: updateMutate }),
   useDeletePropertyMutation: () => ({ mutate: deleteMutate }),
+  useListDatabasesQuery: () => ({ data: databasesData }),
 }));
 
 import { ColumnHeader } from "./column-header";
@@ -33,6 +36,7 @@ function renderHeader() {
       <ColumnHeader
         property={property}
         databaseId="db1"
+        spaceId="space1"
         orderedProperties={[property]}
       />
     </MantineProvider>,
@@ -44,6 +48,7 @@ describe("ColumnHeader", () => {
     reorderMutate.mockReset();
     updateMutate.mockReset();
     deleteMutate.mockReset();
+    databasesData = [];
   });
 
   it("shows the property name", () => {
@@ -157,7 +162,12 @@ describe("ColumnHeader", () => {
     const p = { ...property, ...prop } as IDatabaseProperty;
     return render(
       <MantineProvider>
-        <ColumnHeader property={p} databaseId="db1" orderedProperties={[p]} />
+        <ColumnHeader
+          property={p}
+          databaseId="db1"
+          spaceId="space1"
+          orderedProperties={[p]}
+        />
       </MantineProvider>,
     );
   }
@@ -166,5 +176,58 @@ describe("ColumnHeader", () => {
     renderHeaderWith({ type: "select", config: { options: [] } });
     fireEvent.click(screen.getByLabelText("Column options"));
     expect(screen.queryByText("Edit options")).toBeNull();
+  });
+
+  it("does not commit a relation switch without choosing a target database", () => {
+    databasesData = [{ id: "db2", pageId: "p2", title: "People", icon: null }];
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    // Clicking the Relation entry only opens the target picker — the server
+    // rejects a relation update without a targetDatabaseId (400).
+    fireEvent.click(screen.getByText("Relation"));
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("commits a relation switch with the chosen target database id", () => {
+    databasesData = [
+      { id: "db1", pageId: "p1", title: "Self", icon: null },
+      { id: "db2", pageId: "p2", title: "People", icon: null },
+    ];
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Relation"));
+    fireEvent.click(screen.getByText("People"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      type: "relation",
+      config: { targetDatabaseId: "db2" },
+    });
+  });
+
+  it("excludes the current database from the relation target list", () => {
+    databasesData = [{ id: "db1", pageId: "p1", title: "Self", icon: null }];
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Relation"));
+    expect(screen.queryByText("Self")).toBeNull();
+  });
+
+  it("lets an existing relation column switch to a different target database", () => {
+    databasesData = [
+      { id: "db2", pageId: "p2", title: "People", icon: null },
+      { id: "db3", pageId: "p3", title: "Tasks", icon: null },
+    ];
+    renderHeaderWith({
+      type: "relation",
+      config: { targetDatabaseId: "db2" },
+    });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Relation"));
+    fireEvent.click(screen.getByText("Tasks"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      type: "relation",
+      config: { targetDatabaseId: "db3" },
+    });
   });
 });

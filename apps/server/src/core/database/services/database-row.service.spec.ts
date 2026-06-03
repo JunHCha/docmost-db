@@ -46,7 +46,7 @@ describe('DatabaseRowService', () => {
   let valueRepo: jest.Mocked<
     Pick<DatabasePropertyValueRepo, 'findByPageIds' | 'setValue' | 'clearValue'>
   >;
-  let pageRepo: jest.Mocked<Pick<PageRepo, 'findById'>>;
+  let pageRepo: jest.Mocked<Pick<PageRepo, 'findById' | 'findManyByIds'>>;
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
 
   beforeEach(async () => {
@@ -61,7 +61,10 @@ describe('DatabaseRowService', () => {
       setValue: jest.fn(),
       clearValue: jest.fn(),
     } as any;
-    pageRepo = { findById: jest.fn() } as any;
+    pageRepo = {
+      findById: jest.fn(),
+      findManyByIds: jest.fn().mockResolvedValue([]),
+    } as any;
     spaceAbility = {
       createForUser: jest.fn().mockResolvedValue(abilityMock(true)),
     } as any;
@@ -216,6 +219,117 @@ describe('DatabaseRowService', () => {
           value: { type: 'text', value: 'x' },
         } as any),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('setValue — relation membership', () => {
+    const relationProperty: any = {
+      id: 'rel-1',
+      databaseId: 'db-1',
+      type: 'relation',
+      config: { targetDatabaseId: 'target-db' },
+    };
+    const targetDatabase: any = {
+      id: 'target-db',
+      pageId: 'target-page',
+      spaceId: 'space-2',
+      workspaceId: 'ws-1',
+    };
+
+    beforeEach(() => {
+      // db-1 is the property's own database; target-db is the relation target.
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'target-db' ? targetDatabase : database,
+      );
+      propertyRepo.findById.mockResolvedValue(relationProperty);
+      // The source row belongs to db-1.
+      pageRepo.findById.mockResolvedValue({
+        id: 'row-1',
+        parentPageId: 'dbpage-1',
+      } as any);
+    });
+
+    it('accepts page ids that are live rows of the target database', async () => {
+      pageRepo.findManyByIds.mockResolvedValue([
+        { id: 'p-a', parentPageId: 'target-page' },
+        { id: 'p-b', parentPageId: 'target-page' },
+      ] as any);
+      valueRepo.setValue.mockResolvedValue({ id: 'v1' } as any);
+
+      await service.setValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a', 'p-b'] },
+      } as any);
+
+      expect(databaseRepo.findById).toHaveBeenCalledWith('target-db');
+      expect(pageRepo.findManyByIds).toHaveBeenCalledWith(['p-a', 'p-b'], {
+        workspaceId: 'ws-1',
+      });
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a', 'p-b'] },
+      });
+    });
+
+    it('allows an empty array (clear-equivalent) without querying pages', async () => {
+      valueRepo.setValue.mockResolvedValue({ id: 'v1' } as any);
+
+      await service.setValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: [] },
+      } as any);
+
+      expect(pageRepo.findManyByIds).not.toHaveBeenCalled();
+      expect(valueRepo.setValue).toHaveBeenCalled();
+    });
+
+    it('rejects ids that are not rows of the target database', async () => {
+      pageRepo.findManyByIds.mockResolvedValue([
+        { id: 'p-a', parentPageId: 'other-page' },
+      ] as any);
+
+      await expect(
+        service.setValue(user, {
+          pageId: 'row-1',
+          propertyId: 'rel-1',
+          value: { type: 'relation', value: ['p-a'] },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+    });
+
+    it('rejects missing/deleted/foreign-workspace ids (not returned by query)', async () => {
+      // findManyByIds filters deletedAt + workspaceId, so a bad id is absent.
+      pageRepo.findManyByIds.mockResolvedValue([
+        { id: 'p-a', parentPageId: 'target-page' },
+      ] as any);
+
+      await expect(
+        service.setValue(user, {
+          pageId: 'row-1',
+          propertyId: 'rel-1',
+          value: { type: 'relation', value: ['p-a', 'p-missing'] },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequest when the target database no longer exists', async () => {
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'target-db' ? undefined : database,
+      );
+      pageRepo.findManyByIds.mockResolvedValue([] as any);
+
+      await expect(
+        service.setValue(user, {
+          pageId: 'row-1',
+          propertyId: 'rel-1',
+          value: { type: 'relation', value: ['p-a'] },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

@@ -84,6 +84,7 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
       />
       <GridView
         databaseId={databaseId}
+        spaceId={infoQuery.data?.database.spaceId ?? ""}
         properties={propertiesQuery.data ?? []}
         rows={rowsQuery.data ?? []}
         spaceSlug={spaceSlug}
