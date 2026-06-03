@@ -9,6 +9,7 @@ import {
 import {
   useClearValueMutation,
   useDatabaseRowsQuery,
+  useDefaultViewId,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
@@ -26,7 +27,8 @@ export function RelationCell({
       : "";
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
-  const { data: rows } = useDatabaseRowsQuery(targetDatabaseId);
+  const targetViewId = useDefaultViewId(targetDatabaseId);
+  const { data: rows } = useDatabaseRowsQuery(targetDatabaseId, targetViewId);
   const [opened, setOpened] = useState(false);
   const combobox = useCombobox({
     opened,

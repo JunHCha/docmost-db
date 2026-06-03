@@ -38,6 +38,9 @@ function renderHeader() {
         databaseId="db1"
         spaceId="space1"
         orderedProperties={[property]}
+        width={180}
+        onHide={vi.fn()}
+        onResize={vi.fn()}
       />
     </MantineProvider>,
   );
@@ -54,6 +57,56 @@ describe("ColumnHeader", () => {
   it("shows the property name", () => {
     renderHeader();
     expect(screen.getByText("Status")).toBeTruthy();
+  });
+
+  it("hides the column from the menu", () => {
+    const onHide = vi.fn();
+    render(
+      <MantineProvider>
+        <ColumnHeader
+          property={property}
+          databaseId="db1"
+          spaceId="space1"
+          orderedProperties={[property]}
+          width={180}
+          onHide={onHide}
+          onResize={vi.fn()}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Hide column"));
+    expect(onHide).toHaveBeenCalled();
+  });
+
+  it("commits a new width once on pointer-up after dragging the resize handle", () => {
+    const onResize = vi.fn();
+    render(
+      <MantineProvider>
+        <ColumnHeader
+          property={property}
+          databaseId="db1"
+          spaceId="space1"
+          orderedProperties={[property]}
+          width={180}
+          onHide={vi.fn()}
+          onResize={onResize}
+        />
+      </MantineProvider>,
+    );
+    const handle = screen.getByLabelText("Resize column");
+    handle.setPointerCapture = vi.fn();
+    // jsdom drops clientX on synthetic pointer events, so dispatch MouseEvents
+    // (which carry clientX) under the pointer event type names.
+    const pointer = (type: string, clientX: number) =>
+      fireEvent(handle, new MouseEvent(type, { clientX, bubbles: true }));
+    pointer("pointerdown", 100);
+    pointer("pointermove", 160);
+    // Preview only — not committed mid-drag.
+    expect(onResize).not.toHaveBeenCalled();
+    pointer("pointerup", 160);
+    expect(onResize).toHaveBeenCalledTimes(1);
+    expect(onResize).toHaveBeenCalledWith(240);
   });
 
   async function openRename() {
@@ -167,6 +220,9 @@ describe("ColumnHeader", () => {
           databaseId="db1"
           spaceId="space1"
           orderedProperties={[p]}
+          width={180}
+          onHide={vi.fn()}
+          onResize={vi.fn()}
         />
       </MantineProvider>,
     );

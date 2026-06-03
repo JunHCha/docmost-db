@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Center, Loader, Stack, Text, TextInput } from "@mantine/core";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -7,9 +7,11 @@ import {
   useDatabaseInfoQuery,
   useDatabasePropertiesQuery,
   useDatabaseRowsQuery,
+  useDatabaseViewsQuery,
 } from "@/features/database/queries/database-query.ts";
 import { useUpdatePageMutation } from "@/features/page/queries/page-query.ts";
 import { GridView } from "./grid-view/grid-view";
+import { ViewSwitcher } from "./view-switcher";
 
 interface DatabaseViewContainerProps {
   page: IPage;
@@ -21,9 +23,21 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   const infoQuery = useDatabaseInfoQuery(page.id);
   const databaseId = infoQuery.data?.database?.id ?? "";
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
-  const rowsQuery = useDatabaseRowsQuery(databaseId);
+  const viewsQuery = useDatabaseViewsQuery(databaseId);
+  const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
   const updatePage = useUpdatePageMutation();
   const [titleDraft, setTitleDraft] = useState(page.title ?? "");
+
+  // Local active-view selection. Resolve against the live list every render so
+  // a deleted (or not-yet-chosen) active view falls back to the default/first
+  // view rather than querying a dead view id.
+  const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
+  const activeView =
+    views.find((v) => v.id === selectedViewId) ??
+    views.find((v) => v.isDefault) ??
+    views[0];
+  const activeViewId = activeView?.id ?? "";
+  const rowsQuery = useDatabaseRowsQuery(databaseId, activeViewId);
 
   function commitTitle() {
     const next = titleDraft.trim();
@@ -59,7 +73,7 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
     );
   }
 
-  if (propertiesQuery.isLoading || rowsQuery.isLoading) {
+  if (propertiesQuery.isLoading || rowsQuery.isLoading || !activeView) {
     return (
       <Center p="xl">
         <Loader />
@@ -82,11 +96,18 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
       />
+      <ViewSwitcher
+        databaseId={databaseId}
+        views={views}
+        activeViewId={activeViewId}
+        onActivate={setSelectedViewId}
+      />
       <GridView
         databaseId={databaseId}
         spaceId={infoQuery.data?.database.spaceId ?? ""}
         properties={propertiesQuery.data ?? []}
         rows={rowsQuery.data ?? []}
+        activeView={activeView}
         spaceSlug={spaceSlug}
       />
     </Stack>

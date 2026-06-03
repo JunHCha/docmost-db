@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-query";
 import {
   databasePropertiesKey,
-  databaseRowsKey,
+  databaseViewsKey,
 } from "./database-cache.ts";
 
 const { queryClient } = await vi.hoisted(async () => {
@@ -51,6 +51,10 @@ const service = {
   deleteProperty: vi.fn(),
   reorderProperty: vi.fn(),
   listDatabases: vi.fn(),
+  createView: vi.fn(),
+  updateView: vi.fn(),
+  setDefaultView: vi.fn(),
+  deleteView: vi.fn(),
 };
 
 vi.mock("@/features/database/services/database-service.ts", () => ({
@@ -66,17 +70,25 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   listProperties: vi.fn(),
   listRows: vi.fn(),
   listDatabases: (...a: unknown[]) => service.listDatabases(...a),
+  listViews: vi.fn(),
+  createView: (...a: unknown[]) => service.createView(...a),
+  updateView: (...a: unknown[]) => service.updateView(...a),
+  setDefaultView: (...a: unknown[]) => service.setDefaultView(...a),
+  deleteView: (...a: unknown[]) => service.deleteView(...a),
 }));
 
 import {
   useClearValueMutation,
   useCreatePropertyMutation,
   useCreateRowMutation,
+  useCreateViewMutation,
   useDeletePropertyMutation,
   useListDatabasesQuery,
   useReorderPropertyMutation,
+  useSetDefaultViewMutation,
   useSetValueMutation,
   useUpdatePropertyMutation,
+  useUpdateViewMutation,
 } from "./database-query.ts";
 import { databasesKey } from "./database-cache.ts";
 
@@ -106,7 +118,7 @@ describe("database mutations resync the cache on error", () => {
     result.current.mutate({} as never);
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: databaseRowsKey(dbId),
+      queryKey: ["database-rows", dbId],
     });
   });
 
@@ -117,7 +129,7 @@ describe("database mutations resync the cache on error", () => {
     result.current.mutate({} as never);
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: databaseRowsKey(dbId),
+      queryKey: ["database-rows", dbId],
     });
   });
 
@@ -128,7 +140,7 @@ describe("database mutations resync the cache on error", () => {
     result.current.mutate({} as never);
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: databaseRowsKey(dbId),
+      queryKey: ["database-rows", dbId],
     });
   });
 
@@ -244,7 +256,7 @@ describe("useUpdatePropertyMutation success path", () => {
     result.current.mutate({ propertyId: "prop1", type: "text" } as never);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: databaseRowsKey(dbId),
+      queryKey: ["database-rows", dbId],
     });
   });
 
@@ -255,7 +267,58 @@ describe("useUpdatePropertyMutation success path", () => {
     result.current.mutate({ propertyId: "prop1", name: "Renamed" } as never);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).not.toHaveBeenCalledWith({
-      queryKey: databaseRowsKey(dbId),
+      queryKey: ["database-rows", dbId],
+    });
+  });
+});
+
+describe("view mutations invalidate the views query", () => {
+  let invalidateSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    invalidateSpy = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+  });
+  afterEach(() => invalidateSpy.mockRestore());
+
+  it("createView posts and invalidates views on success", async () => {
+    service.createView.mockResolvedValue({ id: "v2" });
+    const { result } = renderHook(() => useCreateViewMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ databaseId: dbId, name: "Grid" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(service.createView).toHaveBeenCalledWith({
+      databaseId: dbId,
+      name: "Grid",
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databaseViewsKey(dbId),
+    });
+  });
+
+  it("updateView invalidates views on success", async () => {
+    service.updateView.mockResolvedValue({ id: "v1" });
+    const { result } = renderHook(() => useUpdateViewMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ viewId: "v1", name: "Renamed" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databaseViewsKey(dbId),
+    });
+  });
+
+  it("setDefaultView invalidates views on success", async () => {
+    service.setDefaultView.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useSetDefaultViewMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ viewId: "v2" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databaseViewsKey(dbId),
     });
   });
 });
