@@ -46,14 +46,15 @@ export function RelationCell({
   );
 
   function commit(ids: string[]) {
-    if (ids.length === 0) {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) {
       clearValue.mutate({ pageId, propertyId: property.id });
       return;
     }
     setValue.mutate({
       pageId,
       propertyId: property.id,
-      value: { type: "relation", value: ids },
+      value: { type: "relation", value: unique },
     });
   }
 
