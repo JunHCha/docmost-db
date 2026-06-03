@@ -187,7 +187,7 @@ describe('DatabasePropertyService', () => {
       propertyRepo.findById.mockResolvedValue({
         id: 'p1',
         databaseId: 'db-1',
-        type: 'text',
+        type: 'number',
         config: {},
       } as any);
       await expect(
