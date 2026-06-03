@@ -31,7 +31,12 @@ export default function Page() {
           icon={IconAlertTriangle}
           title={t("Failed to load page. An error occurred.")}
           action={
-            <Button variant="default" size="sm" mt="xs" onClick={resetErrorBoundary}>
+            <Button
+              variant="default"
+              size="sm"
+              mt="xs"
+              onClick={resetErrorBoundary}
+            >
               {t("Try again")}
             </Button>
           }
@@ -56,8 +61,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
 
   const canEdit = !page?.deletedAt && (page?.permissions?.canEdit ?? false);
   const canComment =
-    canEdit ||
-    (space?.settings?.comments?.allowViewerComments === true);
+    canEdit || space?.settings?.comments?.allowViewerComments === true;
 
   if (isLoading) {
     return <></>;
@@ -73,7 +77,13 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
             "This page may have been deleted, moved, or you may not have access.",
           )}
           action={
-            <Button component={Link} to="/home" variant="default" size="sm" mt="xs">
+            <Button
+              component={Link}
+              to="/home"
+              variant="default"
+              size="sm"
+              mt="xs"
+            >
               {t("Go to homepage")}
             </Button>
           }
@@ -81,10 +91,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
       );
     }
     return (
-      <EmptyState
-        icon={IconFileOff}
-        title={t("Error fetching page data.")}
-      />
+      <EmptyState icon={IconFileOff} title={t("Error fetching page data.")} />
     );
   }
 
@@ -107,22 +114,21 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
           // otherwise the previous page's title lingers. Mirrors the editor below.
           <DatabaseViewContainer key={page.id} page={page} />
         ) : (
-          <>
-            {/* Renders nothing unless this doc is a database row (#9). */}
-            <RowPropertiesPanel page={page} />
-            <MemoizedFullEditor
-              key={page.id}
-              pageId={page.id}
-              title={page.title}
-              content={page.content}
-              slugId={page.slugId}
-              spaceSlug={page?.space?.slug}
-              editable={canEdit}
-              creator={page.creator}
-              contributors={page.contributors}
-              canComment={canComment}
-            />
-          </>
+          <MemoizedFullEditor
+            key={page.id}
+            pageId={page.id}
+            title={page.title}
+            content={page.content}
+            slugId={page.slugId}
+            spaceSlug={page?.space?.slug}
+            editable={canEdit}
+            creator={page.creator}
+            contributors={page.contributors}
+            canComment={canComment}
+            // Renders nothing unless this doc is a database row (#9); shown
+            // Notion-style under the title.
+            belowTitle={<RowPropertiesPanel page={page} />}
+          />
         )}
         <MemoizedHistoryModal pageId={page.id} />
       </div>

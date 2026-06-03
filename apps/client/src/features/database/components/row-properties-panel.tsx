@@ -40,14 +40,17 @@ export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
     return null;
   }
 
+  // Notion-style property list under the page title: narrow dimmed labels on
+  // the left, editable cell values filling the rest. No horizontal padding —
+  // the editor Container already provides the page gutter.
   return (
-    <Stack gap="xs" px="md" py="sm">
+    <Stack gap={2} mb="md">
       {ordered.map((property) => (
-        <Group key={property.id} wrap="nowrap" align="flex-start" gap="md">
-          <Text size="sm" c="dimmed" w={160} style={{ flexShrink: 0 }}>
+        <Group key={property.id} wrap="nowrap" align="center" gap="md">
+          <Text size="sm" c="dimmed" w={140} style={{ flexShrink: 0 }}>
             {property.name}
           </Text>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <GridCell
               property={property}
               value={values.find((v) => v.propertyId === property.id)}

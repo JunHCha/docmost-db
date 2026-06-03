@@ -52,6 +52,9 @@ export interface FullEditorProps {
   creator?: PageUser;
   contributors?: IContributor[];
   canComment?: boolean;
+  // Rendered between the title/byline and the document body — used by database
+  // rows (#9) to show their properties Notion-style under the page title.
+  belowTitle?: React.ReactNode;
 }
 
 export function FullEditor({
@@ -64,6 +67,7 @@ export function FullEditor({
   creator,
   contributors,
   canComment,
+  belowTitle,
 }: FullEditorProps) {
   const [user] = useAtom(userAtom);
   const fullPageWidth = user.settings?.preferences?.fullPageWidth;
@@ -107,6 +111,7 @@ export function FullEditor({
         contributors={contributors}
         readOnly={!editable}
       />
+      {belowTitle}
       <MemoizedPageEditor
         pageId={pageId}
         editable={editable}

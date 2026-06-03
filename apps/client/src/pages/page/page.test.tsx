@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
@@ -12,7 +13,10 @@ vi.mock("@/features/space/queries/space-query.ts", () => ({
   useGetSpaceBySlugQuery: () => ({ data: { settings: {} } }),
 }));
 vi.mock("@/features/editor/full-editor", () => ({
-  FullEditor: () => <div data-testid="full-editor" />,
+  // Render belowTitle so the row properties panel (passed via that prop) shows.
+  FullEditor: ({ belowTitle }: { belowTitle?: ReactNode }) => (
+    <div data-testid="full-editor">{belowTitle}</div>
+  ),
 }));
 vi.mock("@/features/database/components/database-view-container.tsx", () => ({
   DatabaseViewContainer: () => <div data-testid="db-container" />,
@@ -52,7 +56,7 @@ function renderPage() {
 describe("Page", () => {
   beforeEach(() => pageQuery.mockReset());
 
-  it("renders the row properties panel alongside the editor for doc pages", () => {
+  it("renders the row properties panel under the title (via belowTitle) for doc pages", () => {
     pageQuery.mockReturnValue({
       data: { ...basePage, pageType: "doc" },
       isLoading: false,
