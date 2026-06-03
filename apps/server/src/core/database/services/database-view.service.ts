@@ -96,15 +96,25 @@ export class DatabaseViewService {
     await this.authorize(user, dto.databaseId, SpaceCaslAction.Read);
     const views = await this.viewRepo.findByDatabaseId(dto.databaseId);
     if (views.length > 0) return views;
-    const created = await this.viewRepo.insertView({
-      databaseId: dto.databaseId,
-      name: 'Grid',
-      type: 'grid',
-      config: {},
-      position: generateJitteredKeyBetween(null, null),
-      isDefault: true,
-    });
-    return [created];
+    // Lazily create the first view. Two concurrent first-loads (e.g. the grid
+    // container and a relation picker on the same database) can both see zero
+    // views and try to insert; the partial-unique default index then makes the
+    // loser throw 23505. Swallow that and re-read so both callers converge on
+    // the view the winner created.
+    try {
+      const created = await this.viewRepo.insertView({
+        databaseId: dto.databaseId,
+        name: 'Grid',
+        type: 'grid',
+        config: {},
+        position: generateJitteredKeyBetween(null, null),
+        isDefault: true,
+      });
+      return [created];
+    } catch (err) {
+      if ((err as { code?: string })?.code !== '23505') throw err;
+      return this.viewRepo.findByDatabaseId(dto.databaseId);
+    }
   }
 
   // --- helpers ---

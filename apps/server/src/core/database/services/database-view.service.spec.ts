@@ -139,6 +139,27 @@ describe('DatabaseViewService', () => {
       );
       expect(result).toHaveLength(1);
     });
+
+    it('re-reads when a concurrent lazy create wins the unique race', async () => {
+      // First read sees none; insert loses the partial-unique default race (23505);
+      // the re-read returns the view the other request created.
+      const created: any = [{ id: 'v-other', isDefault: true }];
+      viewRepo.findByDatabaseId
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(created);
+      viewRepo.insertView.mockRejectedValueOnce({ code: '23505' });
+      const result = await service.list(user, { databaseId: 'db-1' } as any);
+      expect(result).toBe(created);
+      expect(viewRepo.findByDatabaseId).toHaveBeenCalledTimes(2);
+    });
+
+    it('rethrows non-unique insert errors', async () => {
+      viewRepo.findByDatabaseId.mockResolvedValueOnce([]);
+      viewRepo.insertView.mockRejectedValueOnce({ code: '42P01' });
+      await expect(
+        service.list(user, { databaseId: 'db-1' } as any),
+      ).rejects.toMatchObject({ code: '42P01' });
+    });
   });
 
   describe('update', () => {
