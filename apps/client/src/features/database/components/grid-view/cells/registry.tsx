@@ -6,6 +6,7 @@ import { UrlCell } from "./url-cell";
 import { NumberCell } from "./number-cell";
 import { CheckboxCell } from "./checkbox-cell";
 import { DateCell } from "./date-cell";
+import { SelectCell } from "./select-cell";
 
 // Read-only renderer for property types without a dedicated editor (relation
 // lands in #10). Stringifies the stored value so the data is at least visible.
@@ -29,6 +30,7 @@ const registry: Partial<Record<PropertyType, CellComponent>> = {
   number: NumberCell,
   checkbox: CheckboxCell,
   date: DateCell,
+  select: SelectCell,
 };
 
 export function getCellComponent(type: PropertyType): CellComponent {

@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: vi.fn() }),
   useClearValueMutation: () => ({ mutate: vi.fn() }),
+  useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
 }));
 
 import { getCellComponent, FallbackCell } from "./registry";
@@ -14,6 +15,7 @@ import { NumberCell } from "./number-cell";
 import { CheckboxCell } from "./checkbox-cell";
 import { UrlCell } from "./url-cell";
 import { DateCell } from "./date-cell";
+import { SelectCell } from "./select-cell";
 
 describe("cell registry", () => {
   it("returns the registered component for known types", () => {
@@ -22,6 +24,7 @@ describe("cell registry", () => {
     expect(getCellComponent("checkbox")).toBe(CheckboxCell);
     expect(getCellComponent("url")).toBe(UrlCell);
     expect(getCellComponent("date")).toBe(DateCell);
+    expect(getCellComponent("select")).toBe(SelectCell);
   });
 
   it("falls back for relation (lands in #10)", () => {
