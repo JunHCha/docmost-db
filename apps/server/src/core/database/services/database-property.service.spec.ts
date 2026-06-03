@@ -333,6 +333,102 @@ describe('DatabasePropertyService', () => {
       expect(valueRepo.setValue).not.toHaveBeenCalled();
       expect(valueRepo.clearValue).not.toHaveBeenCalled();
     });
+
+    const textProp: any = {
+      id: 'p1',
+      databaseId: 'db-1',
+      type: 'text',
+      config: {},
+    };
+
+    it('derives distinct options (case-insensitive) on text -> select', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(textProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'select' } as any);
+      databaseRepo.listRows.mockResolvedValue([
+        { id: 'row-1' },
+        { id: 'row-2' },
+        { id: 'row-3' },
+      ] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'text', value: 'Todo' } },
+        { pageId: 'row-2', propertyId: 'p1', value: { type: 'text', value: 'Doing' } },
+        { pageId: 'row-3', propertyId: 'p1', value: { type: 'text', value: 'todo' } },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'select' } as any);
+
+      const patch = propertyRepo.updateProperty.mock.calls[0][0] as any;
+      const options = patch.config.options;
+      expect(options).toHaveLength(2);
+      expect(options.map((o: any) => o.label)).toEqual(['Todo', 'Doing']);
+      options.forEach((o: any) => {
+        expect(o.id).toEqual(expect.any(String));
+        expect(o.color).toEqual(expect.any(String));
+      });
+
+      const byLabel = new Map(options.map((o: any) => [o.label, o.id]));
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'p1',
+        value: { type: 'select', value: byLabel.get('Todo') },
+      });
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-2',
+        propertyId: 'p1',
+        value: { type: 'select', value: byLabel.get('Doing') },
+      });
+      // 'todo' maps to the same option as 'Todo'
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-3',
+        propertyId: 'p1',
+        value: { type: 'select', value: byLabel.get('Todo') },
+      });
+    });
+
+    it('wraps each value in a one-element array on text -> multi_select', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(textProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'multi_select' } as any);
+      databaseRepo.listRows.mockResolvedValue([{ id: 'row-1' }] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'text', value: 'Todo' } },
+      ] as any);
+
+      await service.update(user, {
+        propertyId: 'p1',
+        type: 'multi_select',
+      } as any);
+
+      const patch = propertyRepo.updateProperty.mock.calls[0][0] as any;
+      const id = patch.config.options[0].id;
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'p1',
+        value: { type: 'multi_select', value: [id] },
+      });
+    });
+
+    it('skips blank text rows when deriving options on text -> select', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce(textProp)
+        .mockResolvedValueOnce({ id: 'p1', type: 'select' } as any);
+      databaseRepo.listRows.mockResolvedValue([
+        { id: 'row-1' },
+        { id: 'row-2' },
+      ] as any);
+      valueRepo.findByPageIds.mockResolvedValue([
+        { pageId: 'row-1', propertyId: 'p1', value: { type: 'text', value: 'Todo' } },
+        { pageId: 'row-2', propertyId: 'p1', value: { type: 'text', value: '   ' } },
+      ] as any);
+
+      await service.update(user, { propertyId: 'p1', type: 'select' } as any);
+
+      const patch = propertyRepo.updateProperty.mock.calls[0][0] as any;
+      expect(patch.config.options).toHaveLength(1);
+      expect(valueRepo.setValue).toHaveBeenCalledTimes(1);
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('row-2', 'p1');
+    });
   });
 
   describe('reorder', () => {
