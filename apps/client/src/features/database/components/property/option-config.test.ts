@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getOptions,
   appendOption,
+  findOptionByLabel,
   renameOption,
   recolorOption,
   removeOption,
@@ -66,5 +67,22 @@ describe("removeOption", () => {
   it("removes the target and returns the remaining full array with ids intact", () => {
     const next = removeOption(base, "a");
     expect(next).toEqual([base[1]]);
+  });
+});
+
+describe("findOptionByLabel", () => {
+  it("matches trimmed and case-insensitively", () => {
+    expect(findOptionByLabel(base, "  todo ")?.id).toBe("a");
+    expect(findOptionByLabel(base, "DOING")?.id).toBe("b");
+  });
+
+  it("returns undefined when no label matches", () => {
+    expect(findOptionByLabel(base, "Done")).toBeUndefined();
+  });
+
+  it("excludes the given id (so renaming an option to its own label is allowed)", () => {
+    expect(findOptionByLabel(base, "Todo", "a")).toBeUndefined();
+    // but a different option with that label is still found
+    expect(findOptionByLabel(base, "Todo", "b")?.id).toBe("a");
   });
 });

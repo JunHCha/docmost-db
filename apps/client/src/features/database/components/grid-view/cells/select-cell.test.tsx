@@ -201,4 +201,22 @@ describe("SelectCell", () => {
       propertyId: "prop1",
     });
   });
+
+  it("does not offer Create for a label that already exists (any case)", () => {
+    renderCell(undefined);
+    fireEvent.click(screen.getByLabelText("Status"));
+    const search = screen.getByPlaceholderText("Search or create...");
+    fireEvent.change(search, { target: { value: "todo" } });
+    expect(screen.queryByText('Create "todo"')).toBeNull();
+  });
+
+  it("does not rename an option to a label already used by another", () => {
+    renderCell(undefined);
+    openEditPanel("Todo");
+    const input = screen.getByLabelText("Todo label");
+    fireEvent.change(input, { target: { value: "Doing" } });
+    fireEvent.blur(input);
+    // Duplicate label rejected: no config write.
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
 });

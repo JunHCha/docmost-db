@@ -12,8 +12,11 @@ import {
   useSetValueMutation,
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
+import { notifications } from "@mantine/notifications";
+import { useTranslation } from "react-i18next";
 import {
   appendOption,
+  findOptionByLabel,
   getOptions,
   recolorOption,
   removeOption,
@@ -30,17 +33,22 @@ export function MultiSelectCell({
   pageId,
   databaseId,
 }: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const updateProperty = useUpdatePropertyMutation(databaseId);
   const [opened, setOpened] = useState(false);
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const combobox = useCombobox({
     opened,
-    onDropdownClose: () => setOpened(false),
+    onDropdownClose: () => {
+      setOpened(false);
+      // Reset to the pill list so reopening never reveals the prior edit view.
+      setEditingOptionId(null);
+    },
     onDropdownOpen: () => setOpened(true),
   });
   const [search, setSearch] = useState("");
-  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
 
   const options = getOptions(property.config);
   const selectedIds: string[] = Array.isArray(value?.value) ? value.value : [];
@@ -73,6 +81,14 @@ export function MultiSelectCell({
     const label = search.trim();
     if (!label) return;
     setSearch("");
+    // Never create a duplicate-labeled option: add the existing one instead.
+    const existing = findOptionByLabel(options, label);
+    if (existing) {
+      if (!selectedIds.includes(existing.id)) {
+        commit([...selectedIds, existing.id]);
+      }
+      return;
+    }
     // Full-replace echo: keep every existing option (with id), append the new.
     const { options: nextOptions, newOptionId } = appendOption(options, label);
     // Persist the option before adding it: the backend rejects a multi_select
@@ -91,6 +107,20 @@ export function MultiSelectCell({
       propertyId: property.id,
       config: { options: next },
     });
+  }
+
+  function renameOptionGuarded(id: string, label: string) {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    // Keep option labels unique within the property.
+    if (findOptionByLabel(options, trimmed, id)) {
+      notifications.show({
+        message: t("An option with this name already exists"),
+        color: "red",
+      });
+      return;
+    }
+    commitConfig(renameOption(options, id, trimmed));
   }
 
   function deleteOption(id: string) {
@@ -135,9 +165,7 @@ export function MultiSelectCell({
         {editing ? (
           <OptionEditPanel
             option={editing}
-            onRename={(label) =>
-              commitConfig(renameOption(options, editing.id, label))
-            }
+            onRename={(label) => renameOptionGuarded(editing.id, label)}
             onRecolor={(color) =>
               commitConfig(recolorOption(options, editing.id, color))
             }

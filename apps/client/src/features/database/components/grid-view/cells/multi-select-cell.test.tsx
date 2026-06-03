@@ -223,4 +223,20 @@ describe("MultiSelectCell", () => {
     });
     expect(setMutate).not.toHaveBeenCalled();
   });
+
+  it("does not offer Create for a label that already exists (any case)", () => {
+    renderCell({ type: "multi_select", value: [] });
+    fireEvent.click(screen.getByLabelText("Tags"));
+    const search = screen.getByPlaceholderText("Search or create...");
+    fireEvent.change(search, { target: { value: "red" } });
+    expect(screen.queryByText('Create "red"')).toBeNull();
+  });
+
+  it("does not rename an option to a label already used by another", () => {
+    openEditPanel("Red", { type: "multi_select", value: [] });
+    const input = screen.getByLabelText("Red label");
+    fireEvent.change(input, { target: { value: "Green" } });
+    fireEvent.blur(input);
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
 });

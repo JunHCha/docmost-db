@@ -20,6 +20,20 @@ export function getOptions(
   return Array.isArray(options) ? (options as SelectOption[]) : [];
 }
 
+// Find an option whose label matches (trimmed, case-insensitive), optionally
+// ignoring one id (used when renaming, to exclude the option itself). Used to
+// keep option labels unique within a property.
+export function findOptionByLabel(
+  options: SelectOption[],
+  label: string,
+  excludeId?: string,
+): SelectOption | undefined {
+  const needle = label.trim().toLowerCase();
+  return options.find(
+    (o) => o.id !== excludeId && o.label.trim().toLowerCase() === needle,
+  );
+}
+
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();

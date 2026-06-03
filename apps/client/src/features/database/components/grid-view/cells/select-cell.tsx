@@ -12,8 +12,11 @@ import {
   useSetValueMutation,
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
+import { notifications } from "@mantine/notifications";
+import { useTranslation } from "react-i18next";
 import {
   appendOption,
+  findOptionByLabel,
   getOptions,
   recolorOption,
   removeOption,
@@ -25,17 +28,22 @@ import { OptionEditPanel } from "@/features/database/components/property/option-
 import { CellProps } from "./cell-props";
 
 export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const updateProperty = useUpdatePropertyMutation(databaseId);
   const [opened, setOpened] = useState(false);
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const combobox = useCombobox({
     opened,
-    onDropdownClose: () => setOpened(false),
+    onDropdownClose: () => {
+      setOpened(false);
+      // Reset to the pill list so reopening never reveals the prior edit view.
+      setEditingOptionId(null);
+    },
     onDropdownOpen: () => setOpened(true),
   });
   const [search, setSearch] = useState("");
-  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
 
   const options = getOptions(property.config);
   const selectedId = typeof value?.value === "string" ? value.value : "";
@@ -61,6 +69,12 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
   async function createAndSelect() {
     const label = search.trim();
     if (!label) return;
+    // Never create a duplicate-labeled option: select the existing one instead.
+    const existing = findOptionByLabel(options, label);
+    if (existing) {
+      select(existing.id);
+      return;
+    }
     // Full-replace echo: send every existing option (with id) plus the new one.
     const { options: next, newOptionId } = appendOption(options, label);
     // Persist the option before selecting it: the backend rejects a select
@@ -79,6 +93,20 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
       propertyId: property.id,
       config: { options: next },
     });
+  }
+
+  function renameOptionGuarded(id: string, label: string) {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    // Keep option labels unique within the property.
+    if (findOptionByLabel(options, trimmed, id)) {
+      notifications.show({
+        message: t("An option with this name already exists"),
+        color: "red",
+      });
+      return;
+    }
+    commit(renameOption(options, id, trimmed));
   }
 
   function deleteOption(id: string) {
@@ -126,7 +154,7 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
         {editing ? (
           <OptionEditPanel
             option={editing}
-            onRename={(label) => commit(renameOption(options, editing.id, label))}
+            onRename={(label) => renameOptionGuarded(editing.id, label)}
             onRecolor={(color) =>
               commit(recolorOption(options, editing.id, color))
             }
