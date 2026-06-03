@@ -149,4 +149,78 @@ describe("MultiSelectCell", () => {
     resolveUpdate();
     await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
   });
+
+  function openEditPanel(label: string, value: any = { type: "multi_select", value: [] }) {
+    renderCell(value);
+    fireEvent.click(screen.getByLabelText("Tags"));
+    const edit = screen.getByLabelText(`Edit ${label}`);
+    fireEvent.mouseDown(edit);
+    fireEvent.click(edit);
+  }
+
+  it("opens the inline edit panel from ⋯ without selecting the option", () => {
+    openEditPanel("Red");
+    expect(screen.getByLabelText("Red label")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Search or create...")).toBeNull();
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("renames an option via full-replace echo (ids preserved)", () => {
+    openEditPanel("Red");
+    const input = screen.getByLabelText("Red label");
+    fireEvent.change(input, { target: { value: "Crimson" } });
+    fireEvent.blur(input);
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      config: {
+        options: [
+          { id: "o1", label: "Crimson", color: "red" },
+          { id: "o2", label: "Green", color: "green" },
+        ],
+      },
+    });
+  });
+
+  it("recolors an option via full-replace echo", () => {
+    openEditPanel("Red");
+    fireEvent.click(screen.getByLabelText("Set Red color blue"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      config: {
+        options: [
+          { id: "o1", label: "Red", color: "blue" },
+          { id: "o2", label: "Green", color: "green" },
+        ],
+      },
+    });
+  });
+
+  it("deletes an option echoing the remaining full array", () => {
+    openEditPanel("Red");
+    fireEvent.click(screen.getByLabelText("Delete Red"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      config: { options: [{ id: "o2", label: "Green", color: "green" }] },
+    });
+  });
+
+  it("removes a deleted option's id from a multi-value, keeping the rest", () => {
+    openEditPanel("Red", { type: "multi_select", value: ["o1", "o2"] });
+    fireEvent.click(screen.getByLabelText("Delete Red"));
+    expect(setMutate).toHaveBeenCalledWith({
+      pageId: "page1",
+      propertyId: "prop1",
+      value: { type: "multi_select", value: ["o2"] },
+    });
+  });
+
+  it("clears the cell when deleting the only selected option", () => {
+    openEditPanel("Red", { type: "multi_select", value: ["o1"] });
+    fireEvent.click(screen.getByLabelText("Delete Red"));
+    expect(clearMutate).toHaveBeenCalledWith({
+      pageId: "page1",
+      propertyId: "prop1",
+    });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
 });
