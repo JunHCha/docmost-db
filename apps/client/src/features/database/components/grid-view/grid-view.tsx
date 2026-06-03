@@ -97,6 +97,7 @@ function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
 
 interface GridViewProps {
   databaseId: string;
+  spaceId: string;
   properties: IDatabaseProperty[];
   rows: IDatabaseRow[];
   spaceSlug?: string;
@@ -104,6 +105,7 @@ interface GridViewProps {
 
 export function GridView({
   databaseId,
+  spaceId,
   properties,
   rows,
   spaceSlug,
@@ -146,6 +148,7 @@ export function GridView({
                 <ColumnHeader
                   property={property}
                   databaseId={databaseId}
+                  spaceId={spaceId}
                   orderedProperties={ordered}
                 />
               </Table.Th>

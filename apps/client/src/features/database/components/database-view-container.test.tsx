@@ -20,6 +20,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
   useUpdateRowTitleMutation: () => ({ mutate: vi.fn() }),
+  useListDatabasesQuery: () => ({ data: [] }),
 }));
 
 vi.mock("@/features/page/queries/page-query.ts", () => ({
