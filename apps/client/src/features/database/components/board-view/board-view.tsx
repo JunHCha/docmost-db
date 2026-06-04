@@ -34,6 +34,11 @@ interface BoardViewProps {
 // Builds the value that drops the source row into the target option. multi_select
 // adds the option to the row's current array (no-op if already there); select
 // replaces. Returns null for the unassigned column (the caller clears instead).
+//
+// multi_select limitation (intentional, #13): a drop means "add the target
+// option" only — it never removes the option from the source column. Removing a
+// multi_select option from its original column is out of scope for this view;
+// users unassign directly in the card's multi_select cell instead.
 function nextValueFor(
   property: IDatabaseProperty,
   row: IDatabaseRow | undefined,
@@ -44,6 +49,8 @@ function nextValueFor(
     const current = row?.values.find((v) => v.propertyId === property.id)?.value
       ?.value;
     const ids: string[] = Array.isArray(current) ? current : [];
+    // Add-only: keep the existing options and append the target. The source
+    // column is left untouched on purpose (see header note above).
     const next = ids.includes(optionId) ? ids : [...ids, optionId];
     return { type: "multi_select", value: next };
   }
