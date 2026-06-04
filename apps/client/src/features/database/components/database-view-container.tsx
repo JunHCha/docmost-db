@@ -1,18 +1,35 @@
-import { useMemo, useState } from "react";
-import { Center, Loader, Stack, Text, TextInput } from "@mantine/core";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  Center,
+  Group,
+  Loader,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
+import { useDebouncedCallback } from "@mantine/hooks";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { IPage } from "@/features/page/types/page.types.ts";
+import {
+  IFilterCondition,
+  ISortCondition,
+} from "@/features/database/types/database.types.ts";
 import {
   useDatabaseInfoQuery,
   useDatabasePropertiesQuery,
   useDatabaseRowsQuery,
   useDatabaseViewsQuery,
+  useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
 import { useUpdatePageMutation } from "@/features/page/queries/page-query.ts";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
 import { ViewSwitcher } from "./view-switcher";
+import { ViewToolbar } from "./toolbar/view-toolbar";
+
+const PERSIST_DEBOUNCE_MS = 400;
 
 interface DatabaseViewContainerProps {
   page: IPage;
@@ -38,7 +55,45 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
     views.find((v) => v.isDefault) ??
     views[0];
   const activeViewId = activeView?.id ?? "";
-  const rowsQuery = useDatabaseRowsQuery(databaseId, activeViewId);
+  const updateView = useUpdateViewMutation(databaseId);
+
+  // Local working copy of the active view's filters/sorts. The rows query reads
+  // it (so changes apply immediately) while a debounced updateView persists it
+  // to database_views.config. Reseed whenever the active view changes so each
+  // view edits its own conditions.
+  const [filters, setFilters] = useState<IFilterCondition[]>([]);
+  const [sorts, setSorts] = useState<ISortCondition[]>([]);
+  useEffect(() => {
+    setFilters(activeView?.config.filters ?? []);
+    setSorts(activeView?.config.sorts ?? []);
+  }, [activeViewId, activeView?.config.filters, activeView?.config.sorts]);
+
+  const viewConfig = useMemo(
+    () => (activeView ? { ...activeView.config, filters, sorts } : undefined),
+    [activeView, filters, sorts],
+  );
+  const rowsQuery = useDatabaseRowsQuery(databaseId, activeViewId, viewConfig);
+
+  const persistConfig = useDebouncedCallback(
+    (nextFilters: IFilterCondition[], nextSorts: ISortCondition[]) => {
+      if (!activeView) return;
+      updateView.mutate({
+        viewId: activeView.id,
+        config: { ...activeView.config, filters: nextFilters, sorts: nextSorts },
+      });
+    },
+    PERSIST_DEBOUNCE_MS,
+  );
+
+  function changeFilters(next: IFilterCondition[]) {
+    setFilters(next);
+    persistConfig(next, sorts);
+  }
+
+  function changeSorts(next: ISortCondition[]) {
+    setSorts(next);
+    persistConfig(filters, next);
+  }
 
   function commitTitle() {
     const next = titleDraft.trim();
@@ -97,13 +152,29 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
       />
-      <ViewSwitcher
-        databaseId={databaseId}
-        views={views}
-        activeViewId={activeViewId}
-        onActivate={setSelectedViewId}
-      />
-      {activeView.type === "board" ? (
+      <Group justify="space-between" align="center">
+        <ViewSwitcher
+          databaseId={databaseId}
+          views={views}
+          activeViewId={activeViewId}
+          onActivate={setSelectedViewId}
+        />
+        <ViewToolbar
+          properties={propertiesQuery.data ?? []}
+          filters={filters}
+          sorts={sorts}
+          onFiltersChange={changeFilters}
+          onSortsChange={changeSorts}
+        />
+      </Group>
+      {(rowsQuery.data ?? []).length === 0 && filters.length > 0 ? (
+        <Stack align="center" py="xl" gap="xs">
+          <Text c="dimmed">{t("No rows match the current filters")}</Text>
+          <Button variant="subtle" size="xs" onClick={() => changeFilters([])}>
+            {t("Clear filters")}
+          </Button>
+        </Stack>
+      ) : activeView.type === "board" ? (
         <BoardView
           databaseId={databaseId}
           properties={propertiesQuery.data ?? []}
