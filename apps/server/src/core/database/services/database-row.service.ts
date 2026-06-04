@@ -92,8 +92,8 @@ export class DatabaseRowService {
       SpaceCaslAction.Edit,
     );
 
-    // Validate every page id is a live row of this database first, so a single
-    // bad id rejects the whole batch (no partial deletes).
+    // Validate every page id is a live row of this database up front, so an
+    // invalid batch is rejected before any deletion happens.
     const pages = await Promise.all(
       dto.pageIds.map((id) => this.pageRepo.findById(id)),
     );
@@ -107,7 +107,14 @@ export class DatabaseRowService {
       }
     });
 
-    // Soft-delete (trash) each row via the existing page path.
+    // Sequential soft-delete (trash) via the existing page path. NOTE: this is
+    // NOT atomic — removePage opens its own transaction per call and does not
+    // accept an injected trx, so wrapping the whole batch in one transaction
+    // would require refactoring PageService/PageRepo (incl. its recursive
+    // descendant query and PAGE_SOFT_DELETED event emission). After the up-front
+    // validation above a mid-loop failure is unlikely, but if one occurs the
+    // batch can be partially deleted; the client mutation's onError invalidates
+    // the rows query to resync. See conventions.md.
     for (const pageId of dto.pageIds) {
       await this.pageService.removePage(pageId, user.id, workspace.id);
     }
