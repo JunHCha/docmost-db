@@ -21,7 +21,7 @@ import {
   RowSort,
 } from '@docmost/db/repos/database/database.repo';
 import { assertPropertyType } from '../utils/property-config';
-import { assertOpForType } from '../utils/filter-ops';
+import { assertOpForType, assertFilterValueForType } from '../utils/filter-ops';
 import { validateValueForType } from '../utils/property-value';
 import { CreateRowDto } from '../dto/create-row.dto';
 import { ListRowsDto } from '../dto/list-rows.dto';
@@ -137,11 +137,15 @@ export class DatabaseRowService {
       }
       assertPropertyType(type);
       assertOpForType(type, f.op);
+      // Validate/normalize the raw filter value per type (e.g. reject a
+      // non-numeric value on a number property → 400 instead of a Postgres
+      // ::numeric runtime error → 500). is_empty/is_not_empty take no value.
+      const value = assertFilterValueForType(type, f.op, f.value);
       return {
         propertyId: f.propertyId,
         propertyType: type,
         op: f.op,
-        value: f.value,
+        value,
       };
     });
 

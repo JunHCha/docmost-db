@@ -193,6 +193,57 @@ describe('DatabaseRowService', () => {
       expect(databaseRepo.listRows).not.toHaveBeenCalled();
     });
 
+    it('rejects a non-numeric value on a number property (400)', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-num', type: 'number' },
+      ] as any);
+
+      await expect(
+        service.listRows(user, {
+          databaseId: 'db-1',
+          filters: [{ propertyId: 'p-num', op: 'gte', value: 'abc' }],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(databaseRepo.listRows).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed date value on a date property (400)', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-date', type: 'date' },
+      ] as any);
+
+      await expect(
+        service.listRows(user, {
+          databaseId: 'db-1',
+          filters: [{ propertyId: 'p-date', op: 'eq', value: 'not-a-date' }],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(databaseRepo.listRows).not.toHaveBeenCalled();
+    });
+
+    it('passes is_empty without a value (and normalizes value to undefined)', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-num', type: 'number' },
+      ] as any);
+
+      await service.listRows(user, {
+        databaseId: 'db-1',
+        filters: [{ propertyId: 'p-num', op: 'is_empty' }],
+      } as any);
+
+      expect(databaseRepo.listRows).toHaveBeenCalledWith('dbpage-1', {
+        filters: [
+          {
+            propertyId: 'p-num',
+            propertyType: 'number',
+            op: 'is_empty',
+            value: undefined,
+          },
+        ],
+        sorts: [],
+      });
+    });
+
     it('rejects a filter on a property not in this database (400)', async () => {
       propertyRepo.findByDatabaseId.mockResolvedValue([] as any);
 
