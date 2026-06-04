@@ -4,6 +4,7 @@ import {
   IDatabaseProperty,
   IDatabasePropertyValue,
   IDatabaseRow,
+  IDatabaseView,
   IFilterCondition,
   ISortCondition,
 } from "@/features/database/types/database.types.ts";
@@ -169,4 +170,19 @@ export function removeProperty(
       return old.filter((p) => p.id !== propertyId);
     },
   );
+}
+
+// Patch a single view in place from the server response. Used instead of
+// invalidating the views query so persisting filters/sorts (or columns/name)
+// does not replace the views array identity — which would otherwise retrigger
+// the container's reseed effect and clobber in-flight local edits.
+export function patchView(
+  qc: QueryClient,
+  databaseId: string,
+  view: IDatabaseView,
+) {
+  qc.setQueryData<IDatabaseView[]>(databaseViewsKey(databaseId), (old) => {
+    if (!old) return old;
+    return old.map((v) => (v.id === view.id ? view : v));
+  });
 }

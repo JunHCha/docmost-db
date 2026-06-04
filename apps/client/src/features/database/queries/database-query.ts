@@ -59,6 +59,7 @@ import {
   patchProperty,
   patchRowTitle,
   patchRowValue,
+  patchView,
   removeProperty,
   removeRows,
   removeRowValue,
@@ -358,7 +359,13 @@ export function useUpdateViewMutation(databaseId: string) {
   const { t } = useTranslation();
   return useMutation<IDatabaseView, Error, IUpdateViewParams>({
     mutationFn: (data) => updateView(data),
-    onSuccess: () => invalidateViews(databaseId),
+    // Patch the single updated view in the cache instead of invalidating the
+    // whole views query. Invalidation refetches and replaces the views array,
+    // which retriggers the container's filters/sorts reseed effect and can
+    // clobber an in-flight local edit mid-debounce. Patching keeps the other
+    // views' identities stable while still reflecting the server's canonical
+    // copy (filters/sorts, columns, name).
+    onSuccess: (view) => patchView(queryClient, databaseId, view),
     onError: () => {
       invalidateViews(databaseId);
       notifications.show({ message: t("Failed to update view"), color: "red" });

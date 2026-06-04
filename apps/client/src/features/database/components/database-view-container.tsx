@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Center,
@@ -59,14 +59,21 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
 
   // Local working copy of the active view's filters/sorts. The rows query reads
   // it (so changes apply immediately) while a debounced updateView persists it
-  // to database_views.config. Reseed whenever the active view changes so each
-  // view edits its own conditions.
+  // to database_views.config.
   const [filters, setFilters] = useState<IFilterCondition[]>([]);
   const [sorts, setSorts] = useState<ISortCondition[]>([]);
+  // Reseed ONLY when the active view changes (tab switch), not when the active
+  // view's config reference changes. updateView now patches the views cache in
+  // place, but even a server echo of the just-saved config would otherwise
+  // retrigger this effect mid-debounce and clobber the user's in-flight edit
+  // with a stale snapshot. The config is read through a ref so it is current at
+  // reseed time without being an effect dependency.
+  const activeConfigRef = useRef(activeView?.config);
+  activeConfigRef.current = activeView?.config;
   useEffect(() => {
-    setFilters(activeView?.config.filters ?? []);
-    setSorts(activeView?.config.sorts ?? []);
-  }, [activeViewId, activeView?.config.filters, activeView?.config.sorts]);
+    setFilters(activeConfigRef.current?.filters ?? []);
+    setSorts(activeConfigRef.current?.sorts ?? []);
+  }, [activeViewId]);
 
   const viewConfig = useMemo(
     () => (activeView ? { ...activeView.config, filters, sorts } : undefined),

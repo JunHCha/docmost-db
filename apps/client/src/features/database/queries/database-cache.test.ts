@@ -13,11 +13,13 @@ import {
   patchProperty,
   removeProperty,
   patchRowTitle,
+  patchView,
 } from "./database-cache";
 import {
   IDatabaseProperty,
   IDatabasePropertyValue,
   IDatabaseRow,
+  IDatabaseView,
 } from "@/features/database/types/database.types.ts";
 
 const dbId = "db1";
@@ -233,6 +235,33 @@ describe("database-cache", () => {
 
   it("databaseViewsKey is namespaced by databaseId", () => {
     expect(databaseViewsKey(dbId)).toEqual(["database-views", dbId]);
+  });
+
+  it("patchView replaces the matching view without touching the array identity of others", () => {
+    const v1 = { id: "v1", config: {}, name: "Grid" } as unknown as IDatabaseView;
+    const v2 = { id: "v2", config: {}, name: "Board" } as unknown as IDatabaseView;
+    qc.setQueryData(databaseViewsKey(dbId), [v1, v2]);
+
+    const updated = {
+      ...v1,
+      config: { filters: [{ propertyId: "p1", op: "eq", value: "x" }] },
+    } as unknown as IDatabaseView;
+    patchView(qc, dbId, updated);
+
+    const views = qc.getQueryData<IDatabaseView[]>(databaseViewsKey(dbId))!;
+    expect(views[0]).toEqual(updated);
+    // The untouched view is unchanged.
+    expect(views[1]).toEqual(v2);
+    // Only the matching view's config was swapped in.
+    expect(views[0].config).toEqual(updated.config);
+    expect(views[1].config).toEqual({});
+  });
+
+  it("patchView is a no-op when the views cache is empty", () => {
+    expect(() =>
+      patchView(qc, dbId, { id: "v1" } as unknown as IDatabaseView),
+    ).not.toThrow();
+    expect(qc.getQueryData(databaseViewsKey(dbId))).toBeUndefined();
   });
 
   it("patchRowValue patches every cached view for the database", () => {

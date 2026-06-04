@@ -446,14 +446,31 @@ describe("view mutations invalidate the views query", () => {
     });
   });
 
-  it("updateView invalidates views on success", async () => {
-    service.updateView.mockResolvedValue({ id: "v1" });
+  it("updateView patches the view in the cache (no invalidate) on success", async () => {
+    // Seed the views cache so patchView has something to map over.
+    queryClient.setQueryData(databaseViewsKey(dbId), [
+      { id: "v1", name: "Grid", config: {} },
+      { id: "v2", name: "Board", config: {} },
+    ]);
+    const updated = {
+      id: "v1",
+      name: "Renamed",
+      config: { filters: [{ propertyId: "p1", op: "eq", value: "x" }] },
+    };
+    service.updateView.mockResolvedValue(updated);
     const { result } = renderHook(() => useUpdateViewMutation(dbId), {
       wrapper,
     });
     result.current.mutate({ viewId: "v1", name: "Renamed" } as never);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({
+    // Patched in place, not invalidated — invalidating would refetch+replace the
+    // views array and clobber the container's in-flight filter edit (reseed race).
+    const views = queryClient.getQueryData<{ id: string; config: unknown }[]>(
+      databaseViewsKey(dbId),
+    )!;
+    expect(views[0]).toEqual(updated);
+    expect(views[1].id).toBe("v2");
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
       queryKey: databaseViewsKey(dbId),
     });
   });
