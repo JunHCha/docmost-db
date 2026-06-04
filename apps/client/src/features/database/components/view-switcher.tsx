@@ -147,16 +147,29 @@ export function ViewSwitcher({
           onDelete={() => deleteView.mutate({ viewId: view.id })}
         />
       ))}
-      <ActionIcon
-        size="sm"
-        variant="subtle"
-        aria-label={t("Add view")}
-        onClick={() =>
-          createView.mutate({ databaseId, name: t("Table"), type: "table" })
-        }
-      >
-        +
-      </ActionIcon>
+      <Menu position="bottom-start" transitionProps={{ duration: 0 }}>
+        <Menu.Target>
+          <ActionIcon size="sm" variant="subtle" aria-label={t("Add view")}>
+            +
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item
+            onClick={() =>
+              createView.mutate({ databaseId, name: t("Table"), type: "table" })
+            }
+          >
+            {t("Table")}
+          </Menu.Item>
+          <Menu.Item
+            onClick={() =>
+              createView.mutate({ databaseId, name: t("Board"), type: "board" })
+            }
+          >
+            {t("Board")}
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
     </Group>
   );
 }
