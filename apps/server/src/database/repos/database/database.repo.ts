@@ -147,9 +147,7 @@ export class DatabaseRepo {
       .where('pages.deletedAt', 'is', null);
 
     for (const filter of options.filters ?? []) {
-      query = query.where((eb) =>
-        eb.and([this.buildFilter(filter)]),
-      ) as typeof query;
+      query = query.where(() => this.buildFilter(filter)) as typeof query;
     }
 
     if (options.sorts && options.sorts.length > 0) {
@@ -187,6 +185,10 @@ export class DatabaseRepo {
     // multi_select / relation arrays: jsonb containment.
     if (propertyType === 'multi_select' || propertyType === 'relation') {
       const contains = sql<boolean>`(${v} @> ${sql.lit(JSON.stringify(value))}::jsonb)`;
+      // not_contains intentionally matches rows with no value too (`${v} is
+      // null`): under conventions.md §1 ("empty value = no value row"), a row
+      // that lacks this property does *not* contain the id, so "does not
+      // contain X" includes it. This mirrors neq below.
       return op === 'not_contains'
         ? sql<boolean>`(${v} is null or not ${contains})`
         : contains;
@@ -203,6 +205,9 @@ export class DatabaseRepo {
         case 'eq':
           return sql<boolean>`(${num} = ${value})`;
         case 'neq':
+          // `is distinct from` intentionally treats a NULL (valueless) row as
+          // "not equal", so "is not X" includes rows with no value. See the
+          // not_contains note above and conventions.md §1.
           return sql<boolean>`(${num} is distinct from ${value})`;
         case 'gt':
           return sql<boolean>`(${num} > ${value})`;
@@ -222,6 +227,8 @@ export class DatabaseRepo {
       case 'eq':
         return sql<boolean>`(${txt} = ${str})`;
       case 'neq':
+        // Intentionally includes valueless rows (NULL is distinct from str):
+        // "is not X" matches rows with no value. See conventions.md §1.
         return sql<boolean>`(${txt} is distinct from ${str})`;
       case 'contains':
         return sql<boolean>`(${txt} ilike ${'%' + str + '%'})`;
