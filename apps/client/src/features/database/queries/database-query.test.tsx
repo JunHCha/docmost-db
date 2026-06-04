@@ -46,6 +46,8 @@ const service = {
   setValue: vi.fn(),
   clearValue: vi.fn(),
   createRow: vi.fn(),
+  deleteRows: vi.fn(),
+  listRows: vi.fn(),
   createProperty: vi.fn(),
   updateProperty: vi.fn(),
   deleteProperty: vi.fn(),
@@ -68,7 +70,8 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   createDatabase: vi.fn(),
   getDatabaseInfo: vi.fn(),
   listProperties: vi.fn(),
-  listRows: vi.fn(),
+  listRows: (...a: unknown[]) => service.listRows(...a),
+  deleteRows: (...a: unknown[]) => service.deleteRows(...a),
   listDatabases: (...a: unknown[]) => service.listDatabases(...a),
   listViews: vi.fn(),
   createView: (...a: unknown[]) => service.createView(...a),
@@ -82,7 +85,9 @@ import {
   useCreatePropertyMutation,
   useCreateRowMutation,
   useCreateViewMutation,
+  useDatabaseRowsQuery,
   useDeletePropertyMutation,
+  useDeleteRowsMutation,
   useListDatabasesQuery,
   useReorderPropertyMutation,
   useSetDefaultViewMutation,
@@ -90,7 +95,8 @@ import {
   useUpdatePropertyMutation,
   useUpdateViewMutation,
 } from "./database-query.ts";
-import { databasesKey } from "./database-cache.ts";
+import { databaseRowsKey, databasesKey } from "./database-cache.ts";
+import { IDatabaseRow } from "@/features/database/types/database.types.ts";
 
 const dbId = "db1";
 
@@ -269,6 +275,92 @@ describe("useUpdatePropertyMutation success path", () => {
     expect(invalidateSpy).not.toHaveBeenCalledWith({
       queryKey: ["database-rows", dbId],
     });
+  });
+});
+
+describe("useDatabaseRowsQuery passes the view's filters/sorts", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+  });
+
+  it("forwards config filters/sorts to the listRows request body", async () => {
+    service.listRows.mockResolvedValue([]);
+    const config = {
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+      sorts: [{ propertyId: "p2", direction: "desc" }],
+    } as never;
+
+    const { result } = renderHook(
+      () => useDatabaseRowsQuery(dbId, "v1", config),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(service.listRows).toHaveBeenCalledWith({
+      databaseId: dbId,
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+      sorts: [{ propertyId: "p2", direction: "desc" }],
+    });
+  });
+
+  it("caches each view's rows under its own viewId key", async () => {
+    service.listRows.mockResolvedValue([]);
+    renderHook(() => useDatabaseRowsQuery(dbId, "v1"), { wrapper });
+    renderHook(() => useDatabaseRowsQuery(dbId, "v2"), { wrapper });
+    await waitFor(() =>
+      expect(service.listRows).toHaveBeenCalledTimes(2),
+    );
+    // Distinct query keys => independent cache slots per view.
+    expect(databaseRowsKey(dbId, "v1")).not.toEqual(
+      databaseRowsKey(dbId, "v2"),
+    );
+  });
+});
+
+describe("useDeleteRowsMutation", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+  });
+
+  it("optimistically removes the selected rows from the cache", async () => {
+    service.deleteRows.mockResolvedValue(undefined);
+    queryClient.setQueryData(databaseRowsKey(dbId, "v1"), [
+      { row: { id: "p1" }, values: [] },
+      { row: { id: "p2" }, values: [] },
+      { row: { id: "p3" }, values: [] },
+    ]);
+
+    const { result } = renderHook(() => useDeleteRowsMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ databaseId: dbId, pageIds: ["p1", "p3"] } as never);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(
+      queryClient
+        .getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))!
+        .map((r) => r.row.id),
+    ).toEqual(["p2"]);
+  });
+
+  it("invalidates the rows query on error", async () => {
+    service.deleteRows.mockRejectedValue(new Error("boom"));
+    const invalidate = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+
+    const { result } = renderHook(() => useDeleteRowsMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ databaseId: dbId, pageIds: ["p1"] } as never);
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["database-rows", dbId],
+    });
+    invalidate.mockRestore();
   });
 });
 

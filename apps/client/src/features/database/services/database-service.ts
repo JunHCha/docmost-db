@@ -12,6 +12,7 @@ import {
   IDatabasePropertyValue,
   IDatabaseRow,
   IDeletePropertyParams,
+  IDeleteRowsParams,
   IGetDatabaseInfoParams,
   IListDatabasesParams,
   IListPropertiesParams,
@@ -99,6 +100,10 @@ export async function listRows(
 export async function createRow(data: ICreateRowParams): Promise<IPage> {
   const req = await api.post<IPage>("/databases/rows/create", data);
   return req.data;
+}
+
+export async function deleteRows(data: IDeleteRowsParams): Promise<void> {
+  await api.post<void>("/databases/rows/delete", data);
 }
 
 export async function setValue(

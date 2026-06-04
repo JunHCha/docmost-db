@@ -7,6 +7,7 @@ import {
   databaseViewsKey,
   patchRowValue,
   removeRowValue,
+  removeRows,
   appendRow,
   appendProperty,
   patchProperty,
@@ -97,6 +98,25 @@ describe("database-cache", () => {
 
     const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows![0].values).toEqual([b]);
+  });
+
+  it("removeRows drops the selected rows across every cached view", () => {
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [
+      makeRow("p1"),
+      makeRow("p2"),
+      makeRow("p3"),
+    ]);
+    // A second view where p2 is filtered out — removeRows must not choke on it.
+    qc.setQueryData(databaseRowsKey(dbId, "v2"), [makeRow("p1"), makeRow("p3")]);
+
+    removeRows(qc, dbId, ["p1", "p3"]);
+
+    expect(
+      qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1")),
+    ).toEqual([makeRow("p2")]);
+    expect(
+      qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v2")),
+    ).toEqual([]);
   });
 
   it("appendRow appends a new row with empty values", () => {

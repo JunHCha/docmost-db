@@ -29,9 +29,10 @@ export function databaseRowsKey(databaseId: string, viewId: string): QueryKey {
   return ["database-rows", databaseId, viewId];
 }
 
-// Rows are identical across views (filtering/sorting is a later issue), so
-// optimistic patches target every cached view via the [database-rows, dbId]
-// prefix rather than a single viewId slot.
+// Rows now differ per view (each view applies its own filters/sorts server-
+// side), so a row may be present in some cached views and absent from others.
+// Optimistic patches still target every cached view via the [database-rows,
+// dbId] prefix; the updater is a no-op for views where the row is missing.
 function patchRows(
   qc: QueryClient,
   databaseId: string,
@@ -40,6 +41,19 @@ function patchRows(
   qc.setQueriesData<IDatabaseRow[]>(
     { queryKey: ["database-rows", databaseId] },
     (old) => (old ? updater(old) : old),
+  );
+}
+
+// Optimistically drop the given rows from every cached view of the database
+// (used by bulk delete). Rows absent from a view are simply not matched.
+export function removeRows(
+  qc: QueryClient,
+  databaseId: string,
+  pageIds: string[],
+) {
+  const ids = new Set(pageIds);
+  patchRows(qc, databaseId, (rows) =>
+    rows.filter((row) => !ids.has(row.row.id)),
   );
 }
 
