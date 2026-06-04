@@ -24,7 +24,6 @@ import { BoardSettingsMenu } from "./board-settings-menu";
 
 interface BoardViewProps {
   databaseId: string;
-  spaceId: string;
   properties: IDatabaseProperty[];
   rows: IDatabaseRow[];
   activeView: IDatabaseView;

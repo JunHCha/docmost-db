@@ -116,7 +116,6 @@ function renderBoard(opts: {
         <MemoryRouter>
           <BoardView
             databaseId="db1"
-            spaceId="space1"
             properties={opts.properties ?? properties}
             rows={opts.rows ?? []}
             activeView={view(opts.config ?? {})}

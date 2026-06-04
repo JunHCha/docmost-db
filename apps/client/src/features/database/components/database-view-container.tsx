@@ -106,7 +106,6 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
       {activeView.type === "board" ? (
         <BoardView
           databaseId={databaseId}
-          spaceId={infoQuery.data?.database.spaceId ?? ""}
           properties={propertiesQuery.data ?? []}
           rows={rowsQuery.data ?? []}
           activeView={activeView}
