@@ -107,6 +107,7 @@ function view(config: IDatabaseView["config"]): IDatabaseView {
 function renderBoard(opts: {
   config?: IDatabaseView["config"];
   rows?: IDatabaseRow[];
+  properties?: IDatabaseProperty[];
 } = {}) {
   const queryClient = new QueryClient();
   return render(
@@ -116,7 +117,7 @@ function renderBoard(opts: {
           <BoardView
             databaseId="db1"
             spaceId="space1"
-            properties={properties}
+            properties={opts.properties ?? properties}
             rows={opts.rows ?? []}
             activeView={view(opts.config ?? {})}
             spaceSlug="my-space"
@@ -240,6 +241,26 @@ describe("BoardView", () => {
     });
     expect(removeRowValue).toHaveBeenCalled();
     expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the empty state when group-by points at a non-groupable type", () => {
+    const textProp: IDatabaseProperty = {
+      id: "notes",
+      databaseId: "db1",
+      name: "Notes",
+      type: "text",
+      config: {},
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    renderBoard({
+      config: { groupByPropertyId: "notes" },
+      properties: [textProp],
+    });
+    expect(screen.getByText("Select a property to group by")).toBeTruthy();
+    expect(screen.queryByTestId("board-column")).toBeNull();
   });
 
   it("persists a group-by change through updateView", () => {

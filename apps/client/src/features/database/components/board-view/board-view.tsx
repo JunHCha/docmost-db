@@ -73,10 +73,16 @@ export function BoardView({
 
   const groupByPropertyId = activeView.config.groupByPropertyId;
   const cardPropertyIds = activeView.config.cardProperties ?? [];
-  const groupBy = useMemo(
-    () => properties.find((p) => p.id === groupByPropertyId),
-    [properties, groupByPropertyId],
-  );
+  // Only select/multi_select can be grouped. Guard the render path against a
+  // stale view or hand-injected config that points groupBy at another type —
+  // fall back to the empty "pick a property" state instead of grouping.
+  const groupBy = useMemo(() => {
+    const prop = properties.find((p) => p.id === groupByPropertyId);
+    if (!prop || (prop.type !== "select" && prop.type !== "multi_select")) {
+      return undefined;
+    }
+    return prop;
+  }, [properties, groupByPropertyId]);
 
   const cardProperties = useMemo(
     () =>
