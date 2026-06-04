@@ -98,9 +98,28 @@ export function BoardView({
     });
   }
 
-  // Move a card to a column. We optimistically patch the rows cache so the card
-  // jumps immediately, then fire the real mutation; its onError invalidates the
-  // rows prefix and rolls the optimistic patch back.
+  // Optimistically patch the rows cache so the card shows in the target column
+  // immediately, then fire the real set-value mutation; its onError invalidates
+  // the rows prefix and rolls the optimistic patch back. Shared by card drops
+  // and new-card creation so both follow the same optimistic path.
+  function setGroupValueOptimistic(
+    rowId: string,
+    groupProperty: IDatabaseProperty,
+    value: NonNullable<IDatabasePropertyValue["value"]>,
+  ) {
+    patchRowValue(queryClient, databaseId, {
+      id: `optimistic-${rowId}-${groupProperty.id}`,
+      pageId: rowId,
+      propertyId: groupProperty.id,
+      value,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    setValue.mutate({ pageId: rowId, propertyId: groupProperty.id, value });
+  }
+
+  // Move a card to a column. Clearing for the unassigned column; otherwise the
+  // shared optimistic set-value path above.
   function moveCard(rowId: string, optionId: string | null) {
     if (!groupBy) return;
     const row = rows.find((r) => r.row.id === rowId);
@@ -110,15 +129,7 @@ export function BoardView({
       clearValue.mutate({ pageId: rowId, propertyId: groupBy.id });
       return;
     }
-    patchRowValue(queryClient, databaseId, {
-      id: `optimistic-${rowId}-${groupBy.id}`,
-      pageId: rowId,
-      propertyId: groupBy.id,
-      value,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    setValue.mutate({ pageId: rowId, propertyId: groupBy.id, value });
+    setGroupValueOptimistic(rowId, groupBy, value);
   }
 
   function createInColumn(optionId: string | null) {
@@ -127,15 +138,14 @@ export function BoardView({
       { databaseId },
       {
         onSuccess: (page) => {
+          // Unassigned column: leave the group value unset (existing behavior).
           if (optionId === null) return;
           const value = nextValueFor(groupBy, undefined, optionId);
-          if (value) {
-            setValue.mutate({
-              pageId: page.id,
-              propertyId: groupBy.id,
-              value,
-            });
-          }
+          // Reuse the same optimistic patch as card drops so the new card lands
+          // in its column immediately; a failed set-value invalidates and rolls
+          // back, dropping the card to the unassigned column rather than leaving
+          // it stranded with no optimistic feedback.
+          if (value) setGroupValueOptimistic(page.id, groupBy, value);
         },
       },
     );

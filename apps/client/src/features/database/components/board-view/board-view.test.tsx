@@ -179,6 +179,37 @@ describe("BoardView", () => {
     );
   });
 
+  it("optimistically patches and sets the group value for a new card", () => {
+    renderBoard({ config: { groupByPropertyId: "status" } });
+    const todo = screen
+      .getAllByTestId("board-column")
+      .find((c) => c.getAttribute("data-option-id") === "todo") as HTMLElement;
+    fireEvent.click(within(todo).getByText("+ New"));
+    // Simulate the server resolving the new row, then drive onSuccess.
+    const onSuccess = createRowMutate.mock.calls[0][1].onSuccess;
+    onSuccess({ id: "newRow" });
+    expect(patchRowValue).toHaveBeenCalled();
+    expect(setMutate).toHaveBeenCalledWith({
+      pageId: "newRow",
+      propertyId: "status",
+      value: { type: "select", value: "todo" },
+    });
+  });
+
+  it("does not set or patch a group value for new cards in the unassigned column", () => {
+    renderBoard({ config: { groupByPropertyId: "status" } });
+    const unassigned = screen
+      .getAllByTestId("board-column")
+      .find(
+        (c) => c.getAttribute("data-option-id") === "unassigned",
+      ) as HTMLElement;
+    fireEvent.click(within(unassigned).getByText("+ New"));
+    const onSuccess = createRowMutate.mock.calls[0][1].onSuccess;
+    onSuccess({ id: "newRow" });
+    expect(setMutate).not.toHaveBeenCalled();
+    expect(patchRowValue).not.toHaveBeenCalled();
+  });
+
   it("sets the group value and optimistically patches on a card drop", () => {
     renderBoard({
       config: { groupByPropertyId: "status" },
