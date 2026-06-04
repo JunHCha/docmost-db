@@ -39,7 +39,7 @@ export class DatabaseViewService {
     return this.viewRepo.insertView({
       databaseId: dto.databaseId,
       name: dto.name,
-      type: dto.type ?? 'grid',
+      type: dto.type ?? 'table',
       config: (dto.config ?? {}) as Record<string, any>,
       position,
       isDefault: siblings.length === 0,
@@ -104,8 +104,8 @@ export class DatabaseViewService {
     try {
       const created = await this.viewRepo.insertView({
         databaseId: dto.databaseId,
-        name: 'Grid',
-        type: 'grid',
+        name: 'Table',
+        type: 'table',
         config: {},
         position: generateJitteredKeyBetween(null, null),
         isDefault: true,

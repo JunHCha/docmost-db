@@ -152,7 +152,7 @@ export function ViewSwitcher({
         variant="subtle"
         aria-label={t("Add view")}
         onClick={() =>
-          createView.mutate({ databaseId, name: t("Grid"), type: "grid" })
+          createView.mutate({ databaseId, name: t("Table"), type: "table" })
         }
       >
         +

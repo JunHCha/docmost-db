@@ -22,7 +22,7 @@ function view(id: string, name: string, isDefault = false): IDatabaseView {
     id,
     databaseId: "db1",
     name,
-    type: "grid",
+    type: "table",
     config: {},
     isDefault,
     position: id,
@@ -88,13 +88,13 @@ describe("ViewSwitcher", () => {
     expect(screen.getByText("Rename")).toBeTruthy();
   });
 
-  it("creates a grid view when the add button is clicked", () => {
+  it("creates a table view when the add button is clicked", () => {
     renderSwitcher();
     fireEvent.click(screen.getByLabelText("Add view"));
     expect(createViewMutate).toHaveBeenCalledWith({
       databaseId: "db1",
-      name: "Grid",
-      type: "grid",
+      name: "Table",
+      type: "table",
     });
   });
 

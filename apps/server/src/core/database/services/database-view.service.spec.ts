@@ -99,7 +99,7 @@ describe('DatabaseViewService', () => {
         expect.objectContaining({
           databaseId: 'db-1',
           name: 'Grid',
-          type: 'grid',
+          type: 'table',
           isDefault: true,
           position: expect.any(String),
         }),
@@ -127,13 +127,13 @@ describe('DatabaseViewService', () => {
       expect(result).toBe(views);
     });
 
-    it('lazily creates a default grid view when none exist', async () => {
+    it('lazily creates a default table view when none exist', async () => {
       viewRepo.findByDatabaseId.mockResolvedValueOnce([]);
       const result = await service.list(user, { databaseId: 'db-1' } as any);
       expect(viewRepo.insertView).toHaveBeenCalledWith(
         expect.objectContaining({
           databaseId: 'db-1',
-          type: 'grid',
+          type: 'table',
           isDefault: true,
         }),
       );
