@@ -15,10 +15,17 @@ import {
   SpaceCaslSubject,
 } from '../../casl/interfaces/space-ability.type';
 import { Database, User, Workspace } from '@docmost/db/types/entity.types';
+import {
+  ListRowsOptions,
+  RowFilter,
+  RowSort,
+} from '@docmost/db/repos/database/database.repo';
 import { assertPropertyType } from '../utils/property-config';
+import { assertOpForType } from '../utils/filter-ops';
 import { validateValueForType } from '../utils/property-value';
 import { CreateRowDto } from '../dto/create-row.dto';
 import { ListRowsDto } from '../dto/list-rows.dto';
+import { DeleteRowsDto } from '../dto/delete-rows.dto';
 import { SetValueDto } from '../dto/set-value.dto';
 import { ClearValueDto } from '../dto/clear-value.dto';
 
@@ -61,7 +68,8 @@ export class DatabaseRowService {
       SpaceCaslAction.Read,
     );
 
-    const rows = await this.databaseRepo.listRows(database.pageId);
+    const options = await this.resolveListOptions(database, dto);
+    const rows = await this.databaseRepo.listRows(database.pageId, options);
     const values = await this.valueRepo.findByPageIds(rows.map((r) => r.id));
 
     const valuesByPage = new Map<string, typeof values>();
@@ -75,6 +83,84 @@ export class DatabaseRowService {
       row,
       values: valuesByPage.get(row.id) ?? [],
     }));
+  }
+
+  async deleteRows(user: User, workspace: Workspace, dto: DeleteRowsDto) {
+    const database = await this.authorize(
+      user,
+      dto.databaseId,
+      SpaceCaslAction.Edit,
+    );
+
+    // Validate every page id is a live row of this database first, so a single
+    // bad id rejects the whole batch (no partial deletes).
+    const pages = await Promise.all(
+      dto.pageIds.map((id) => this.pageRepo.findById(id)),
+    );
+    pages.forEach((page) => {
+      if (
+        !page ||
+        page.deletedAt ||
+        page.parentPageId !== database.pageId
+      ) {
+        throw new BadRequestException('Row does not belong to this database');
+      }
+    });
+
+    // Soft-delete (trash) each row via the existing page path.
+    for (const pageId of dto.pageIds) {
+      await this.pageService.removePage(pageId, user.id, workspace.id);
+    }
+
+    return { deleted: dto.pageIds.length };
+  }
+
+  // Validate filters/sorts against this database's properties and the op
+  // whitelist, then map to repo-level options (resolving property types).
+  private async resolveListOptions(
+    database: Database,
+    dto: ListRowsDto,
+  ): Promise<ListRowsOptions> {
+    const filters = dto.filters ?? [];
+    const sorts = dto.sorts ?? [];
+    if (filters.length === 0 && sorts.length === 0) return {};
+
+    const properties = await this.propertyRepo.findByDatabaseId(database.id);
+    const typeById = new Map(properties.map((p) => [p.id, p.type]));
+
+    const resolvedFilters: RowFilter[] = filters.map((f) => {
+      const type = typeById.get(f.propertyId);
+      if (!type) {
+        throw new BadRequestException(
+          'Filter references a property not in this database',
+        );
+      }
+      assertPropertyType(type);
+      assertOpForType(type, f.op);
+      return {
+        propertyId: f.propertyId,
+        propertyType: type,
+        op: f.op,
+        value: f.value,
+      };
+    });
+
+    const resolvedSorts: RowSort[] = sorts.map((s) => {
+      const type = typeById.get(s.propertyId);
+      if (!type) {
+        throw new BadRequestException(
+          'Sort references a property not in this database',
+        );
+      }
+      assertPropertyType(type);
+      return {
+        propertyId: s.propertyId,
+        propertyType: type,
+        direction: s.direction,
+      };
+    });
+
+    return { filters: resolvedFilters, sorts: resolvedSorts };
   }
 
   async setValue(user: User, dto: SetValueDto) {

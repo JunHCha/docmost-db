@@ -9,6 +9,7 @@ import {
 import { DatabaseRowService } from './services/database-row.service';
 import { CreateRowDto } from './dto/create-row.dto';
 import { ListRowsDto } from './dto/list-rows.dto';
+import { DeleteRowsDto } from './dto/delete-rows.dto';
 import { SetValueDto } from './dto/set-value.dto';
 import { ClearValueDto } from './dto/clear-value.dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -35,6 +36,16 @@ export class DatabaseRowController {
   @Post('rows/list')
   async listRows(@Body() dto: ListRowsDto, @AuthUser() user: User) {
     return this.databaseRowService.listRows(user, dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('rows/delete')
+  async deleteRows(
+    @Body() dto: DeleteRowsDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.databaseRowService.deleteRows(user, workspace, dto);
   }
 
   @HttpCode(HttpStatus.OK)

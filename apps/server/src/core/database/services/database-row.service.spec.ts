@@ -40,9 +40,11 @@ function abilityMock(allowed: boolean) {
 
 describe('DatabaseRowService', () => {
   let service: DatabaseRowService;
-  let pageService: jest.Mocked<Pick<PageService, 'create'>>;
+  let pageService: jest.Mocked<Pick<PageService, 'create' | 'removePage'>>;
   let databaseRepo: jest.Mocked<Pick<DatabaseRepo, 'findById' | 'listRows'>>;
-  let propertyRepo: jest.Mocked<Pick<DatabasePropertyRepo, 'findById'>>;
+  let propertyRepo: jest.Mocked<
+    Pick<DatabasePropertyRepo, 'findById' | 'findByDatabaseId'>
+  >;
   let valueRepo: jest.Mocked<
     Pick<DatabasePropertyValueRepo, 'findByPageIds' | 'setValue' | 'clearValue'>
   >;
@@ -50,12 +52,15 @@ describe('DatabaseRowService', () => {
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
 
   beforeEach(async () => {
-    pageService = { create: jest.fn() } as any;
+    pageService = { create: jest.fn(), removePage: jest.fn() } as any;
     databaseRepo = {
       findById: jest.fn().mockResolvedValue(database),
       listRows: jest.fn().mockResolvedValue([]),
     } as any;
-    propertyRepo = { findById: jest.fn() } as any;
+    propertyRepo = {
+      findById: jest.fn(),
+      findByDatabaseId: jest.fn().mockResolvedValue([]),
+    } as any;
     valueRepo = {
       findByPageIds: jest.fn().mockResolvedValue([]),
       setValue: jest.fn(),
@@ -135,7 +140,7 @@ describe('DatabaseRowService', () => {
       const result = await service.listRows(user, { databaseId: 'db-1' } as any);
 
       expect(spaceAbility.createForUser).toHaveBeenCalledWith(user, 'space-1');
-      expect(databaseRepo.listRows).toHaveBeenCalledWith('dbpage-1');
+      expect(databaseRepo.listRows).toHaveBeenCalledWith('dbpage-1', {});
       expect(result).toEqual([
         {
           row: { id: 'row-1' },
@@ -145,6 +150,126 @@ describe('DatabaseRowService', () => {
         },
         { row: { id: 'row-2' }, values: [] },
       ]);
+    });
+
+    it('resolves filters/sorts against db properties and passes options', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-num', type: 'number' },
+        { id: 'p-txt', type: 'text' },
+      ] as any);
+
+      await service.listRows(user, {
+        databaseId: 'db-1',
+        filters: [{ propertyId: 'p-num', op: 'gte', value: 100 }],
+        sorts: [{ propertyId: 'p-txt', direction: 'desc' }],
+      } as any);
+
+      expect(databaseRepo.listRows).toHaveBeenCalledWith('dbpage-1', {
+        filters: [
+          {
+            propertyId: 'p-num',
+            propertyType: 'number',
+            op: 'gte',
+            value: 100,
+          },
+        ],
+        sorts: [
+          { propertyId: 'p-txt', propertyType: 'text', direction: 'desc' },
+        ],
+      });
+    });
+
+    it('rejects an op not allowed for the property type (400)', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-sel', type: 'select' },
+      ] as any);
+
+      await expect(
+        service.listRows(user, {
+          databaseId: 'db-1',
+          filters: [{ propertyId: 'p-sel', op: 'contains', value: 'x' }],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(databaseRepo.listRows).not.toHaveBeenCalled();
+    });
+
+    it('rejects a filter on a property not in this database (400)', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([] as any);
+
+      await expect(
+        service.listRows(user, {
+          databaseId: 'db-1',
+          filters: [{ propertyId: 'foreign', op: 'eq', value: 'x' }],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('requires read permission', async () => {
+      spaceAbility.createForUser.mockResolvedValue(abilityMock(false) as any);
+      await expect(
+        service.listRows(user, { databaseId: 'db-1' } as any),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('deleteRows', () => {
+    it('requires edit permission', async () => {
+      spaceAbility.createForUser.mockResolvedValue(abilityMock(false) as any);
+      await expect(
+        service.deleteRows(user, workspace, {
+          databaseId: 'db-1',
+          pageIds: ['row-1'],
+        } as any),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(pageService.removePage).not.toHaveBeenCalled();
+    });
+
+    it('rejects a page that is not a live row of this database', async () => {
+      pageRepo.findById.mockResolvedValue({
+        id: 'row-x',
+        parentPageId: 'other-page',
+      } as any);
+      await expect(
+        service.deleteRows(user, workspace, {
+          databaseId: 'db-1',
+          pageIds: ['row-x'],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(pageService.removePage).not.toHaveBeenCalled();
+    });
+
+    it('rejects an already-deleted row', async () => {
+      pageRepo.findById.mockResolvedValue({
+        id: 'row-1',
+        parentPageId: 'dbpage-1',
+        deletedAt: new Date(),
+      } as any);
+      await expect(
+        service.deleteRows(user, workspace, {
+          databaseId: 'db-1',
+          pageIds: ['row-1'],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('soft-deletes each valid row via removePage', async () => {
+      pageRepo.findById.mockImplementation(
+        async (id: string) =>
+          ({ id, parentPageId: 'dbpage-1' }) as any,
+      );
+
+      const result = await service.deleteRows(user, workspace, {
+        databaseId: 'db-1',
+        pageIds: ['row-1', 'row-2'],
+      } as any);
+
+      expect(pageService.removePage).toHaveBeenCalledTimes(2);
+      expect(pageService.removePage).toHaveBeenCalledWith(
+        'row-1',
+        'user-1',
+        'ws-1',
+      );
+      expect(result).toEqual({ deleted: 2 });
     });
   });
 
