@@ -27,6 +27,12 @@ import { ColumnHeader } from "./column-header";
 import { GridCell } from "./grid-cell";
 import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
 import { echoColumns, resolveColumns } from "./view-columns";
+import { useRowSelection } from "./row-selection";
+import { GutterHeaderCheckbox, GutterRowCheckbox } from "./grid-row-gutter";
+import { SelectionActionBar } from "./selection-action-bar";
+import classes from "./table-view.module.css";
+
+const GUTTER_WIDTH = 36;
 
 interface RowTitleCellProps {
   row: IPage;
@@ -127,6 +133,15 @@ export function TableView({
   );
   const ordered = useMemo(() => columns.map((c) => c.property), [columns]);
 
+  // Multi-select over the visible (already filtered/sorted) rows.
+  const visibleRowIds = useMemo(() => rows.map((r) => r.row.id), [rows]);
+  const selection = useRowSelection(visibleRowIds);
+
+  function selectRow(id: string, mods: { shift: boolean; meta: boolean }) {
+    if (mods.shift) selection.selectRange(id);
+    else selection.toggle(id);
+  }
+
   // Persist a single column's config change as a full echoed columns array —
   // the view config is replaced wholesale on update (see echoColumns).
   function commitColumn(propertyId: string, patch: { visible?: boolean; width?: number }) {
@@ -149,6 +164,13 @@ export function TableView({
       data-testid="table-view"
       style={{ overflowX: "auto", maxWidth: "100%" }}
     >
+      {selection.selectedIds.size > 0 && (
+        <SelectionActionBar
+          databaseId={databaseId}
+          selectedIds={selection.selectedIds}
+          onClear={selection.clear}
+        />
+      )}
       <Table
         withTableBorder
         withColumnBorders
@@ -162,6 +184,13 @@ export function TableView({
       >
         <Table.Thead>
           <Table.Tr>
+            <Table.Th style={{ width: GUTTER_WIDTH }}>
+              <GutterHeaderCheckbox
+                checked={selection.isAllSelected}
+                indeterminate={selection.isIndeterminate}
+                onToggleAll={selection.selectAll}
+              />
+            </Table.Th>
             <Table.Th style={{ width: 220 }}>
               <Text size="sm" fw={500}>
                 {t("Title")}
@@ -198,8 +227,24 @@ export function TableView({
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {rows.map(({ row, values }) => (
-            <Table.Tr key={row.id}>
+          {rows.map(({ row, values }) => {
+            const selected = selection.selectedIds.has(row.id);
+            return (
+            <Table.Tr
+              key={row.id}
+              data-selected={selected || undefined}
+              className={classes.row}
+            >
+              <Table.Td
+                className={classes.gutter}
+                data-selected={selected || undefined}
+                style={{ width: GUTTER_WIDTH }}
+              >
+                <GutterRowCheckbox
+                  checked={selected}
+                  onSelect={(mods) => selectRow(row.id, mods)}
+                />
+              </Table.Td>
               <Table.Td>
                 <RowTitleCell
                   row={row}
@@ -219,9 +264,10 @@ export function TableView({
               ))}
               <Table.Td />
             </Table.Tr>
-          ))}
+            );
+          })}
           <Table.Tr>
-            <Table.Td colSpan={columns.length + 2}>
+            <Table.Td colSpan={columns.length + 3}>
               <Button
                 variant="subtle"
                 size="xs"

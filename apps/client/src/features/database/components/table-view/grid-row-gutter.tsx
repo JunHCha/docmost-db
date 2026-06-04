@@ -36,8 +36,8 @@ interface GutterRowCheckboxProps {
 }
 
 // tbody gutter cell. Hidden until the row is hovered or selected (CSS in
-// table-view via the db-row-gutter class), so it never competes with the cell
-// editing / open-row affordances. Click modifiers drive range / toggle select.
+// table-view.module.css), so it never competes with the cell editing /
+// open-row affordances. Click modifiers drive range / toggle select.
 export function GutterRowCheckbox({ checked, onSelect }: GutterRowCheckboxProps) {
   const { t } = useTranslation();
   return (
