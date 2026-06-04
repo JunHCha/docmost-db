@@ -72,6 +72,23 @@ describe("FilterValueWidget", () => {
     expect(onChange).toHaveBeenCalledWith(42);
   });
 
+  it("emits undefined (not 0) when the number input is cleared", () => {
+    const onChange = vi.fn();
+    renderWidget(
+      <FilterValueWidget
+        property={prop({ type: "number" })}
+        op="gte"
+        value={42}
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByLabelText("Filter value") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    // Number("") === 0 would persist a spurious 0; an empty field must clear.
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).not.toHaveBeenCalledWith(0);
+  });
+
   it("renders a date input for date", () => {
     renderWidget(
       <FilterValueWidget

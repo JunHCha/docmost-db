@@ -70,6 +70,17 @@ vi.mock("@/features/page/queries/page-query.ts", () => ({
   useUpdatePageMutation: () => ({ mutate: updatePageMutate }),
 }));
 
+// Stub the heavy view bodies (they pull in their own query-client hooks); the
+// container tests only care about which branch renders.
+vi.mock("./table-view/table-view", () => ({
+  TableView: ({ properties }: { properties: { name: string }[] }) => (
+    <div data-testid="table-view">{properties.map((p) => p.name).join(",")}</div>
+  ),
+}));
+vi.mock("./board-view/board-view", () => ({
+  BoardView: () => <div data-testid="board-view" />,
+}));
+
 import { DatabaseViewContainer } from "./database-view-container";
 
 const page = { id: "page1", title: "Tasks" } as any;
@@ -245,6 +256,49 @@ describe("DatabaseViewContainer", () => {
     renderContainer();
     expect(screen.getByText("No rows match the current filters")).toBeTruthy();
     expect(screen.getByText("Clear filters")).toBeTruthy();
+  });
+
+  it("renders the board (not the filtered-empty notice) for a board view with no rows", () => {
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: oneProperty, isLoading: false });
+    viewsQuery.mockReturnValue({
+      data: [
+        {
+          ...makeView("v1", "Board", true, {
+            filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+            groupByPropertyId: "p1",
+          }),
+          type: "board",
+        },
+      ],
+    });
+    rowsQuery.mockReturnValue({ data: [], isLoading: false });
+    renderContainer();
+    // The board view must render, not the table-only empty notice.
+    expect(screen.getByTestId("board-view")).toBeTruthy();
+    expect(screen.queryByText("No rows match the current filters")).toBeNull();
+  });
+
+  it("does not flash the filtered-empty notice while rows are loading", () => {
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: oneProperty, isLoading: false });
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      ],
+    });
+    // Rows still loading -> container shows its loader, never the empty notice.
+    rowsQuery.mockReturnValue({ data: undefined, isLoading: true });
+    renderContainer();
+    expect(screen.queryByText("No rows match the current filters")).toBeNull();
   });
 
   it("falls back to the default view when the active view disappears", () => {

@@ -174,14 +174,7 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
           onSortsChange={changeSorts}
         />
       </Group>
-      {(rowsQuery.data ?? []).length === 0 && filters.length > 0 ? (
-        <Stack align="center" py="xl" gap="xs">
-          <Text c="dimmed">{t("No rows match the current filters")}</Text>
-          <Button variant="subtle" size="xs" onClick={() => changeFilters([])}>
-            {t("Clear filters")}
-          </Button>
-        </Stack>
-      ) : activeView.type === "board" ? (
+      {activeView.type === "board" ? (
         <BoardView
           databaseId={databaseId}
           properties={propertiesQuery.data ?? []}
@@ -189,6 +182,18 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
           activeView={activeView}
           spaceSlug={spaceSlug}
         />
+      ) : !rowsQuery.isLoading &&
+        (rowsQuery.data ?? []).length === 0 &&
+        filters.length > 0 ? (
+        // Filtered-empty state is table-only: the board groups rows into option
+        // columns and stays useful when empty, and we gate on !isLoading so a
+        // refetch (e.g. after a filter change) doesn't flash this notice.
+        <Stack align="center" py="xl" gap="xs">
+          <Text c="dimmed">{t("No rows match the current filters")}</Text>
+          <Button variant="subtle" size="xs" onClick={() => changeFilters([])}>
+            {t("Clear filters")}
+          </Button>
+        </Stack>
       ) : (
         <TableView
           databaseId={databaseId}

@@ -89,6 +89,27 @@ describe("FilterRow", () => {
     expect(screen.queryByLabelText("Filter value")).toBeNull();
   });
 
+  it("drops a stale value when switching to an empty op", () => {
+    // p1 (select) with a chosen value -> switch op to Is empty: value must be gone.
+    const { onChange } = renderRow({ propertyId: "p1", op: "eq", value: "o1" });
+    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByText("Is empty"));
+    expect(onChange).toHaveBeenCalledWith({ propertyId: "p1", op: "is_empty" });
+    // No lingering value key in the emitted condition.
+    expect(onChange.mock.calls[0][0]).not.toHaveProperty("value");
+  });
+
+  it("keeps the value when switching between value ops", () => {
+    const { onChange } = renderRow({ propertyId: "p2", op: "gte", value: 100 });
+    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByText("Less than"));
+    expect(onChange).toHaveBeenCalledWith({
+      propertyId: "p2",
+      op: "lt",
+      value: 100,
+    });
+  });
+
   it("removes the condition", () => {
     const { onRemove } = renderRow({ propertyId: "p1", op: "eq", value: "o1" });
     fireEvent.click(screen.getByLabelText("Remove filter"));

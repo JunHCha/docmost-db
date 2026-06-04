@@ -69,7 +69,15 @@ export function FilterValueWidget({
         <NumberInput
           aria-label={LABEL}
           value={typeof value === "number" ? value : ""}
-          onChange={(v) => onChange(typeof v === "number" ? v : Number(v))}
+          onChange={(v) => {
+            // NumberInput emits "" while the field is empty; forward undefined
+            // (not Number("") === 0) so an empty input never persists a spurious 0.
+            if (v === "" || v === null || v === undefined) {
+              onChange(undefined);
+              return;
+            }
+            onChange(typeof v === "number" ? v : Number(v));
+          }}
         />
       );
     case "date":

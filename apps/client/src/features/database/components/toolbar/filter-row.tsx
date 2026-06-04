@@ -37,6 +37,17 @@ export function FilterRow({
     onChange({ propertyId: next.id, op: firstOp, value: undefined });
   }
 
+  // Switching to an empty op (is_empty / is_not_empty) drops any stale value so
+  // it never lingers in the persisted config; switching back leaves value
+  // undefined for the widget to populate.
+  function changeOp(op: IFilterCondition["op"]) {
+    if (!opNeedsValue(op)) {
+      onChange({ propertyId: condition.propertyId, op });
+      return;
+    }
+    onChange({ ...condition, op });
+  }
+
   if (!property) return null;
 
   const ops = operatorsForType(property.type);
@@ -55,9 +66,7 @@ export function FilterRow({
         aria-label={t("Filter operator")}
         data={ops.map((o) => ({ value: o.op, label: o.label }))}
         value={condition.op}
-        onChange={(op) =>
-          op && onChange({ ...condition, op: op as IFilterCondition["op"] })
-        }
+        onChange={(op) => op && changeOp(op as IFilterCondition["op"])}
         comboboxProps={{ withinPortal: false }}
         w={160}
       />
