@@ -316,6 +316,62 @@ describe("useDatabaseRowsQuery passes the view's filters/sorts", () => {
       databaseRowsKey(dbId, "v2"),
     );
   });
+
+  it("refetches and caches a separate slot when the filter changes (Critical regression)", async () => {
+    // Real QueryClient with the production staleTime/refetch defaults — proves a
+    // filter change forces a fresh listRows call and a distinct cache slot
+    // (without the config in the queryKey React Query would serve the stale
+    // unfiltered result for the same viewId).
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          refetchOnMount: false,
+          refetchOnWindowFocus: false,
+          staleTime: 5 * 60 * 1000,
+        },
+      },
+    });
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    }
+    service.listRows.mockResolvedValue([]);
+
+    const noFilter = { filters: [], sorts: [] } as never;
+    const withFilter = {
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+      sorts: [],
+    } as never;
+
+    const { rerender } = renderHook(
+      ({ config }: { config: never }) =>
+        useDatabaseRowsQuery(dbId, "v1", config),
+      { wrapper: localWrapper, initialProps: { config: noFilter } },
+    );
+    await waitFor(() => expect(service.listRows).toHaveBeenCalledTimes(1));
+
+    // Apply a filter on the same view -> new queryKey slot -> refetch.
+    rerender({ config: withFilter });
+    await waitFor(() => expect(service.listRows).toHaveBeenCalledTimes(2));
+    expect(service.listRows).toHaveBeenLastCalledWith({
+      databaseId: dbId,
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+      sorts: [],
+    });
+
+    // Two distinct cache slots survive for the same view.
+    expect(
+      qc.getQueryData(databaseRowsKey(dbId, "v1", { filters: [], sorts: [] })),
+    ).toBeDefined();
+    expect(
+      qc.getQueryData(
+        databaseRowsKey(dbId, "v1", {
+          filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+          sorts: [],
+        }),
+      ),
+    ).toBeDefined();
+  });
 });
 
 describe("useDeleteRowsMutation", () => {

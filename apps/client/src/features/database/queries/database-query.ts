@@ -137,9 +137,11 @@ export function useDatabaseRowsQuery(
   const filters = config?.filters;
   const sorts = config?.sorts;
   return useQuery({
-    // viewId is part of the key, so each view caches its own filtered/sorted
-    // result independently (the server applies the view's filters/sorts).
-    queryKey: databaseRowsKey(databaseId, viewId),
+    // filters/sorts are part of the key, so each (view, filter, sort) combo
+    // caches its own server-filtered result and a filter change forces a
+    // refetch (without this segment the 5-min staleTime + refetchOnMount:false
+    // in main.tsx would keep serving the previous, unfiltered result).
+    queryKey: databaseRowsKey(databaseId, viewId, { filters, sorts }),
     queryFn: () => listRows({ databaseId, filters, sorts }),
     enabled: !!databaseId && !!viewId,
   });

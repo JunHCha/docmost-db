@@ -4,6 +4,8 @@ import {
   IDatabaseProperty,
   IDatabasePropertyValue,
   IDatabaseRow,
+  IFilterCondition,
+  ISortCondition,
 } from "@/features/database/types/database.types.ts";
 
 // Info is looked up by the entry pageId, not the databaseId, so it gets its
@@ -25,14 +27,34 @@ export function databaseViewsKey(databaseId: string): QueryKey {
   return ["database-views", databaseId];
 }
 
-export function databaseRowsKey(databaseId: string, viewId: string): QueryKey {
-  return ["database-rows", databaseId, viewId];
+// Rows differ per view AND per active filter/sort config. The key trails a
+// {filters, sorts} segment so that changing a filter is a distinct cache slot
+// and React Query refetches (otherwise the 5-min staleTime + refetchOnMount:
+// false in main.tsx would keep serving the stale, unfiltered result for the
+// same viewId).
+//
+// IMPORTANT prefix contract: every segment lives *after* ["database-rows",
+// databaseId], so the prefix-based patchers/invalidators below (and the bulk
+// delete `removeRows` consumed by other views) keep matching every slot of a
+// database via the ["database-rows", databaseId] prefix.
+export function databaseRowsKey(
+  databaseId: string,
+  viewId: string,
+  config?: { filters?: IFilterCondition[]; sorts?: ISortCondition[] },
+): QueryKey {
+  return [
+    "database-rows",
+    databaseId,
+    viewId,
+    { filters: config?.filters ?? [], sorts: config?.sorts ?? [] },
+  ];
 }
 
-// Rows now differ per view (each view applies its own filters/sorts server-
-// side), so a row may be present in some cached views and absent from others.
-// Optimistic patches still target every cached view via the [database-rows,
-// dbId] prefix; the updater is a no-op for views where the row is missing.
+// Rows differ per view and per filter/sort config (each combination is its own
+// cache slot — see databaseRowsKey), so a row may be present in some cached
+// slots and absent from others. Optimistic patches still target every cached
+// slot of the database via the ["database-rows", dbId] prefix; the updater is a
+// no-op for slots where the row is missing.
 function patchRows(
   qc: QueryClient,
   databaseId: string,

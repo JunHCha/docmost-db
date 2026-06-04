@@ -191,10 +191,44 @@ describe("database-cache", () => {
   });
 
   it("databaseRowsKey is namespaced by databaseId and viewId", () => {
-    expect(databaseRowsKey(dbId, "v1")).toEqual(["database-rows", dbId, "v1"]);
+    expect(databaseRowsKey(dbId, "v1")).toEqual([
+      "database-rows",
+      dbId,
+      "v1",
+      { filters: [], sorts: [] },
+    ]);
     expect(databaseRowsKey(dbId, "v1")).not.toEqual(
       databaseRowsKey(dbId, "v2"),
     );
+  });
+
+  it("databaseRowsKey trails the filters/sorts config so a filter change is a distinct slot", () => {
+    const a = databaseRowsKey(dbId, "v1", {
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+    });
+    const b = databaseRowsKey(dbId, "v1", {
+      filters: [{ propertyId: "p1", op: "eq", value: "y" }],
+    });
+    // Same view, different filter value => different cache slot.
+    expect(a).not.toEqual(b);
+    // ...but both still share the ["database-rows", dbId] prefix that the
+    // optimistic patchers / invalidators rely on.
+    expect(a.slice(0, 2)).toEqual(["database-rows", dbId]);
+    expect(b.slice(0, 2)).toEqual(["database-rows", dbId]);
+  });
+
+  it("prefix patchers still reach a slot keyed with a non-empty config (removeRows contract)", () => {
+    const key = databaseRowsKey(dbId, "v1", {
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+    });
+    qc.setQueryData(key, [makeRow("p1"), makeRow("p2")]);
+
+    // removeRows targets the ["database-rows", dbId] prefix; the config segment
+    // must not hide the slot from the bulk-delete patch (other views depend on
+    // this prefix contract).
+    removeRows(qc, dbId, ["p1"]);
+
+    expect(qc.getQueryData<IDatabaseRow[]>(key)).toEqual([makeRow("p2")]);
   });
 
   it("databaseViewsKey is namespaced by databaseId", () => {
