@@ -137,7 +137,7 @@ export function TableView({
   const visibleRowIds = useMemo(() => rows.map((r) => r.row.id), [rows]);
   const selection = useRowSelection(visibleRowIds);
 
-  function selectRow(id: string, mods: { shift: boolean; meta: boolean }) {
+  function selectRow(id: string, mods: { shift: boolean }) {
     if (mods.shift) selection.selectRange(id);
     else selection.toggle(id);
   }

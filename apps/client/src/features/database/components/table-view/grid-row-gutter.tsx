@@ -2,8 +2,10 @@ import { Checkbox } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 
 export interface RowSelectModifiers {
+  // Only shift is meaningful for a checkbox gutter: shift = contiguous range,
+  // plain click = toggle. cmd/ctrl would be redundant with a plain toggle here,
+  // so it is intentionally not forwarded.
   shift: boolean;
-  meta: boolean;
 }
 
 interface GutterHeaderCheckboxProps {
@@ -48,7 +50,7 @@ export function GutterRowCheckbox({ checked, onSelect }: GutterRowCheckboxProps)
       onClick={(e) => {
         // Keep the click off the row so it never triggers open-row navigation.
         e.stopPropagation();
-        onSelect({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey });
+        onSelect({ shift: e.shiftKey });
       }}
     />
   );

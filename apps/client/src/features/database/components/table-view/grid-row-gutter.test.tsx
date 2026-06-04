@@ -62,7 +62,7 @@ describe("GutterRowCheckbox", () => {
     const { onSelect } = renderRow();
     fireEvent.click(screen.getByLabelText("Select row"));
     expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ shift: false, meta: false }),
+      expect.objectContaining({ shift: false }),
     );
   });
 
@@ -71,14 +71,6 @@ describe("GutterRowCheckbox", () => {
     fireEvent.click(screen.getByLabelText("Select row"), { shiftKey: true });
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ shift: true }),
-    );
-  });
-
-  it("forwards the meta/ctrl modifier", () => {
-    const { onSelect } = renderRow();
-    fireEvent.click(screen.getByLabelText("Select row"), { metaKey: true });
-    expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ meta: true }),
     );
   });
 });
