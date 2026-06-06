@@ -498,6 +498,25 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       },
     },
     {
+      title: "Database view",
+      description: "Embed a linked view of an existing database.",
+      searchTerms: ["database", "db", "linked", "embed", "table", "view"],
+      icon: IconTable,
+      command: ({ editor, range }: CommandProps) => {
+        // Delete the slash range first so the cursor is in the right place
+        // for the subsequent insertDatabaseView command.
+        editor.chain().focus().deleteRange(range).run();
+
+        // Dispatch a custom event that the host editor wrapper listens for
+        // to open the database picker modal — same pattern as Mod-f triggering
+        // the find dialog (extensions.ts:394).
+        const event = new CustomEvent("openDatabasePickerFromEditor", {
+          detail: { editor },
+        });
+        document.dispatchEvent(event);
+      },
+    },
+        {
       title: "Subpages (Child pages)",
       description: "List all subpages of the current page",
       searchTerms: [

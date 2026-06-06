@@ -74,6 +74,8 @@ import { EditorAiMenu } from "@/ee/ai/components/editor/ai-menu/ai-menu";
 import { EditorLinkMenu } from "@/features/editor/components/link/link-menu";
 import ColumnsMenu from "@/features/editor/components/columns/columns-menu.tsx";
 import { TransclusionLookupProvider } from "@/features/editor/components/transclusion/transclusion-lookup-context";
+import { DatabasePickerModal } from "@/features/editor/components/database-embed/database-picker-modal.tsx";
+import { useSpaceQuery } from "@/features/space/queries/space-query.ts";
 import { useTranslation } from "react-i18next";
 
 interface PageEditorProps {
@@ -113,7 +115,11 @@ export default function PageEditor({
   const { data: collabQuery, refetch: refetchCollabToken } = useCollabToken();
   const { isIdle, resetIdle } = useIdle(FIVE_MINUTES, { initialState: false });
   const documentState = useDocumentVisibility();
-  const { pageSlug } = useParams();
+  const { pageSlug, spaceSlug } = useParams();
+  const spaceQuery = useSpaceQuery(spaceSlug ?? "");
+  const spaceId = spaceQuery.data?.id ?? "";
+  const [dbPickerOpen, setDbPickerOpen] = useState(false);
+  const pendingEditorRef = useRef<any>(null);
   const slugId = extractPageSlugId(pageSlug);
   const currentPageEditMode = useAtomValue(currentPageEditModeAtom);
   const canScroll = useCallback(
@@ -406,8 +412,38 @@ export default function PageEditor({
     }
   }, [yjsConnectionStatus, isSynced]);
 
+  // Open the database picker when the slash-command triggers it.
+  // The event carries the editor instance so we can call insertDatabaseView
+  // after the user picks a database + view.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent;
+      pendingEditorRef.current = custom.detail?.editor ?? null;
+      setDbPickerOpen(true);
+    };
+    document.addEventListener("openDatabasePickerFromEditor", handler);
+    return () =>
+      document.removeEventListener("openDatabasePickerFromEditor", handler);
+  }, []);
+
+  function handleDatabaseViewSelect(databaseId: string, viewId: string) {
+    setDbPickerOpen(false);
+    const ed = pendingEditorRef.current ?? editor;
+    if (!ed) return;
+    ed.commands.insertDatabaseView({ databaseId, viewId });
+    pendingEditorRef.current = null;
+  }
+
   return (
     <TransclusionLookupProvider>
+      {spaceId && (
+        <DatabasePickerModal
+          opened={dbPickerOpen}
+          spaceId={spaceId}
+          onClose={() => setDbPickerOpen(false)}
+          onSelect={handleDatabaseViewSelect}
+        />
+      )}
       {showStatic ? (
         <EditorProvider
           editable={false}
