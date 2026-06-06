@@ -901,7 +901,11 @@ export class PageService {
               .selectFrom('pages as child')
               .select(sql`1`.as('one'))
               .whereRef('child.parentPageId', '=', 'page_ancestors.id')
-              .where('child.deletedAt', 'is', null),
+              .where('child.deletedAt', 'is', null)
+              // Database rows are children of the database page but are not
+              // shown in the tree, so a database page must not get an expand
+              // chevron from them (mirrors PageRepo.withHasChildren).
+              .where('page_ancestors.pageType', '!=', 'database'),
           )
           .as('hasChildren'),
       )

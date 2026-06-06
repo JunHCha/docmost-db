@@ -22,7 +22,10 @@ export function buildTree(pages: IPage[]): SpaceTreeNode[] {
       icon: page.icon,
       pageType: page.pageType,
       position: page.position,
-      hasChildren: page.hasChildren,
+      // Database rows are not shown in the tree, so a database page must never
+      // get an expand chevron even if the server reports hasChildren=true.
+      hasChildren:
+        page.pageType === "database" ? false : page.hasChildren,
       spaceId: page.spaceId,
       parentPageId: page.parentPageId,
       isBase: page.isBase,
