@@ -7,7 +7,7 @@ import {
   useDatabaseRowsQuery,
   useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
-import { GridCell } from "./grid-view/grid-cell";
+import { GridCell } from "./table-view/grid-cell";
 
 interface RowPropertiesPanelProps {
   page: IPage;

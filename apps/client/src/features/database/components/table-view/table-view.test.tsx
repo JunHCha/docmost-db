@@ -30,7 +30,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
-import { GridView } from "./grid-view";
+import { TableView } from "./table-view";
 import {
   IDatabaseProperty,
   IDatabaseRow,
@@ -82,8 +82,8 @@ function view(config: IDatabaseView["config"]): IDatabaseView {
   return {
     id: "v1",
     databaseId: "db1",
-    name: "Grid",
-    type: "grid",
+    name: "Table",
+    type: "table",
     config,
     isDefault: true,
     position: "a0",
@@ -96,7 +96,7 @@ function renderGrid(opts: { spaceSlug?: string; activeView?: IDatabaseView } = {
   return render(
     <MantineProvider>
       <MemoryRouter>
-        <GridView
+        <TableView
           databaseId="db1"
           spaceId="space1"
           properties={properties}
@@ -109,7 +109,7 @@ function renderGrid(opts: { spaceSlug?: string; activeView?: IDatabaseView } = {
   );
 }
 
-describe("GridView", () => {
+describe("TableView", () => {
   beforeEach(() => {
     createRowMutate.mockReset();
     createPropertyMutate.mockReset();
@@ -132,7 +132,7 @@ describe("GridView", () => {
     // Wide databases should scroll sideways; the column-config dropdown opens
     // in a portal (see column-header) so it is not clipped by this container.
     renderGrid();
-    const container = screen.getByTestId("grid-view");
+    const container = screen.getByTestId("table-view");
     expect(container.style.overflowX).toBe("auto");
   });
 
@@ -188,7 +188,7 @@ describe("GridView", () => {
   });
 });
 
-describe("GridView active-view column config", () => {
+describe("TableView active-view column config", () => {
   beforeEach(() => updateViewMutate.mockReset());
 
   it("hides a column whose view config marks it not visible", () => {
