@@ -24,6 +24,20 @@
 
 > ⚠️ 진행 중인 실험 기능입니다. 프로덕션 사용을 권장하지 않습니다.
 
+## What does it look like
+
+**Board (Kanban) 뷰** — `Status` 속성 기준 컬럼 그룹, 카드 속성 태그, 컬럼별 카드 수 + "+ New". 카드를 다른 컬럼으로 드래그하면 상태값이 변경됩니다.
+
+<img width="1258" alt="Board (Kanban) view" src="https://github.com/user-attachments/assets/e63c0814-aea6-474e-a83f-127aa5fbc363" />
+
+**Table 뷰** — 기본 표 뷰(Title + Status 컬럼). 같은 데이터가 Table/Board 탭으로 전환됩니다.
+
+<img width="1252" alt="Table view" src="https://github.com/user-attachments/assets/421b706c-aa00-48be-b27c-5f6fdfaafa61" />
+
+**필터 / 정렬 빌더 툴바** — 활성 개수 배지가 붙은 Filter·Sort 버튼, 타입별 값 위젯, 드래그로 정렬 순서 재배치.
+
+<img width="1266" alt="Filter / sort builder toolbar" src="https://github.com/user-attachments/assets/e4c665b8-6ca5-4a80-aeac-b811c48ddd68" />
+
 ## QA & 버그 리포트
 
 이 포크의 QA 과정에서 발견한 버그는 **[Docmost-db QA board](https://github.com/users/JunHCha/projects/3)** 프로젝트에서 관리합니다.

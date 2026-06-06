@@ -24,6 +24,20 @@ A lightweight database that can be embedded in wiki pages, built incrementally:
 
 > ⚠️ Experimental, work in progress. Not recommended for production use.
 
+## What does it look like
+
+**Board (Kanban) view** — columns grouped by the `Status` property, property tags on cards, per-column count + "+ New"; dragging a card to another column updates its status value.
+
+<img width="1258" alt="Board (Kanban) view" src="https://github.com/user-attachments/assets/e63c0814-aea6-474e-a83f-127aa5fbc363" />
+
+**Table view** — the default grid view (Title + Status columns); the same data toggles between Table and Board tabs.
+
+<img width="1252" alt="Table view" src="https://github.com/user-attachments/assets/421b706c-aa00-48be-b27c-5f6fdfaafa61" />
+
+**Filter / sort builder toolbar** — Filter & Sort buttons with active-count badges; per-type value widgets and drag-to-reorder sorts.
+
+<img width="1266" alt="Filter / sort builder toolbar" src="https://github.com/user-attachments/assets/e4c665b8-6ca5-4a80-aeac-b811c48ddd68" />
+
 ## QA & bug reports
 
 Bugs found while QA-ing this fork are tracked in the **[Docmost-db QA board](https://github.com/users/JunHCha/projects/3)**.
