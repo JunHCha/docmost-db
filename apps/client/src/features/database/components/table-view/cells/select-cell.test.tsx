@@ -39,7 +39,12 @@ const property: IDatabaseProperty = {
 function renderCell(value: any, prop: IDatabaseProperty = property) {
   return render(
     <MantineProvider>
-      <SelectCell property={prop} value={value} pageId="page1" databaseId="db1" />
+      <SelectCell
+        property={prop}
+        value={value}
+        pageId="page1"
+        databaseId="db1"
+      />
     </MantineProvider>,
   );
 }
@@ -192,14 +197,17 @@ describe("SelectCell", () => {
     expect(clearMutate).not.toHaveBeenCalled();
   });
 
-  it("clears the cell when deleting the currently selected option", () => {
+  it("deleting the currently selected option only rewrites config (no value clear)", () => {
     renderCell({ type: "select", value: "o1" });
     openEditPanel("Todo");
     fireEvent.click(screen.getByLabelText("Delete Todo"));
-    expect(clearMutate).toHaveBeenCalledWith({
-      pageId: "page1",
+    // Pure config change: the cell value is left as-is (graceful blank render).
+    expect(updateMutate).toHaveBeenCalledWith({
       propertyId: "prop1",
+      config: { options: [{ id: "o2", label: "Doing", color: "green" }] },
     });
+    expect(clearMutate).not.toHaveBeenCalled();
+    expect(setMutate).not.toHaveBeenCalled();
   });
 
   it("does not offer Create for a label that already exists (any case)", () => {
