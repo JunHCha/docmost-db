@@ -75,6 +75,8 @@ import { EditorLinkMenu } from "@/features/editor/components/link/link-menu";
 import ColumnsMenu from "@/features/editor/components/columns/columns-menu.tsx";
 import { TransclusionLookupProvider } from "@/features/editor/components/transclusion/transclusion-lookup-context";
 import { useTranslation } from "react-i18next";
+import { DatabasePickerModal } from "@/features/database/components/embed/database-picker-modal.tsx";
+import { usePageQuery } from "@/features/page/queries/page-query.ts";
 
 interface PageEditorProps {
   pageId: string;
@@ -115,6 +117,9 @@ export default function PageEditor({
   const documentState = useDocumentVisibility();
   const { pageSlug } = useParams();
   const slugId = extractPageSlugId(pageSlug);
+  // Host space of the current page, used to scope the database picker list.
+  const { data: page } = usePageQuery({ pageId: slugId });
+  const [dbPickerOpened, setDbPickerOpened] = useState(false);
   const currentPageEditMode = useAtomValue(currentPageEditModeAtom);
   const canScroll = useCallback(
     () => Boolean(isComponentMounted.current && editorRef.current),
@@ -331,6 +336,17 @@ export default function PageEditor({
     },
   });
 
+  // The "Database view (linked)" slash item can't insert synchronously (the
+  // picker is a two-step async flow), so it dispatches this event for us to
+  // open the modal (mirrors search-and-replace's openFindDialogFromEditor).
+  useEffect(() => {
+    const openPicker = () => setDbPickerOpened(true);
+    document.addEventListener("openDatabasePickerFromEditor", openPicker);
+    return () => {
+      document.removeEventListener("openDatabasePickerFromEditor", openPicker);
+    };
+  }, []);
+
   const debouncedUpdateContent = useDebouncedCallback((newContent: any) => {
     const pageData = queryClient.getQueryData<IPage>(["pages", slugId]);
 
@@ -427,6 +443,18 @@ export default function PageEditor({
 
             {editor && (
               <SearchAndReplaceDialog editor={editor} editable={editable} />
+            )}
+
+            {editor && editorIsEditable && page?.spaceId && (
+              <DatabasePickerModal
+                opened={dbPickerOpened}
+                spaceId={page.spaceId}
+                onClose={() => setDbPickerOpened(false)}
+                onConfirm={({ databaseId, viewId }) => {
+                  editor.commands.insertDatabaseView({ databaseId, viewId });
+                  setDbPickerOpened(false);
+                }}
+              />
             )}
 
             {editor && editorIsEditable && (

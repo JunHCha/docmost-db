@@ -1090,5 +1090,12 @@
   "Added {{name}} to favorites": "Added {{name}} to favorites",
   "Removed {{name}} from favorites": "Removed {{name}} from favorites",
   "Page menu for {{name}}": "Page menu for {{name}}",
-  "Create subpage of {{name}}": "Create subpage of {{name}}"
+  "Create subpage of {{name}}": "Create subpage of {{name}}",
+  "Database view (linked)": "Database view (linked)",
+  "Embed a linked view of an existing database.": "Embed a linked view of an existing database.",
+  "Insert database view": "Insert database view",
+  "Search databases": "Search databases",
+  "No databases found": "No databases found",
+  "Choose a view": "Choose a view",
+  "Insert": "Insert"
 }
