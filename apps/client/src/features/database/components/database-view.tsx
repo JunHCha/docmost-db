@@ -158,6 +158,17 @@ export function DatabaseView({
     });
   }
 
+  // Set/clear a calendar view's start or end date property. Like the other view
+  // edits the embed keeps this session-local (no write back to shared config).
+  function changeDateProperty(slot: "start" | "end", id: string | null) {
+    if (!activeView || !persistViewConfig) return;
+    const key = slot === "start" ? "startDatePropertyId" : "endDatePropertyId";
+    updateView.mutate({
+      viewId: activeView.id,
+      config: { ...activeView.config, [key]: id ?? undefined },
+    });
+  }
+
   if (propertiesQuery.isLoading || rowsQuery.isLoading || !activeView) {
     return (
       <Center p="xl">
@@ -186,6 +197,9 @@ export function DatabaseView({
           onToggleColumn={toggleColumn}
           groupByPropertyId={activeView.config.groupByPropertyId}
           onChangeGroupBy={changeGroupBy}
+          startDatePropertyId={activeView.config.startDatePropertyId}
+          endDatePropertyId={activeView.config.endDatePropertyId}
+          onChangeDateProperty={changeDateProperty}
         />
       </Group>
       {activeView.type === "board" ? (
