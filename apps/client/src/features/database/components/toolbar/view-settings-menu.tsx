@@ -68,14 +68,6 @@ export function ViewSettingsMenu({
               <Menu.Sub.Item>{t("Group by")}</Menu.Sub.Item>
             </Menu.Sub.Target>
             <Menu.Sub.Dropdown>
-              <Menu.Sub.Item
-                leftSection={
-                  !groupByPropertyId ? <IconCheck size={14} /> : undefined
-                }
-                onClick={() => onChangeGroupBy(null)}
-              >
-                {t("None")}
-              </Menu.Sub.Item>
               {candidates.map((property) => (
                 <Menu.Sub.Item
                   key={property.id}

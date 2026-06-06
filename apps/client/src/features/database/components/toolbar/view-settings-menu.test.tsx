@@ -88,14 +88,12 @@ describe("ViewSettingsMenu", () => {
     expect(onChangeGroupBy).toHaveBeenCalledWith("p1");
   });
 
-  it("clears the group-by when None is chosen", async () => {
-    const { onChangeGroupBy } = renderMenu({
-      viewType: "board",
-      groupByPropertyId: "p1",
-    });
+  it("offers no None option in the board Group by submenu", async () => {
+    renderMenu({ viewType: "board", groupByPropertyId: "p1" });
     fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
     fireEvent.mouseEnter(await screen.findByText("Group by"));
-    fireEvent.click(await screen.findByText("None"));
-    expect(onChangeGroupBy).toHaveBeenCalledWith(null);
+    // Status (the only candidate) is listed, but there is no clear/None entry.
+    expect(await screen.findByText("Status")).toBeTruthy();
+    expect(screen.queryByText("None")).toBeNull();
   });
 });
