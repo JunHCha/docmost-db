@@ -19,6 +19,7 @@ import {
 import { echoColumns } from "./table-view/view-columns";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
+import { CalendarView } from "./calendar-view/calendar-view";
 import { ViewSwitcher } from "./view-switcher";
 import { ViewToolbar } from "./toolbar/view-toolbar";
 
@@ -158,6 +159,17 @@ export function DatabaseView({
     });
   }
 
+  // Set/clear a calendar view's start or end date property. Like the other view
+  // edits the embed keeps this session-local (no write back to shared config).
+  function changeDateProperty(slot: "start" | "end", id: string | null) {
+    if (!activeView || !persistViewConfig) return;
+    const key = slot === "start" ? "startDatePropertyId" : "endDatePropertyId";
+    updateView.mutate({
+      viewId: activeView.id,
+      config: { ...activeView.config, [key]: id ?? undefined },
+    });
+  }
+
   if (propertiesQuery.isLoading || rowsQuery.isLoading || !activeView) {
     return (
       <Center p="xl">
@@ -186,10 +198,21 @@ export function DatabaseView({
           onToggleColumn={toggleColumn}
           groupByPropertyId={activeView.config.groupByPropertyId}
           onChangeGroupBy={changeGroupBy}
+          startDatePropertyId={activeView.config.startDatePropertyId}
+          endDatePropertyId={activeView.config.endDatePropertyId}
+          onChangeDateProperty={changeDateProperty}
         />
       </Group>
       {activeView.type === "board" ? (
         <BoardView
+          databaseId={databaseId}
+          properties={propertiesQuery.data ?? []}
+          rows={rowsQuery.data ?? []}
+          activeView={activeView}
+          spaceSlug={spaceSlug}
+        />
+      ) : activeView.type === "calendar" ? (
+        <CalendarView
           databaseId={databaseId}
           properties={propertiesQuery.data ?? []}
           rows={rowsQuery.data ?? []}

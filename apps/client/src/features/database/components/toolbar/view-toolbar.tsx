@@ -23,6 +23,9 @@ interface ViewToolbarProps {
   onToggleColumn: (propertyId: string, visible: boolean) => void;
   groupByPropertyId?: string;
   onChangeGroupBy?: (id: string | null) => void;
+  startDatePropertyId?: string;
+  endDatePropertyId?: string;
+  onChangeDateProperty?: (slot: "start" | "end", id: string | null) => void;
 }
 
 // View options toolbar: icon-only Filter / Sort buttons (each opening a builder
@@ -40,6 +43,9 @@ export function ViewToolbar({
   onToggleColumn,
   groupByPropertyId,
   onChangeGroupBy,
+  startDatePropertyId,
+  endDatePropertyId,
+  onChangeDateProperty,
 }: ViewToolbarProps) {
   const { t } = useTranslation();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -49,7 +55,9 @@ export function ViewToolbar({
   const sortActive = sorts.length > 0;
   const settingsActive =
     (columns ?? []).some((c) => c.visible === false) ||
-    (viewType === "board" && !!groupByPropertyId);
+    (viewType === "board" && !!groupByPropertyId) ||
+    (viewType === "calendar" &&
+      (!!startDatePropertyId || !!endDatePropertyId));
 
   return (
     <Group gap="xs">
@@ -121,6 +129,9 @@ export function ViewToolbar({
         onToggleColumn={onToggleColumn}
         groupByPropertyId={groupByPropertyId}
         onChangeGroupBy={onChangeGroupBy}
+        startDatePropertyId={startDatePropertyId}
+        endDatePropertyId={endDatePropertyId}
+        onChangeDateProperty={onChangeDateProperty}
       />
     </Group>
   );

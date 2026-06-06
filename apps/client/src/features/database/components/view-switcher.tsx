@@ -168,6 +168,17 @@ export function ViewSwitcher({
           >
             {t("Board")}
           </Menu.Item>
+          <Menu.Item
+            onClick={() =>
+              createView.mutate({
+                databaseId,
+                name: t("Calendar"),
+                type: "calendar",
+              })
+            }
+          >
+            {t("Calendar")}
+          </Menu.Item>
         </Menu.Dropdown>
       </Menu>
     </Group>
