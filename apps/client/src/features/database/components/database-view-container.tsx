@@ -5,6 +5,9 @@ import { useTranslation } from "react-i18next";
 import { IPage } from "@/features/page/types/page.types.ts";
 import { useDatabaseInfoQuery } from "@/features/database/queries/database-query.ts";
 import { useUpdatePageMutation } from "@/features/page/queries/page-query.ts";
+import { useQueryEmit } from "@/features/websocket/use-query-emit.ts";
+import { UpdateEvent } from "@/features/websocket/types";
+import localEmitter from "@/lib/local-emitter.ts";
 import { DatabaseView } from "./database-view";
 
 interface DatabaseViewContainerProps {
@@ -24,12 +27,28 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   const database = infoQuery.data?.database;
   const databaseId = database?.id ?? "";
   const updatePage = useUpdatePageMutation();
+  const emit = useQueryEmit();
   const [titleDraft, setTitleDraft] = useState(page.title ?? "");
 
   function commitTitle() {
     const next = titleDraft.trim();
     if (next && next !== page.title) {
-      updatePage.mutate({ pageId: page.id, title: next });
+      updatePage.mutateAsync({ pageId: page.id, title: next }).then((updated) => {
+        const event: UpdateEvent = {
+          operation: "updateOne",
+          spaceId: updated.spaceId,
+          entity: ["pages"],
+          id: updated.id,
+          payload: {
+            title: updated.title,
+            slugId: updated.slugId,
+            parentPageId: updated.parentPageId,
+            icon: updated.icon,
+          },
+        };
+        localEmitter.emit("message", event);
+        emit(event);
+      });
     }
   }
 
