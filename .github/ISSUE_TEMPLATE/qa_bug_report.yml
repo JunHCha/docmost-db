@@ -1,5 +1,5 @@
 name: "🐞 QA Bug Report"
-description: docmost-db QA 과정에서 발견한 버그를 기록합니다. (Docmost-db QA board 연동)
+description: Report a bug found during docmost-db QA. (Tracked in the Docmost-db QA board)
 title: "[QA] "
 labels: ["bug", "qa"]
 projects: ["JunHCha/3"]
@@ -7,54 +7,22 @@ body:
   - type: markdown
     attributes:
       value: |
-        QA 중 발견한 버그를 보고해 주세요. 이 이슈는 **Docmost-db QA board** 프로젝트에서 관리됩니다.
-        먼저 [기존 이슈](https://github.com/JunHCha/docmost-db/issues?q=is%3Aissue+label%3Aqa)에 동일한 버그가 없는지 확인해 주세요.
+        Thanks for reporting! This issue is tracked in the **Docmost-db QA board**.
+        Please search [existing issues](https://github.com/JunHCha/docmost-db/issues?q=is%3Aissue+label%3Aqa) first.
 
   - type: textarea
-    id: summary
+    id: description
     attributes:
-      label: 요약
-      description: 버그를 한두 문장으로 요약해 주세요.
-      placeholder: 예) Board 뷰에서 카드를 다른 그룹으로 드래그하면 Select 값이 갱신되지 않는다.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: 영역
-      description: 버그가 발생한 기능 영역을 선택해 주세요. (DB 기능 fork 범위)
-      multiple: true
-      options:
-        - Database / Table 뷰
-        - Board (Kanban) 뷰
-        - 필터 / 정렬
-        - Row 멀티셀렉트 / 일괄 삭제
-        - 컬럼 (타입/표시/너비)
-        - 뷰 영속화 / 다중 뷰 / 스위처
-        - 서버 API (백엔드)
-        - 기타 / 미분류
-    validations:
-      required: true
-
-  - type: dropdown
-    id: severity
-    attributes:
-      label: 심각도
-      description: 사용자 영향도를 기준으로 선택해 주세요.
-      options:
-        - Critical — 데이터 손실/크래시, 핵심 기능 사용 불가
-        - High — 주요 기능 동작 불가, 우회로 없음
-        - Medium — 기능 일부 오동작, 우회 가능
-        - Low — 사소한 UI/문구/엣지 케이스
+      label: Description
+      description: What's wrong? Include the expected vs. actual behavior, and screenshots/logs if any.
+      placeholder: e.g. Dragging a card to another group in the Board view does not update its Select value.
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: 재현 단계
-      description: 버그를 재현하는 단계를 순서대로 적어 주세요.
+      label: Steps to reproduce
       value: |
         1.
         2.
@@ -62,39 +30,14 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: expected
+  - type: dropdown
+    id: priority
     attributes:
-      label: 기대 동작
-      placeholder: 무엇이 일어나야 하는가?
+      label: Priority
+      description: Maps to the **Priority** field on the QA board.
+      options:
+        - "P0 — blocker: data loss / crash / core feature unusable"
+        - "P1 — major: key flow broken, no workaround"
+        - "P2 — minor: cosmetic or edge case, workaround exists"
     validations:
       required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: 실제 동작
-      placeholder: 실제로 무엇이 일어났는가? (에러 메시지 포함)
-    validations:
-      required: true
-
-  - type: textarea
-    id: evidence
-    attributes:
-      label: 스크린샷 / 로그
-      description: 스크린샷, 화면 녹화, 콘솔/서버 로그를 첨부해 주세요. (선택)
-    validations:
-      required: false
-
-  - type: textarea
-    id: environment
-    attributes:
-      label: 환경
-      description: 브라우저, OS, 배포 방식(로컬/도커), 브랜치/커밋 해시 등.
-      value: |
-        - 브랜치 / 커밋:
-        - 브라우저:
-        - OS:
-        - 실행 방식: (로컬 dev / docker)
-    validations:
-      required: false
