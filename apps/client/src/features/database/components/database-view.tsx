@@ -12,6 +12,7 @@ import {
   useDatabaseViewsQuery,
   useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
+import { echoColumns } from "./table-view/view-columns";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
 import { ViewSwitcher } from "./view-switcher";
@@ -118,6 +119,21 @@ export function DatabaseView({
     persistConfig(filters, next);
   }
 
+  // Toggle a column's visibility in the active view. Like filters/sorts the
+  // embed keeps this session-local, so it never writes back to the shared view
+  // config (avoids polluting the cache other embeds read).
+  function toggleColumn(propertyId: string, visible: boolean) {
+    if (!activeView || !persistViewConfig) return;
+    const columns = echoColumns(propertiesQuery.data ?? [], activeView.config.columns, {
+      propertyId,
+      visible,
+    });
+    updateView.mutate({
+      viewId: activeView.id,
+      config: { ...activeView.config, columns },
+    });
+  }
+
   if (propertiesQuery.isLoading || rowsQuery.isLoading || !activeView) {
     return (
       <Center p="xl">
@@ -139,8 +155,10 @@ export function DatabaseView({
           properties={propertiesQuery.data ?? []}
           filters={filters}
           sorts={sorts}
+          columns={activeView.config.columns}
           onFiltersChange={changeFilters}
           onSortsChange={changeSorts}
+          onToggleColumn={toggleColumn}
         />
       </Group>
       {activeView.type === "board" ? (
