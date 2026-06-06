@@ -3,12 +3,35 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 
-const infoQuery = vi.fn();
-const propertiesQuery = vi.fn();
-const rowsQuery = vi.fn();
-const viewsQuery = vi.fn();
-const updatePageMutate = vi.fn();
-const updateViewMutate = vi.fn();
+const {
+  infoQuery,
+  propertiesQuery,
+  rowsQuery,
+  viewsQuery,
+  updatePageMutate,
+  updatePageMutateAsync,
+  updateViewMutate,
+  localEmitterEmit,
+  queryEmit,
+} = vi.hoisted(() => ({
+  infoQuery: vi.fn(),
+  propertiesQuery: vi.fn(),
+  rowsQuery: vi.fn(),
+  viewsQuery: vi.fn(),
+  updatePageMutate: vi.fn(),
+  updatePageMutateAsync: vi.fn(),
+  updateViewMutate: vi.fn(),
+  localEmitterEmit: vi.fn(),
+  queryEmit: vi.fn(),
+}));
+
+vi.mock("@/lib/local-emitter.ts", () => ({
+  default: { emit: localEmitterEmit },
+}));
+
+vi.mock("@/features/websocket/use-query-emit.ts", () => ({
+  useQueryEmit: () => queryEmit,
+}));
 
 vi.mock("@mantine/hooks", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@mantine/hooks")>();
@@ -67,7 +90,10 @@ const oneProperty = [
 ];
 
 vi.mock("@/features/page/queries/page-query.ts", () => ({
-  useUpdatePageMutation: () => ({ mutate: updatePageMutate }),
+  useUpdatePageMutation: () => ({
+    mutate: updatePageMutate,
+    mutateAsync: updatePageMutateAsync,
+  }),
 }));
 
 // Stub the heavy view bodies (they pull in their own query-client hooks); the
@@ -100,6 +126,16 @@ describe("DatabaseViewContainer", () => {
     rowsQuery.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     viewsQuery.mockReturnValue({ data: [makeView("v1", "Grid", true)] });
+    // Provide a safe default so commitTitle doesn't throw in tests that don't
+    // care about the mutation result.
+    updatePageMutateAsync.mockResolvedValue({
+      id: "page1",
+      title: "Tasks",
+      slugId: "slug1",
+      parentPageId: null,
+      icon: null,
+      spaceId: "space1",
+    });
   });
 
   it("shows a loader while the database info is loading", () => {
@@ -150,9 +186,17 @@ describe("DatabaseViewContainer", () => {
   });
 
   it("renders the page title in the title input and commits edits", () => {
-    updatePageMutate.mockReset();
+    updatePageMutateAsync.mockReset();
+    updatePageMutateAsync.mockResolvedValue({
+      id: "page1",
+      title: "Projects",
+      slugId: "slug1",
+      parentPageId: null,
+      icon: null,
+      spaceId: "space1",
+    });
     infoQuery.mockReturnValue({
-      data: { database: { id: "db1" }, page },
+      data: { database: { id: "db1", spaceId: "space1" }, page },
       isLoading: false,
     });
     propertiesQuery.mockReturnValue({ data: [], isLoading: false });
@@ -162,10 +206,85 @@ describe("DatabaseViewContainer", () => {
     expect(input.value).toBe("Tasks");
     fireEvent.change(input, { target: { value: "Projects" } });
     fireEvent.blur(input);
-    expect(updatePageMutate).toHaveBeenCalledWith({
+    expect(updatePageMutateAsync).toHaveBeenCalledWith({
       pageId: "page1",
       title: "Projects",
     });
+  });
+
+  it("emits a localEmitter updateOne event after a title change is saved", async () => {
+    localEmitterEmit.mockReset();
+    queryEmit.mockReset();
+    const updatedPage = {
+      id: "page1",
+      title: "Projects",
+      slugId: "slug1",
+      parentPageId: null,
+      icon: null,
+      spaceId: "space1",
+    };
+    updatePageMutateAsync.mockResolvedValue(updatedPage);
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1", spaceId: "space1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    rowsQuery.mockReturnValue({ data: [], isLoading: false });
+    renderContainer();
+    const input = screen.getByLabelText("Database title") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Projects" } });
+    fireEvent.blur(input);
+    // wait for the async mutateAsync promise to resolve
+    await vi.waitFor(() => expect(localEmitterEmit).toHaveBeenCalled());
+    expect(localEmitterEmit).toHaveBeenCalledWith(
+      "message",
+      expect.objectContaining({
+        operation: "updateOne",
+        entity: ["pages"],
+        payload: expect.objectContaining({ title: "Projects" }),
+      }),
+    );
+    expect(queryEmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "updateOne",
+        entity: ["pages"],
+        payload: expect.objectContaining({ title: "Projects" }),
+      }),
+    );
+  });
+
+  it("does not emit localEmitter when title is unchanged", async () => {
+    localEmitterEmit.mockReset();
+    updatePageMutateAsync.mockReset();
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1", spaceId: "space1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    rowsQuery.mockReturnValue({ data: [], isLoading: false });
+    renderContainer();
+    const input = screen.getByLabelText("Database title") as HTMLInputElement;
+    // blur without changing the value
+    fireEvent.blur(input);
+    expect(updatePageMutateAsync).not.toHaveBeenCalled();
+    expect(localEmitterEmit).not.toHaveBeenCalled();
+  });
+
+  it("does not emit localEmitter when the new title is blank/whitespace", async () => {
+    localEmitterEmit.mockReset();
+    updatePageMutateAsync.mockReset();
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1", spaceId: "space1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    rowsQuery.mockReturnValue({ data: [], isLoading: false });
+    renderContainer();
+    const input = screen.getByLabelText("Database title") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.blur(input);
+    expect(updatePageMutateAsync).not.toHaveBeenCalled();
+    expect(localEmitterEmit).not.toHaveBeenCalled();
   });
 
   it("loads rows for the default view initially", () => {
