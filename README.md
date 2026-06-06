@@ -28,6 +28,9 @@ A lightweight database that can be embedded in wiki pages, built incrementally:
 
 ## What does it look like
 
+**Page embeded preview**
+<img width="1647" height="1312" alt="image" src="https://github.com/user-attachments/assets/85369aaf-a06c-4359-b261-0c9a681bd9df" />
+
 **Board (Kanban) view** — columns grouped by the `Status` property, property tags on cards, per-column count + "+ New"; dragging a card to another column updates its status value.
 
 <img width="1258" alt="Board (Kanban) view" src="https://github.com/user-attachments/assets/e63c0814-aea6-474e-a83f-127aa5fbc363" />
