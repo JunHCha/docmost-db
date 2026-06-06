@@ -1294,5 +1294,12 @@
   "{{count}} rows deleted_one": "1 row deleted",
   "{{count}} rows deleted_other": "{{count}} rows deleted",
   "{{count}} selected_one": "1 selected",
-  "{{count}} selected_other": "{{count}} selected"
+  "{{count}} selected_other": "{{count}} selected",
+  "Database view (linked)": "Database view (linked)",
+  "Embed a linked view of an existing database.": "Embed a linked view of an existing database.",
+  "Insert database view": "Insert database view",
+  "Search databases": "Search databases",
+  "No databases found": "No databases found",
+  "Choose a view": "Choose a view",
+  "Insert": "Insert"
 }

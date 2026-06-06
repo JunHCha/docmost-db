@@ -90,6 +90,32 @@ vi.mock("./table-view/table-view", () => ({
 vi.mock("./board-view/board-view", () => ({
   BoardView: () => <div data-testid="board-view" />,
 }));
+// Expose the toolbar's filter/sort change callbacks as buttons so a test can
+// trigger a config change and assert on the persist behaviour.
+vi.mock("./toolbar/view-toolbar", () => ({
+  ViewToolbar: ({
+    onFiltersChange,
+    onSortsChange,
+  }: {
+    onFiltersChange: (f: any) => void;
+    onSortsChange: (s: any) => void;
+  }) => (
+    <div>
+      <button
+        data-testid="change-filters"
+        onClick={() =>
+          onFiltersChange([{ propertyId: "p1", op: "eq", value: "o1" }])
+        }
+      />
+      <button
+        data-testid="change-sorts"
+        onClick={() =>
+          onSortsChange([{ propertyId: "p1", direction: "asc" }])
+        }
+      />
+    </div>
+  ),
+}));
 
 import { DatabaseView } from "./database-view";
 
@@ -100,6 +126,8 @@ function renderView(
     databaseId: string;
     spaceId: string;
     spaceSlug?: string;
+    initialViewId?: string;
+    persistViewConfig?: boolean;
   }> = {},
 ) {
   return render(
@@ -108,6 +136,8 @@ function renderView(
         databaseId={props.databaseId ?? "db1"}
         spaceId={props.spaceId ?? "space1"}
         spaceSlug={props.spaceSlug}
+        initialViewId={props.initialViewId}
+        persistViewConfig={props.persistViewConfig}
       />
     </MantineProvider>,
   );
@@ -116,6 +146,7 @@ function renderView(
 describe("DatabaseView", () => {
   beforeEach(() => {
     rowsQuery.mockReset();
+    updateViewMutate.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     viewsQuery.mockReturnValue({ data: [makeView("v1", "Grid", true)] });
     propertiesQuery.mockReturnValue({ data: [], isLoading: false });
@@ -160,6 +191,37 @@ describe("DatabaseView", () => {
     expect(rowsQuery).toHaveBeenCalledWith("db1", "v1", expect.anything());
     fireEvent.click(screen.getByText("Backlog"));
     expect(rowsQuery).toHaveBeenLastCalledWith("db1", "v2", expect.anything());
+  });
+
+  it("persists filter/sort changes by default", () => {
+    renderView();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    expect(updateViewMutate).toHaveBeenCalled();
+  });
+
+  it("activates initialViewId rather than the default when given", () => {
+    viewsQuery.mockReturnValue({
+      data: [makeView("v1", "Grid", true), makeView("v2", "Backlog")],
+    });
+    renderView({ initialViewId: "v2" });
+    // v1 is the default, but the embed pins v2 — rows must load for v2.
+    expect(rowsQuery).toHaveBeenCalledWith("db1", "v2", expect.anything());
+  });
+
+  it("skips persisting config when persistViewConfig is false (session-local)", () => {
+    renderView({ persistViewConfig: false });
+    fireEvent.click(screen.getByTestId("change-filters"));
+    fireEvent.click(screen.getByTestId("change-sorts"));
+    // Filters/sorts still apply locally (rows query re-reads them) but the embed
+    // must not write back to the shared view config.
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    expect(rowsQuery).toHaveBeenLastCalledWith(
+      "db1",
+      "v1",
+      expect.objectContaining({
+        sorts: [{ propertyId: "p1", direction: "asc" }],
+      }),
+    );
   });
 
   it("shows the table-only empty state when a filtered view returns no rows", () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import {
+  databaseInfoByIdKey,
   databaseInfoKey,
   databaseRowsKey,
   databasePropertiesKey,
@@ -283,6 +284,13 @@ describe("database-cache", () => {
     expect(databaseInfoKey("page1")).toEqual(["database-info", "page1"]);
     // Must not collide with the databaseId-keyed convention (§6).
     expect(databaseInfoKey("page1")).not.toEqual(["database", "page1"]);
+  });
+
+  it("databaseInfoByIdKey is namespaced by databaseId, distinct from the pageId info slot", () => {
+    expect(databaseInfoByIdKey("db1")).toEqual(["database-info-by-id", "db1"]);
+    // The embed resolves by databaseId, so it must not collide with the
+    // pageId-keyed info slot (§6).
+    expect(databaseInfoByIdKey("db1")).not.toEqual(databaseInfoKey("db1"));
   });
 
   it("cache helpers are no-ops when the cache is empty", () => {
