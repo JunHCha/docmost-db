@@ -1,0 +1,43 @@
+name: "🐞 QA Bug Report"
+description: Report a bug found during docmost-db QA. (Tracked in the Docmost-db QA board)
+title: "[QA] "
+labels: ["bug", "qa"]
+projects: ["JunHCha/3"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! This issue is tracked in the **Docmost-db QA board**.
+        Please search [existing issues](https://github.com/JunHCha/docmost-db/issues?q=is%3Aissue+label%3Aqa) first.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's wrong? Include the expected vs. actual behavior, and screenshots/logs if any.
+      placeholder: e.g. Dragging a card to another group in the Board view does not update its Select value.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Maps to the **Priority** field on the QA board.
+      options:
+        - "P0 — blocker: data loss / crash / core feature unusable"
+        - "P1 — major: key flow broken, no workaround"
+        - "P2 — minor: cosmetic or edge case, workaround exists"
+    validations:
+      required: true
