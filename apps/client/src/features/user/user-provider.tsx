@@ -8,6 +8,7 @@ import { io } from "socket.io-client";
 import { SOCKET_URL } from "@/features/websocket/types";
 import { useQuerySubscription } from "@/features/websocket/use-query-subscription.ts";
 import { useTreeSocket } from "@/features/websocket/use-tree-socket.ts";
+import { useDatabaseRowTitleSync } from "@/features/database/queries/use-database-row-title-sync.ts";
 import { useNotificationSocket } from "@/features/notification/hooks/use-notification-socket.ts";
 import { useCollabToken } from "@/features/auth/queries/auth-query.tsx";
 import { Error404 } from "@/components/ui/error-404.tsx";
@@ -49,6 +50,7 @@ export function UserProvider({ children }: React.PropsWithChildren) {
 
   useQuerySubscription();
   useTreeSocket();
+  useDatabaseRowTitleSync();
   useNotificationSocket();
 
   useEffect(() => {

@@ -133,6 +133,22 @@ export function patchRowTitle(
   );
 }
 
+// Patches the title of the given page across *all* database-rows cache slots,
+// regardless of databaseId. Used by the row-title-sync hook which only knows
+// the pageId (from the WebSocket/localEmitter UpdateEvent) but not which
+// database the page belongs to.
+export function patchRowTitleEverywhere(
+  qc: QueryClient,
+  pageId: string,
+  title: string,
+) {
+  qc.setQueriesData<IDatabaseRow[]>({ queryKey: ["database-rows"] }, (old) =>
+    old?.map((row) =>
+      row.row.id === pageId ? { ...row, row: { ...row.row, title } } : row,
+    ) ?? old,
+  );
+}
+
 export function appendRow(qc: QueryClient, databaseId: string, page: IPage) {
   patchRows(qc, databaseId, (rows) => [...rows, { row: page, values: [] }]);
 }
