@@ -24,6 +24,7 @@ import {
 import { IPage } from "@/features/page/types/page.types.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { ColumnHeader } from "./column-header";
+import { ColumnResizeHandle } from "./column-resize-handle";
 import { GridCell } from "./grid-cell";
 import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
 import { echoColumns, resolveColumns } from "./view-columns";
@@ -33,6 +34,9 @@ import { SelectionActionBar } from "./selection-action-bar";
 import classes from "./table-view.module.css";
 
 const GUTTER_WIDTH = 36;
+// Fallback width (px) for the leading Title column when the view has no
+// persisted titleWidth yet.
+const DEFAULT_TITLE_WIDTH = 220;
 
 interface RowTitleCellProps {
   row: IPage;
@@ -133,6 +137,13 @@ export function TableView({
   );
   const ordered = useMemo(() => columns.map((c) => c.property), [columns]);
 
+  // The Title column is not a property, so its resizable width lives directly on
+  // the view config (titleWidth) rather than in config.columns.
+  const titleWidth =
+    typeof activeView.config.titleWidth === "number"
+      ? activeView.config.titleWidth
+      : DEFAULT_TITLE_WIDTH;
+
   // Multi-select over the visible (already filtered/sorted) rows.
   const visibleRowIds = useMemo(() => rows.map((r) => r.row.id), [rows]);
   const selection = useRowSelection(visibleRowIds);
@@ -154,12 +165,19 @@ export function TableView({
     });
   }
 
+  // Persist the resized Title column width. Spreads the existing config so the
+  // columns array (and everything else) is preserved alongside the new width.
+  function commitTitleWidth(next: number) {
+    updateView.mutate({
+      viewId: activeView.id,
+      config: { ...activeView.config, titleWidth: next },
+    });
+  }
+
   return (
-    // Scroll horizontally when columns overflow the page width instead of
-    // squeezing them. max-content lets the table grow to its natural width;
-    // minWidth keeps it filling the page when there are only a few columns.
-    // The column-header config menu opens in a portal (see column-header), so
-    // it is not clipped by this overflow container — no min-height needed.
+    // Scroll horizontally when columns overflow the page width. The column-header
+    // config menu opens in a portal (see column-header), so it is not clipped by
+    // this overflow container.
     <div
       data-testid="table-view"
       style={{ overflowX: "auto", maxWidth: "100%" }}
@@ -176,11 +194,14 @@ export function TableView({
         withColumnBorders
         striped
         highlightOnHover
-        // Fixed layout keeps every column at its declared width, so switching a
-        // cell into edit mode (input/caret) can't reflow the column. width is
-        // the sum of declared widths so it still grows past the page (the
-        // wrapper scrolls horizontally) rather than being squeezed.
-        style={{ minWidth: "100%", width: "max-content", tableLayout: "fixed" }}
+        // Fixed layout keeps every declared-width column (gutter, Title, data
+        // columns) at its width, so switching a cell into edit mode can't reflow
+        // it and the selection gutter stays minimal. width:100% fills the page,
+        // but only the trailing "no-data" column has NO width — so it (not the
+        // data columns) absorbs the leftover space, and resizing one column never
+        // redistributes the others. When columns overflow the page the table
+        // grows past 100% and the wrapper scrolls.
+        style={{ width: "100%", tableLayout: "fixed" }}
       >
         <Table.Thead>
           <Table.Tr>
@@ -191,10 +212,16 @@ export function TableView({
                 onToggleAll={selection.selectAll}
               />
             </Table.Th>
-            <Table.Th style={{ width: 220 }}>
-              <Text size="sm" fw={500}>
-                {t("Title")}
-              </Text>
+            <Table.Th style={{ width: titleWidth }}>
+              <div style={{ position: "relative", width: "100%" }}>
+                <Text size="sm" fw={500}>
+                  {t("Title")}
+                </Text>
+                <ColumnResizeHandle
+                  width={titleWidth}
+                  onResize={commitTitleWidth}
+                />
+              </div>
             </Table.Th>
             {columns.map(({ property, width }) => (
               <Table.Th key={property.id} style={{ width }}>
@@ -209,7 +236,11 @@ export function TableView({
                 />
               </Table.Th>
             ))}
-            <Table.Th style={{ width: 48 }}>
+            {/* Trailing "no-data" column: the only column without a fixed width,
+                so it absorbs the page's leftover space (subtle background marks
+                it as empty). The Add-column button sits at its left edge, right
+                after the last data column. */}
+            <Table.Th className={classes.noData}>
               <ActionIcon
                 variant="subtle"
                 aria-label={t("Add column")}
@@ -262,7 +293,7 @@ export function TableView({
                   />
                 </Table.Td>
               ))}
-              <Table.Td />
+              <Table.Td className={classes.noData} />
             </Table.Tr>
             );
           })}

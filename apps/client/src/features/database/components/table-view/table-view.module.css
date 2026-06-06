@@ -8,3 +8,13 @@
 .gutter[data-selected] {
   opacity: 1;
 }
+
+/* Trailing column with no data: a subtle tint distinguishes the empty area
+ * (which absorbs the page's leftover width) from the real data columns. */
+.noData {
+  background-color: var(--mantine-color-gray-1);
+}
+
+:global([data-mantine-color-scheme="dark"]) .noData {
+  background-color: var(--mantine-color-dark-5);
+}

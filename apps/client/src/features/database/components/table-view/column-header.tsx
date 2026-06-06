@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
@@ -22,6 +22,7 @@ import {
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
+import { ColumnResizeHandle } from "./column-resize-handle";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
 
 // Isolate column DnD from the page tree's drag adapter.
@@ -128,38 +129,6 @@ export function ColumnHeader({
       }),
     );
   }, [property.id, orderedProperties, reorder, renaming]);
-
-  // Width resize: track the drag on the handle, preview locally via the parent
-  // <th> width, and commit once on pointer-up. Pointer capture keeps events
-  // flowing even when the cursor leaves the 4px handle.
-  const MIN_WIDTH = 80;
-  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-
-  function resizeWidth(clientX: number): number {
-    const r = resizeRef.current;
-    if (!r) return width;
-    return Math.max(MIN_WIDTH, Math.round(r.startWidth + (clientX - r.startX)));
-  }
-
-  function onResizePointerDown(e: React.PointerEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    resizeRef.current = { startX: e.clientX, startWidth: width };
-  }
-
-  function onResizePointerMove(e: React.PointerEvent) {
-    if (!resizeRef.current) return;
-    const th = e.currentTarget.closest("th");
-    if (th) (th as HTMLElement).style.width = `${resizeWidth(e.clientX)}px`;
-  }
-
-  function onResizePointerUp(e: React.PointerEvent) {
-    if (!resizeRef.current) return;
-    const next = resizeWidth(e.clientX);
-    resizeRef.current = null;
-    if (next !== width) onResize(next);
-  }
 
   function startRename() {
     setNameDraft(property.name);
@@ -320,23 +289,7 @@ export function ColumnHeader({
           </Group>
         </div>
       )}
-      <div
-        role="separator"
-        aria-label={t("Resize column")}
-        aria-orientation="vertical"
-        onPointerDown={onResizePointerDown}
-        onPointerMove={onResizePointerMove}
-        onPointerUp={onResizePointerUp}
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          right: -3,
-          width: 6,
-          cursor: "col-resize",
-          touchAction: "none",
-        }}
-      />
+      <ColumnResizeHandle width={width} onResize={onResize} />
       {closestEdge && (
         <div
           data-testid="column-drop-indicator"

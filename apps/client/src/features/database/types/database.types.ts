@@ -146,6 +146,9 @@ export interface ISortCondition {
 
 export interface IDatabaseViewConfig {
   columns?: IViewColumnConfig[];
+  // Resizable width (px) of the leading Title column. The Title is not a
+  // property, so its width is stored here rather than in `columns`.
+  titleWidth?: number;
   filters?: IFilterCondition[];
   sorts?: ISortCondition[];
   // Board view: the select / multi_select property whose options become columns.
