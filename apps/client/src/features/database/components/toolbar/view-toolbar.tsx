@@ -60,6 +60,10 @@ export function ViewToolbar({
         withinPortal={false}
         shadow="md"
         trapFocus={false}
+        // Value widgets (e.g. the date picker) render their own popups; a click
+        // inside one would otherwise read as an outside click and close the
+        // builder mid-edit. Only the toggle button / explicit close dismiss it.
+        closeOnClickOutside={false}
       >
         <Popover.Target>
           <Tooltip label={t("Filter")}>
@@ -88,6 +92,7 @@ export function ViewToolbar({
         withinPortal={false}
         shadow="md"
         trapFocus={false}
+        closeOnClickOutside={false}
       >
         <Popover.Target>
           <Tooltip label={t("Sort")}>
