@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📋 Docmost-db QA board
+    url: https://github.com/users/JunHCha/projects/3
+    about: QA 버그의 진행 상황은 이 프로젝트 보드에서 관리됩니다.
+  - name: 📖 Docmost 공식 문서
+    url: https://docmost.com/docs
+    about: 원본 Docmost 사용법/셀프호스팅 관련 문서입니다.
