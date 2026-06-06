@@ -12,15 +12,14 @@ import {
   useClearValueMutation,
   useCreateRowMutation,
   useSetValueMutation,
-  useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
 import {
   patchRowValue,
   removeRowValue,
 } from "@/features/database/queries/database-cache.ts";
+import { resolveColumns } from "../table-view/view-columns";
 import { groupRows } from "./group-rows";
 import { BoardColumn } from "./board-column";
-import { BoardSettingsMenu } from "./board-settings-menu";
 
 interface BoardViewProps {
   databaseId: string;
@@ -68,10 +67,8 @@ export function BoardView({
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const createRow = useCreateRowMutation(databaseId);
-  const updateView = useUpdateViewMutation(databaseId);
 
   const groupByPropertyId = activeView.config.groupByPropertyId;
-  const cardPropertyIds = activeView.config.cardProperties ?? [];
   // Only select/multi_select can be grouped. Guard the render path against a
   // stale view or hand-injected config that points groupBy at another type —
   // fall back to the empty "pick a property" state instead of grouping.
@@ -83,32 +80,20 @@ export function BoardView({
     return prop;
   }, [properties, groupByPropertyId]);
 
+  // Cards show the view's visible columns (managed via the toolbar's Properties
+  // menu), minus the group-by property — the column already encodes that value.
   const cardProperties = useMemo(
     () =>
-      cardPropertyIds
-        .map((id) => properties.find((p) => p.id === id))
-        .filter((p): p is IDatabaseProperty => !!p && p.id !== groupByPropertyId),
-    [cardPropertyIds, properties, groupByPropertyId],
+      resolveColumns(properties, activeView.config.columns)
+        .map((c) => c.property)
+        .filter((p) => p.id !== groupByPropertyId),
+    [properties, activeView.config.columns, groupByPropertyId],
   );
 
   const buckets = useMemo(
     () => (groupBy ? groupRows(rows, groupBy) : null),
     [groupBy, rows],
   );
-
-  function commitGroupBy(propertyId: string | null) {
-    updateView.mutate({
-      viewId: activeView.id,
-      config: { ...activeView.config, groupByPropertyId: propertyId ?? undefined },
-    });
-  }
-
-  function commitCardProperties(next: string[]) {
-    updateView.mutate({
-      viewId: activeView.id,
-      config: { ...activeView.config, cardProperties: next },
-    });
-  }
 
   // Optimistically patch the rows cache so the card shows in the target column
   // immediately, then fire the real set-value mutation; its onError invalidates
@@ -165,13 +150,6 @@ export function BoardView({
 
   return (
     <Stack gap="sm" data-testid="board-view">
-      <BoardSettingsMenu
-        properties={properties}
-        groupByPropertyId={groupByPropertyId}
-        cardProperties={cardPropertyIds}
-        onChangeGroupBy={commitGroupBy}
-        onToggleCardProperty={commitCardProperties}
-      />
       {!groupBy || !buckets ? (
         <Box p="xl">
           <Text c="dimmed">{t("Select a property to group by")}</Text>

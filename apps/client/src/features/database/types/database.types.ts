@@ -150,7 +150,8 @@ export interface IDatabaseViewConfig {
   sorts?: ISortCondition[];
   // Board view: the select / multi_select property whose options become columns.
   groupByPropertyId?: string;
-  // Board view: property ids shown on each card (besides the title).
+  // @deprecated Board cards now follow the view's visible columns; kept only so
+  // older stored configs still type-check. No longer read or written by the UI.
   cardProperties?: string[];
   [key: string]: unknown;
 }
