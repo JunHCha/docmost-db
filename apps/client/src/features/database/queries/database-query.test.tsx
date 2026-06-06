@@ -57,6 +57,7 @@ const service = {
   updateView: vi.fn(),
   setDefaultView: vi.fn(),
   deleteView: vi.fn(),
+  getDatabaseInfo: vi.fn(),
 };
 
 vi.mock("@/features/database/services/database-service.ts", () => ({
@@ -68,7 +69,7 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   deleteProperty: (...a: unknown[]) => service.deleteProperty(...a),
   reorderProperty: (...a: unknown[]) => service.reorderProperty(...a),
   createDatabase: vi.fn(),
-  getDatabaseInfo: vi.fn(),
+  getDatabaseInfo: (...a: unknown[]) => service.getDatabaseInfo(...a),
   listProperties: vi.fn(),
   listRows: (...a: unknown[]) => service.listRows(...a),
   deleteRows: (...a: unknown[]) => service.deleteRows(...a),
@@ -85,6 +86,7 @@ import {
   useCreatePropertyMutation,
   useCreateRowMutation,
   useCreateViewMutation,
+  useDatabaseInfoByIdQuery,
   useDatabaseRowsQuery,
   useDeletePropertyMutation,
   useDeleteRowsMutation,
@@ -95,7 +97,11 @@ import {
   useUpdatePropertyMutation,
   useUpdateViewMutation,
 } from "./database-query.ts";
-import { databaseRowsKey, databasesKey } from "./database-cache.ts";
+import {
+  databaseInfoByIdKey,
+  databaseRowsKey,
+  databasesKey,
+} from "./database-cache.ts";
 import { IDatabaseRow } from "@/features/database/types/database.types.ts";
 
 const dbId = "db1";
@@ -212,6 +218,36 @@ describe("useCreateRowMutation success path", () => {
     // Rows are not surfaced as sidebar child pages (Notion-like), so the
     // sidebar create cache must not be touched.
     expect(invalidateOnCreatePage).not.toHaveBeenCalled();
+  });
+});
+
+describe("useDatabaseInfoByIdQuery", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+  });
+
+  it("looks up the database by databaseId under its own info key", async () => {
+    const info = { database: { id: "db1" }, page: { id: "p1" } };
+    service.getDatabaseInfo.mockResolvedValue(info);
+
+    const { result } = renderHook(() => useDatabaseInfoByIdQuery("db1"), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // Resolves by databaseId (the embed only carries the database id), not pageId.
+    expect(service.getDatabaseInfo).toHaveBeenCalledWith({ databaseId: "db1" });
+    expect(result.current.data).toBe(info);
+    expect(queryClient.getQueryData(databaseInfoByIdKey("db1"))).toBe(info);
+  });
+
+  it("is disabled without a databaseId", () => {
+    const { result } = renderHook(() => useDatabaseInfoByIdQuery(""), {
+      wrapper,
+    });
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(service.getDatabaseInfo).not.toHaveBeenCalled();
   });
 });
 

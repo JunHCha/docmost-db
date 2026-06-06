@@ -61,6 +61,7 @@ import {
   TransclusionSource,
   TransclusionReference,
   TableView,
+  DatabaseView,
 } from "@docmost/editor-ext";
 import {
   randomElement,
@@ -91,6 +92,7 @@ import PdfView from "@/features/editor/components/pdf/pdf-view.tsx";
 import SubpagesView from "@/features/editor/components/subpages/subpages-view.tsx";
 import TransclusionView from "@/features/editor/components/transclusion/transclusion-view.tsx";
 import TransclusionReferenceView from "@/features/editor/components/transclusion/transclusion-reference-view.tsx";
+import DatabaseEmbedView from "@/features/editor/components/database-embed/database-embed-view.tsx";
 import { common, createLowlight } from "lowlight";
 import plaintext from "highlight.js/lib/languages/plaintext";
 import powershell from "highlight.js/lib/languages/powershell";
@@ -230,7 +232,11 @@ export const mainExtensions = [
   Typography,
   TrailingNode,
   GlobalDragHandle.configure({
-    customNodes: ["transclusionSource", "transclusionReference"],
+    customNodes: [
+      "transclusionSource",
+      "transclusionReference",
+      "databaseView",
+    ],
   }),
   TextStyle,
   Color,
@@ -380,6 +386,9 @@ export const mainExtensions = [
   }),
   TransclusionReference.configure({
     view: TransclusionReferenceView,
+  }),
+  DatabaseView.configure({
+    view: DatabaseEmbedView,
   }),
   MarkdownClipboard.configure({
     transformPastedText: true,
