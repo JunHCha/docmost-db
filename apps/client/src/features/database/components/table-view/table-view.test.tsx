@@ -129,6 +129,7 @@ describe("TableView", () => {
     createRowMutate.mockReset();
     createPropertyMutate.mockReset();
     updateRowTitleMutate.mockReset();
+    updateViewMutate.mockReset();
     navigate.mockReset();
   });
 
@@ -136,6 +137,34 @@ describe("TableView", () => {
     renderGrid();
     expect(screen.getByText("Status")).toBeTruthy();
     expect(screen.getByText("Done")).toBeTruthy();
+  });
+
+  it("persists a resized Title column width on the view config", () => {
+    renderGrid();
+    const titleTh = screen.getByText("Title").closest("th") as HTMLElement;
+    const handle = within(titleTh).getByLabelText("Resize column");
+    // jsdom has no PointerCapture API — stub it like column-header.test.
+    (handle as any).setPointerCapture = vi.fn();
+    // jsdom drops clientX on synthetic pointer events, so dispatch MouseEvents
+    // (which carry clientX) under the pointer event type names — mirrors
+    // column-header.test.
+    const pointer = (type: string, clientX: number) =>
+      fireEvent(handle, new MouseEvent(type, { bubbles: true, clientX }));
+    pointer("pointerdown", 100);
+    pointer("pointermove", 180);
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    pointer("pointerup", 180);
+    // Default title width 220 + (180 - 100) = 300.
+    expect(updateViewMutate).toHaveBeenCalledWith({
+      viewId: "v1",
+      config: expect.objectContaining({ titleWidth: 300 }),
+    });
+  });
+
+  it("applies the configured Title width to the Title header", () => {
+    renderGrid({ activeView: view({ titleWidth: 280 }) });
+    const titleTh = screen.getByText("Title").closest("th") as HTMLElement;
+    expect(titleTh.style.width).toBe("280px");
   });
 
   it("renders a leading Title column header", () => {
