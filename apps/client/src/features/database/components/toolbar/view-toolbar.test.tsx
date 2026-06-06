@@ -27,18 +27,21 @@ const properties: IDatabaseProperty[] = [
 function renderToolbar(over: Partial<React.ComponentProps<typeof ViewToolbar>> = {}) {
   const onFiltersChange = vi.fn();
   const onSortsChange = vi.fn();
+  const onToggleColumn = vi.fn();
   render(
     <MantineProvider>
       <ViewToolbar
         properties={properties}
         filters={over.filters ?? []}
         sorts={over.sorts ?? []}
+        columns={over.columns}
         onFiltersChange={over.onFiltersChange ?? onFiltersChange}
         onSortsChange={over.onSortsChange ?? onSortsChange}
+        onToggleColumn={over.onToggleColumn ?? onToggleColumn}
       />
     </MantineProvider>,
   );
-  return { onFiltersChange, onSortsChange };
+  return { onFiltersChange, onSortsChange, onToggleColumn };
 }
 
 describe("ViewToolbar", () => {
@@ -76,5 +79,19 @@ describe("ViewToolbar", () => {
     expect(onSortsChange).toHaveBeenCalledWith([
       { propertyId: "p1", direction: "asc" },
     ]);
+  });
+
+  it("renders the Properties button", () => {
+    renderToolbar();
+    expect(
+      screen.getByRole("button", { name: /properties/i }),
+    ).toBeTruthy();
+  });
+
+  it("opens the properties popover and toggles a column off", async () => {
+    const { onToggleColumn } = renderToolbar();
+    fireEvent.click(screen.getByRole("button", { name: /properties/i }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Status" }));
+    expect(onToggleColumn).toHaveBeenCalledWith("p1", false);
   });
 });
