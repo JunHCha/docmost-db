@@ -12,6 +12,7 @@ import {
   createRow,
   createView,
   deleteProperty,
+  deleteRows,
   deleteView,
   getDatabaseInfo,
   listDatabases,
@@ -36,8 +37,10 @@ import {
   IDatabasePropertyValue,
   IDatabaseRow,
   IDatabaseView,
+  IDatabaseViewConfig,
   ICreateViewParams,
   IDeletePropertyParams,
+  IDeleteRowsParams,
   IReorderPropertyParams,
   ISetValueParams,
   IUpdatePropertyParams,
@@ -57,6 +60,7 @@ import {
   patchRowTitle,
   patchRowValue,
   removeProperty,
+  removeRows,
   removeRowValue,
 } from "@/features/database/queries/database-cache.ts";
 import {
@@ -128,10 +132,15 @@ export function useDatabasePropertiesQuery(
 export function useDatabaseRowsQuery(
   databaseId: string,
   viewId: string,
+  config?: IDatabaseViewConfig,
 ): UseQueryResult<IDatabaseRow[], Error> {
+  const filters = config?.filters;
+  const sorts = config?.sorts;
   return useQuery({
+    // viewId is part of the key, so each view caches its own filtered/sorted
+    // result independently (the server applies the view's filters/sorts).
     queryKey: databaseRowsKey(databaseId, viewId),
-    queryFn: () => listRows({ databaseId }),
+    queryFn: () => listRows({ databaseId, filters, sorts }),
     enabled: !!databaseId && !!viewId,
   });
 }
@@ -202,6 +211,22 @@ export function useCreateRowMutation(databaseId: string) {
     onError: () => {
       queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
       notifications.show({ message: t("Failed to create row"), color: "red" });
+    },
+  });
+}
+
+export function useDeleteRowsMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<void, Error, IDeleteRowsParams>({
+    mutationFn: (data) => deleteRows(data),
+    onMutate: (variables) => {
+      // Optimistically drop the selected rows from every cached view.
+      removeRows(queryClient, databaseId, variables.pageIds);
+    },
+    onError: () => {
+      // Resync on failure so a rejected delete never leaves a row hidden.
+      queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
+      notifications.show({ message: t("Failed to delete rows"), color: "red" });
     },
   });
 }
