@@ -23,6 +23,8 @@ A lightweight database that can be embedded in wiki pages, built incrementally:
 - **Row multi-select** — gutter checkboxes for multi-select & bulk delete
 
 > ⚠️ Experimental, work in progress. Not recommended for production use.
+>
+> Inspired by an [issue](https://github.com/docmost/docmost/issues/78)
 
 ## What does it look like
 
