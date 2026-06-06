@@ -60,7 +60,8 @@ export function FilterRow({
         value={condition.propertyId}
         onChange={changeProperty}
         comboboxProps={{ withinPortal: false }}
-        w={140}
+        size="xs"
+        w={120}
       />
       <Select
         aria-label={t("Filter operator")}
@@ -68,7 +69,8 @@ export function FilterRow({
         value={condition.op}
         onChange={(op) => op && changeOp(op as IFilterCondition["op"])}
         comboboxProps={{ withinPortal: false }}
-        w={160}
+        size="xs"
+        w={140}
       />
       {opNeedsValue(condition.op) && (
         <FilterValueWidget

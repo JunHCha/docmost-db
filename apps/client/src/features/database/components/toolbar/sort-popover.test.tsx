@@ -60,6 +60,11 @@ describe("moveSort", () => {
 });
 
 describe("SortPopover", () => {
+  it("renders a Sort title header", () => {
+    renderPopover([]);
+    expect(screen.getByText("Sort")).toBeTruthy();
+  });
+
   it("adds a sort defaulting to the first unused property ascending", () => {
     const { onChange } = renderPopover([]);
     fireEvent.click(screen.getByText("Add sort"));

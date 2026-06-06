@@ -41,6 +41,11 @@ function renderPopover(filters: IFilterCondition[], onChange = vi.fn()) {
 }
 
 describe("FilterPopover", () => {
+  it("renders a Filter title header", () => {
+    renderPopover([]);
+    expect(screen.getByText("Filter")).toBeTruthy();
+  });
+
   it("adds a filter defaulting to the first property and its first op", () => {
     const { onChange } = renderPopover([]);
     fireEvent.click(screen.getByText("Add filter"));

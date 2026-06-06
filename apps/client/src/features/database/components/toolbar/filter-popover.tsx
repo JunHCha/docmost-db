@@ -39,10 +39,15 @@ export function FilterPopover({
   }
 
   return (
-    <Stack gap="xs" miw={360}>
-      <Text size="xs" c="dimmed">
-        {t("Where")}
+    <Stack gap="xs" miw={260}>
+      <Text size="sm" fw={600}>
+        {t("Filter")}
       </Text>
+      {filters.length > 0 && (
+        <Text size="xs" c="dimmed">
+          {t("Where")}
+        </Text>
+      )}
       {filters.map((condition, index) => (
         <FilterRow
           key={index}
