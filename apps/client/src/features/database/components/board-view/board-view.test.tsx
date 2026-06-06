@@ -16,13 +16,11 @@ vi.mock("react-router-dom", async (importOriginal) => {
 const setMutate = vi.fn();
 const clearMutate = vi.fn();
 const createRowMutate = vi.fn();
-const updateViewMutate = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
   useClearValueMutation: () => ({ mutate: clearMutate }),
   useCreateRowMutation: () => ({ mutate: createRowMutate }),
-  useUpdateViewMutation: () => ({ mutate: updateViewMutate }),
 }));
 
 const patchRowValue = vi.fn();
@@ -133,7 +131,6 @@ describe("BoardView", () => {
     setMutate.mockReset();
     clearMutate.mockReset();
     createRowMutate.mockReset();
-    updateViewMutate.mockReset();
     patchRowValue.mockReset();
     removeRowValue.mockReset();
     navigate.mockReset();
@@ -262,15 +259,90 @@ describe("BoardView", () => {
     expect(screen.queryByTestId("board-column")).toBeNull();
   });
 
-  it("persists a group-by change through updateView", () => {
-    renderBoard();
-    // Open the Mantine Select (a combobox) and pick the Status option.
-    const input = screen.getByRole("textbox", { name: "Group by" });
-    fireEvent.click(input);
-    fireEvent.click(screen.getByRole("option", { name: "Status" }));
-    expect(updateViewMutate).toHaveBeenCalledWith({
-      viewId: "v1",
+  it("renders visible non-group-by columns on each card", () => {
+    const owner: IDatabaseProperty = {
+      id: "owner",
+      databaseId: "db1",
+      name: "Owner",
+      type: "text",
+      config: {},
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    const ownerValue = {
+      id: "ov-r1",
+      pageId: "r1",
+      propertyId: "owner",
+      value: { type: "text", value: "Ann" } as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const row: IDatabaseRow = {
+      row: { id: "r1", title: "r1", slugId: "r1" } as any,
+      values: [
+        {
+          id: "v-r1",
+          pageId: "r1",
+          propertyId: "status",
+          value: { type: "select", value: "todo" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        ownerValue,
+      ],
+    };
+    renderBoard({
       config: { groupByPropertyId: "status" },
+      properties: [status, owner],
+      rows: [row],
     });
+    // The group-by property (Status) is excluded; Owner's cell value shows.
+    expect(screen.getByText("Ann")).toBeTruthy();
+  });
+
+  it("hides columns flagged visible:false from cards", () => {
+    const owner: IDatabaseProperty = {
+      id: "owner",
+      databaseId: "db1",
+      name: "Owner",
+      type: "text",
+      config: {},
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    const row: IDatabaseRow = {
+      row: { id: "r1", title: "r1", slugId: "r1" } as any,
+      values: [
+        {
+          id: "v-r1",
+          pageId: "r1",
+          propertyId: "status",
+          value: { type: "select", value: "todo" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "ov-r1",
+          pageId: "r1",
+          propertyId: "owner",
+          value: { type: "text", value: "Ann" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
+    };
+    renderBoard({
+      config: {
+        groupByPropertyId: "status",
+        columns: [{ propertyId: "owner", visible: false }],
+      },
+      properties: [status, owner],
+      rows: [row],
+    });
+    expect(screen.queryByText("Ann")).toBeNull();
   });
 });

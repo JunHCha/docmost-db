@@ -8,15 +8,3 @@ export function groupByCandidates(
     (p) => p.type === "select" || p.type === "multi_select",
   );
 }
-
-// Toggle a property id in the card-properties list (add when absent, remove
-// when present). Returns a fresh array so it can be echoed into updateView.
-export function toggleCardProperty(
-  current: string[] | undefined,
-  propertyId: string,
-): string[] {
-  const list = current ?? [];
-  return list.includes(propertyId)
-    ? list.filter((id) => id !== propertyId)
-    : [...list, propertyId];
-}
