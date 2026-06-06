@@ -69,7 +69,7 @@ export function ViewSettingsMenu({
             </Menu.Sub.Target>
             <Menu.Sub.Dropdown>
               {candidates.map((property) => (
-                <Menu.Sub.Item
+                <Menu.Item
                   key={property.id}
                   leftSection={
                     groupByPropertyId === property.id ? (
@@ -79,7 +79,7 @@ export function ViewSettingsMenu({
                   onClick={() => onChangeGroupBy(property.id)}
                 >
                   {property.name}
-                </Menu.Sub.Item>
+                </Menu.Item>
               ))}
             </Menu.Sub.Dropdown>
           </Menu.Sub>
