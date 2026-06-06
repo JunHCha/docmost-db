@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ActionIcon, Button, Group, Select, Stack } from "@mantine/core";
+import { ActionIcon, Button, Group, Select, Stack, Text } from "@mantine/core";
 import { IconGripVertical, IconX } from "@tabler/icons-react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -88,7 +88,8 @@ function SortRow({
         value={sort.propertyId}
         onChange={(v) => v && onChange({ ...sort, propertyId: v })}
         comboboxProps={{ withinPortal: false }}
-        w={140}
+        size="xs"
+        w={130}
       />
       <Select
         aria-label={t("Sort direction")}
@@ -101,7 +102,8 @@ function SortRow({
           v && onChange({ ...sort, direction: v as ISortCondition["direction"] })
         }
         comboboxProps={{ withinPortal: false }}
-        w={140}
+        size="xs"
+        w={110}
       />
       <ActionIcon
         variant="subtle"
@@ -136,7 +138,10 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
   }
 
   return (
-    <Stack gap="xs" miw={360}>
+    <Stack gap="xs" miw={260}>
+      <Text size="sm" fw={600}>
+        {t("Sort")}
+      </Text>
       {sorts.map((sort, index) => (
         <SortRow
           key={index}

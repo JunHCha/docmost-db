@@ -60,6 +60,10 @@ export function ViewToolbar({
         withinPortal={false}
         shadow="md"
         trapFocus={false}
+        // withinPortal renders the builder (and its value widgets) inside the
+        // popover, so edits never count as outside clicks. The dropdown stays
+        // open through editing and a filter/sort apply — only a real background
+        // click dismisses it (default closeOnClickOutside).
       >
         <Popover.Target>
           <Tooltip label={t("Filter")}>
