@@ -3,18 +3,23 @@ import {
   resolveColumns,
   echoColumns,
   DEFAULT_COLUMN_WIDTH,
+  SELECT_COLUMN_WIDTH,
 } from "./view-columns";
 import {
   IDatabaseProperty,
   IViewColumnConfig,
 } from "@/features/database/types/database.types.ts";
 
-function prop(id: string, position: string): IDatabaseProperty {
+function prop(
+  id: string,
+  position: string,
+  type: IDatabaseProperty["type"] = "text",
+): IDatabaseProperty {
   return {
     id,
     databaseId: "db1",
     name: id,
-    type: "text",
+    type,
     config: {},
     position,
     createdAt: new Date(),
@@ -58,6 +63,30 @@ describe("resolveColumns", () => {
     const b = result.find((c) => c.property.id === "b")!;
     expect(a.width).toBe(320);
     expect(b.width).toBe(DEFAULT_COLUMN_WIDTH);
+  });
+
+  it("defaults select / multi_select columns to the compact width", () => {
+    const props = [
+      prop("sel", "a0", "select"),
+      prop("multi", "a1", "multi_select"),
+      prop("txt", "a2", "text"),
+    ];
+    const result = resolveColumns(props, undefined);
+    const sel = result.find((c) => c.property.id === "sel")!;
+    const multi = result.find((c) => c.property.id === "multi")!;
+    const txt = result.find((c) => c.property.id === "txt")!;
+    expect(sel.width).toBe(SELECT_COLUMN_WIDTH);
+    expect(multi.width).toBe(SELECT_COLUMN_WIDTH);
+    expect(txt.width).toBe(DEFAULT_COLUMN_WIDTH);
+  });
+
+  it("respects an explicit width on a select column over the compact default", () => {
+    const props = [prop("sel", "a0", "select")];
+    const config: IViewColumnConfig[] = [
+      { propertyId: "sel", visible: true, width: 300 },
+    ];
+    const result = resolveColumns(props, config);
+    expect(result[0].width).toBe(300);
   });
 
   it("drops config entries for properties that no longer exist", () => {
