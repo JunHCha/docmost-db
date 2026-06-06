@@ -1,0 +1,10 @@
+/* The row gutter checkbox is hidden until the row is hovered or selected,
+ * mirroring Notion's left-edge select handle. */
+.gutter {
+  opacity: 0;
+}
+
+.row:hover .gutter,
+.gutter[data-selected] {
+  opacity: 1;
+}
