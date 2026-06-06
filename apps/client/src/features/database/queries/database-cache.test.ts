@@ -15,6 +15,7 @@ import {
   removeProperty,
   patchRowTitle,
   patchView,
+  patchRowTitleEverywhere,
 } from "./database-cache";
 import {
   IDatabaseProperty,
@@ -298,5 +299,61 @@ describe("database-cache", () => {
       patchRowValue(qc, dbId, makeValue("p1", "prop1", "x")),
     ).not.toThrow();
     expect(qc.getQueryData(databaseRowsKey(dbId, "v1"))).toBeUndefined();
+  });
+
+  describe("patchRowTitleEverywhere", () => {
+    it("updates the matching row title in every database-rows slot", () => {
+      // Two different databases with different viewIds — patchRowTitleEverywhere
+      // must update the row in ALL ["database-rows"] slots regardless of databaseId.
+      qc.setQueryData(databaseRowsKey("db1", "v1"), [
+        { row: { id: "p1", title: "Old" } as any, values: [] },
+        makeRow("p2"),
+      ]);
+      qc.setQueryData(databaseRowsKey("db2", "v1"), [
+        { row: { id: "p1", title: "Old" } as any, values: [] },
+        makeRow("p3"),
+      ]);
+
+      patchRowTitleEverywhere(qc, "p1", "New");
+
+      const slot1 = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey("db1", "v1"))!;
+      const slot2 = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey("db2", "v1"))!;
+
+      expect(slot1[0].row.title).toBe("New");
+      expect(slot2[0].row.title).toBe("New");
+    });
+
+    it("leaves other rows unchanged", () => {
+      qc.setQueryData(databaseRowsKey(dbId, "v1"), [
+        { row: { id: "p1", title: "Old" } as any, values: [] },
+        { row: { id: "p2", title: "Keep" } as any, values: [] },
+      ]);
+
+      patchRowTitleEverywhere(qc, "p1", "Updated");
+
+      const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))!;
+      expect(rows[0].row.title).toBe("Updated");
+      expect(rows[1].row.title).toBe("Keep");
+    });
+
+    it("is a no-op when the cache is empty", () => {
+      expect(() => patchRowTitleEverywhere(qc, "p1", "New")).not.toThrow();
+    });
+
+    it("patches multiple views of the same database", () => {
+      qc.setQueryData(databaseRowsKey(dbId, "v1"), [
+        { row: { id: "p1", title: "Old" } as any, values: [] },
+      ]);
+      qc.setQueryData(databaseRowsKey(dbId, "v2"), [
+        { row: { id: "p1", title: "Old" } as any, values: [] },
+      ]);
+
+      patchRowTitleEverywhere(qc, "p1", "Fresh");
+
+      const v1 = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))!;
+      const v2 = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v2"))!;
+      expect(v1[0].row.title).toBe("Fresh");
+      expect(v2[0].row.title).toBe("Fresh");
+    });
   });
 });
