@@ -12,6 +12,10 @@ import {
   useDatabaseViewsQuery,
   useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
+import {
+  sanitizeFilters,
+  sanitizeSorts,
+} from "@/features/database/filters/sanitize.ts";
 import { echoColumns } from "./table-view/view-columns";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
@@ -86,8 +90,18 @@ export function DatabaseView({
     setSorts(activeConfigRef.current?.sorts ?? []);
   }, [activeViewId]);
 
+  // The rows query gets a sanitized copy: in-progress rows (an added filter
+  // without a value yet) are dropped so they don't blank the grid. The UI and
+  // persisted config keep the raw rows so the user's in-flight edit survives.
   const viewConfig = useMemo(
-    () => (activeView ? { ...activeView.config, filters, sorts } : undefined),
+    () =>
+      activeView
+        ? {
+            ...activeView.config,
+            filters: sanitizeFilters(filters),
+            sorts: sanitizeSorts(sorts),
+          }
+        : undefined,
     [activeView, filters, sorts],
   );
   const rowsQuery = useDatabaseRowsQuery(databaseId, activeViewId, viewConfig);
@@ -184,7 +198,7 @@ export function DatabaseView({
         />
       ) : !rowsQuery.isLoading &&
         (rowsQuery.data ?? []).length === 0 &&
-        filters.length > 0 ? (
+        (viewConfig?.filters?.length ?? 0) > 0 ? (
         // Filtered-empty state is table-only: the board groups rows into option
         // columns and stays useful when empty, and we gate on !isLoading so a
         // refetch (e.g. after a filter change) doesn't flash this notice.
