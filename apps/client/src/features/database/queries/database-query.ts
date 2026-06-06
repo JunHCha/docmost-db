@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   UseQueryResult,
@@ -160,6 +161,11 @@ export function useDatabaseRowsQuery(
     queryKey: databaseRowsKey(databaseId, viewId, { filters, sorts }),
     queryFn: () => listRows({ databaseId, filters, sorts }),
     enabled: !!databaseId && !!viewId,
+    // Keep showing the previous rows while a filter/sort change refetches.
+    // Without this the new queryKey starts with no data (isLoading=true), which
+    // swaps the whole view for a loader — unmounting the toolbar and closing the
+    // open filter/sort builder mid-edit.
+    placeholderData: keepPreviousData,
   });
 }
 
