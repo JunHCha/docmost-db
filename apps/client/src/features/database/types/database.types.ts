@@ -121,6 +121,10 @@ export interface IViewColumnConfig {
 
 export interface IDatabaseViewConfig {
   columns?: IViewColumnConfig[];
+  // Board view: the select / multi_select property whose options become columns.
+  groupByPropertyId?: string;
+  // Board view: property ids shown on each card (besides the title).
+  cardProperties?: string[];
   [key: string]: unknown;
 }
 

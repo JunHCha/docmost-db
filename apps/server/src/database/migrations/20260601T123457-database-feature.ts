@@ -111,7 +111,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .column('property_id')
     .execute();
 
-  // Saved views (grid / list) for a database.
+  // Saved views (table / board / ...) for a database.
   await db.schema
     .createTable('database_views')
     .addColumn('id', 'uuid', (col) =>

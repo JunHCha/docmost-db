@@ -10,7 +10,8 @@ import {
   useDatabaseViewsQuery,
 } from "@/features/database/queries/database-query.ts";
 import { useUpdatePageMutation } from "@/features/page/queries/page-query.ts";
-import { GridView } from "./grid-view/grid-view";
+import { TableView } from "./table-view/table-view";
+import { BoardView } from "./board-view/board-view";
 import { ViewSwitcher } from "./view-switcher";
 
 interface DatabaseViewContainerProps {
@@ -102,14 +103,24 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
         activeViewId={activeViewId}
         onActivate={setSelectedViewId}
       />
-      <GridView
-        databaseId={databaseId}
-        spaceId={infoQuery.data?.database.spaceId ?? ""}
-        properties={propertiesQuery.data ?? []}
-        rows={rowsQuery.data ?? []}
-        activeView={activeView}
-        spaceSlug={spaceSlug}
-      />
+      {activeView.type === "board" ? (
+        <BoardView
+          databaseId={databaseId}
+          properties={propertiesQuery.data ?? []}
+          rows={rowsQuery.data ?? []}
+          activeView={activeView}
+          spaceSlug={spaceSlug}
+        />
+      ) : (
+        <TableView
+          databaseId={databaseId}
+          spaceId={infoQuery.data?.database.spaceId ?? ""}
+          properties={propertiesQuery.data ?? []}
+          rows={rowsQuery.data ?? []}
+          activeView={activeView}
+          spaceSlug={spaceSlug}
+        />
+      )}
     </Stack>
   );
 }

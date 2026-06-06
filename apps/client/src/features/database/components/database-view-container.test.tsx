@@ -35,7 +35,7 @@ function makeView(id: string, name: string, isDefault = false) {
     id,
     databaseId: "db1",
     name,
-    type: "grid",
+    type: "table",
     config: {},
     isDefault,
     position: id,

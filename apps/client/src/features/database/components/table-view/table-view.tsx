@@ -98,7 +98,7 @@ function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
   );
 }
 
-interface GridViewProps {
+interface TableViewProps {
   databaseId: string;
   spaceId: string;
   properties: IDatabaseProperty[];
@@ -107,14 +107,14 @@ interface GridViewProps {
   spaceSlug?: string;
 }
 
-export function GridView({
+export function TableView({
   databaseId,
   spaceId,
   properties,
   rows,
   activeView,
   spaceSlug,
-}: GridViewProps) {
+}: TableViewProps) {
   const { t } = useTranslation();
   const createRow = useCreateRowMutation(databaseId);
   const createProperty = useCreatePropertyMutation(databaseId);
@@ -146,7 +146,7 @@ export function GridView({
     // The column-header config menu opens in a portal (see column-header), so
     // it is not clipped by this overflow container — no min-height needed.
     <div
-      data-testid="grid-view"
+      data-testid="table-view"
       style={{ overflowX: "auto", maxWidth: "100%" }}
     >
       <Table
@@ -237,4 +237,4 @@ export function GridView({
   );
 }
 
-export default GridView;
+export default TableView;

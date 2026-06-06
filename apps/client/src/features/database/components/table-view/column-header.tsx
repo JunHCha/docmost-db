@@ -45,7 +45,7 @@ interface ColumnHeaderProps {
   orderedProperties: IDatabaseProperty[];
   // Active-view column config: current width (px) plus persistence callbacks.
   // Resize previews locally and commits once on pointer-up; hide commits
-  // immediately. Both are owned by GridView (full-config echo, see view-columns).
+  // immediately. Both are owned by TableView (full-config echo, see view-columns).
   width: number;
   onHide: () => void;
   onResize: (width: number) => void;
