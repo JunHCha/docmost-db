@@ -51,6 +51,7 @@ import { IPage } from "@/features/page/types/page.types.ts";
 import {
   appendProperty,
   appendRow,
+  databaseInfoByIdKey,
   databaseInfoKey,
   databasePropertiesKey,
   databaseRowsKey,
@@ -107,6 +108,20 @@ export function useDatabaseInfoQuery(pageId: string): UseQueryResult<
     queryKey: databaseInfoKey(pageId),
     queryFn: () => getDatabaseInfo({ pageId }),
     enabled: !!pageId,
+  });
+}
+
+// Resolve a database by its id rather than the entry pageId — the inline embed
+// (issue #24) only carries the databaseId. Mirrors useDatabaseInfoQuery but for
+// the databaseId-addressed lookup the server already supports.
+export function useDatabaseInfoByIdQuery(databaseId: string): UseQueryResult<
+  IDatabaseInfoResponse,
+  Error
+> {
+  return useQuery({
+    queryKey: databaseInfoByIdKey(databaseId),
+    queryFn: () => getDatabaseInfo({ databaseId }),
+    enabled: !!databaseId,
   });
 }
 

@@ -15,6 +15,13 @@ export function databaseInfoKey(pageId: string): QueryKey {
   return ["database-info", pageId];
 }
 
+// The inline embed (issue #24) only carries the databaseId, not the entry
+// pageId, so it resolves info by databaseId under its own namespace — distinct
+// from the pageId-keyed slot above so the two lookups never collide (§6).
+export function databaseInfoByIdKey(databaseId: string): QueryKey {
+  return ["database-info-by-id", databaseId];
+}
+
 // Space-scoped list of databases (used by the relation target picker, §6).
 export function databasesKey(spaceId: string): QueryKey {
   return ["databases", spaceId];
