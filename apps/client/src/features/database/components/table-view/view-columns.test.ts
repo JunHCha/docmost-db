@@ -3,18 +3,23 @@ import {
   resolveColumns,
   echoColumns,
   DEFAULT_COLUMN_WIDTH,
+  CHECKBOX_COLUMN_WIDTH,
 } from "./view-columns";
 import {
   IDatabaseProperty,
   IViewColumnConfig,
 } from "@/features/database/types/database.types.ts";
 
-function prop(id: string, position: string): IDatabaseProperty {
+function prop(
+  id: string,
+  position: string,
+  type: IDatabaseProperty["type"] = "text",
+): IDatabaseProperty {
   return {
     id,
     databaseId: "db1",
     name: id,
-    type: "text",
+    type,
     config: {},
     position,
     createdAt: new Date(),
@@ -108,5 +113,43 @@ describe("echoColumns", () => {
     const prior: IViewColumnConfig[] = [{ propertyId: "b", visible: true }];
     const result = echoColumns(props, prior);
     expect(result.map((c) => c.propertyId)).toEqual(["b", "a"]);
+  });
+});
+
+describe("resolveColumns – type-based default width", () => {
+  it("checkbox 컬럼은 명시 width 없으면 CHECKBOX_COLUMN_WIDTH로 resolve된다", () => {
+    const props = [prop("chk", "a0", "checkbox")];
+    const result = resolveColumns(props, undefined);
+    expect(result[0].width).toBe(CHECKBOX_COLUMN_WIDTH);
+  });
+
+  it("checkbox 외 타입은 명시 width 없으면 DEFAULT_COLUMN_WIDTH로 resolve된다", () => {
+    const props = [
+      prop("txt", "a0", "text"),
+      prop("sel", "a1", "select"),
+      prop("num", "a2", "number"),
+    ];
+    const result = resolveColumns(props, undefined);
+    for (const col of result) {
+      expect(col.width).toBe(DEFAULT_COLUMN_WIDTH);
+    }
+  });
+
+  it("명시 width가 있으면 checkbox 타입이어도 그 값을 사용한다", () => {
+    const props = [prop("chk", "a0", "checkbox")];
+    const config: IViewColumnConfig[] = [
+      { propertyId: "chk", visible: true, width: 250 },
+    ];
+    const result = resolveColumns(props, config);
+    expect(result[0].width).toBe(250);
+  });
+
+  it("명시 width가 있으면 text 타입이어도 그 값을 사용한다", () => {
+    const props = [prop("txt", "a0", "text")];
+    const config: IViewColumnConfig[] = [
+      { propertyId: "txt", visible: true, width: 320 },
+    ];
+    const result = resolveColumns(props, config);
+    expect(result[0].width).toBe(320);
   });
 });

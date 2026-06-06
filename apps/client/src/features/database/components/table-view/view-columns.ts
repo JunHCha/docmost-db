@@ -8,6 +8,15 @@ import {
 // when switching a cell into edit mode.
 export const DEFAULT_COLUMN_WIDTH = 180;
 
+// Compact default width for checkbox columns. Checkbox cells render a single
+// ~20px checkbox, so 180px wastes horizontal space. Aligns with MIN_WIDTH=80
+// defined in column-header.tsx so the resize floor stays consistent.
+export const CHECKBOX_COLUMN_WIDTH = 80;
+
+function defaultWidthFor(property: IDatabaseProperty): number {
+  return property.type === "checkbox" ? CHECKBOX_COLUMN_WIDTH : DEFAULT_COLUMN_WIDTH;
+}
+
 export interface ResolvedColumn {
   property: IDatabaseProperty;
   width: number;
@@ -55,7 +64,7 @@ export function resolveColumns(
     .filter((p) => config.get(p.id)?.visible !== false)
     .map((property) => ({
       property,
-      width: config.get(property.id)?.width ?? DEFAULT_COLUMN_WIDTH,
+      width: config.get(property.id)?.width ?? defaultWidthFor(property),
     }));
 }
 
