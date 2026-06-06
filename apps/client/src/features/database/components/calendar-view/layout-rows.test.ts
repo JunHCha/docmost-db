@@ -50,7 +50,7 @@ describe("layoutRows", () => {
       startDay: 10,
       endDay: 10,
       draggable: true,
-      dragPropertyId: "start",
+      dragPropertyIds: ["start"],
     });
     expect(bars[0].row.row.id).toBe("r1");
   });
@@ -62,7 +62,7 @@ describe("layoutRows", () => {
       startDay: 20,
       endDay: 20,
       draggable: true,
-      dragPropertyId: "end",
+      dragPropertyIds: ["end"],
     });
   });
 
@@ -78,6 +78,8 @@ describe("layoutRows", () => {
       startDay: 12,
       endDay: 12,
       draggable: true,
+      // Both endpoints move together so a same-day event stays single-day.
+      dragPropertyIds: ["start", "end"],
     });
   });
 
@@ -160,7 +162,7 @@ describe("layoutRows", () => {
       startDay: 10,
       endDay: 10,
       draggable: true,
-      dragPropertyId: "start",
+      dragPropertyIds: ["start"],
     });
   });
 

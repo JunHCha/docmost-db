@@ -6,14 +6,16 @@ const ISO = "YYYY-MM-DD";
 // A row placed onto the visible month grid. startDay/endDay are 1-based days of
 // the visible month, already clipped to the month's bounds. A bar is draggable
 // only when it occupies a single date (start-only / end-only / start==end);
-// multi-day spans are click-only. dragPropertyId names the date property a drop
-// should rewrite (undefined for non-draggable spans).
+// multi-day spans are click-only. dragPropertyIds names the date properties a
+// drop should rewrite — one for start-only/end-only, but BOTH for a start==end
+// bar so the two endpoints move together and it stays single-day (undefined for
+// non-draggable spans).
 export interface CalendarBar {
   row: IDatabaseRow;
   startDay: number;
   endDay: number;
   draggable: boolean;
-  dragPropertyId?: string;
+  dragPropertyIds?: string[];
 }
 
 function parseDate(
@@ -50,20 +52,24 @@ export function layoutRows(
     let from: Dayjs;
     let to: Dayjs;
     let draggable: boolean;
-    let dragPropertyId: string | undefined;
+    let dragPropertyIds: string[] | undefined;
 
     if (start && end) {
       // Normalize reversed spans so from <= to.
       [from, to] = start.isAfter(end) ? [end, start] : [start, end];
       const single = from.isSame(to, "day");
       draggable = single;
-      dragPropertyId = single ? startDatePropertyId : undefined;
+      // A start==end bar moves BOTH endpoints together (start and end ids are
+      // both defined here since each date was parsed from its property).
+      dragPropertyIds = single
+        ? [startDatePropertyId!, endDatePropertyId!]
+        : undefined;
     } else {
       const only = (start ?? end) as Dayjs;
       from = only;
       to = only;
       draggable = true;
-      dragPropertyId = start ? startDatePropertyId : endDatePropertyId;
+      dragPropertyIds = [start ? startDatePropertyId! : endDatePropertyId!];
     }
 
     // Drop spans that do not intersect the visible month at all.
@@ -74,7 +80,7 @@ export function layoutRows(
     const startDay = from.isBefore(monthStart, "day") ? 1 : from.date();
     const endDay = to.isAfter(monthEnd, "day") ? daysInMonth : to.date();
 
-    bars.push({ row, startDay, endDay, draggable, dragPropertyId });
+    bars.push({ row, startDay, endDay, draggable, dragPropertyIds });
   }
 
   return bars;

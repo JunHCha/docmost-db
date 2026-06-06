@@ -28,13 +28,13 @@ export function CalendarBar({ bar, spaceSlug }: CalendarBarProps) {
       element: el,
       getInitialData: () => ({
         id: bar.row.row.id,
-        propertyId: bar.dragPropertyId,
+        propertyIds: bar.dragPropertyIds,
         context: CALENDAR_BAR_DRAG,
       }),
       onDragStart: () => setDragging(true),
       onDrop: () => setDragging(false),
     });
-  }, [bar.row.row.id, bar.draggable, bar.dragPropertyId]);
+  }, [bar.row.row.id, bar.draggable, bar.dragPropertyIds?.join(",")]);
 
   return (
     <Text

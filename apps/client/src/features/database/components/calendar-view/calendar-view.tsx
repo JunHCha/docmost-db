@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
   Box,
@@ -68,7 +68,7 @@ function DayCell({
   inMonth: boolean;
   bars: BarData[];
   spaceSlug?: string;
-  onDropOnDay: (rowId: string, propertyId: string, date: Dayjs) => void;
+  onDropOnDay: (rowId: string, propertyIds: string[], date: Dayjs) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
@@ -83,9 +83,9 @@ function DayCell({
       onDragLeave: () => setOver(false),
       onDrop: ({ source }) => {
         setOver(false);
-        const propertyId = source.data.propertyId as string | undefined;
-        if (!propertyId) return;
-        onDropOnDay(source.data.id as string, propertyId, date);
+        const propertyIds = source.data.propertyIds as string[] | undefined;
+        if (!propertyIds?.length) return;
+        onDropOnDay(source.data.id as string, propertyIds, date);
       },
     });
   }, [inMonth, date, onDropOnDay]);
@@ -198,19 +198,25 @@ export function CalendarView({
 
   // Move a single-date bar onto the dropped day: optimistically patch the rows
   // cache so the chip jumps immediately, then persist via set-value (its onError
-  // invalidates the rows prefix and rolls back).
-  function onDropOnDay(rowId: string, propertyId: string, date: Dayjs) {
-    const value = { type: "date" as const, value: date.format(ISO) };
-    patchRowValue(queryClient, databaseId, {
-      id: `optimistic-${rowId}-${propertyId}`,
-      pageId: rowId,
-      propertyId,
-      value,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    setValue.mutate({ pageId: rowId, propertyId, value });
-  }
+  // invalidates the rows prefix and rolls back). A start==end bar carries both
+  // property ids so the two endpoints move together and it stays single-day.
+  const onDropOnDay = useCallback(
+    (rowId: string, propertyIds: string[], date: Dayjs) => {
+      const value = { type: "date" as const, value: date.format(ISO) };
+      for (const propertyId of propertyIds) {
+        patchRowValue(queryClient, databaseId, {
+          id: `optimistic-${rowId}-${propertyId}`,
+          pageId: rowId,
+          propertyId,
+          value,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        setValue.mutate({ pageId: rowId, propertyId, value });
+      }
+    },
+    [queryClient, databaseId, setValue],
+  );
 
   return (
     <Stack gap="sm" data-testid="calendar-view">
