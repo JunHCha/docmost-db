@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📋 Docmost-db QA board
+    url: https://github.com/users/JunHCha/projects/3
+    about: QA bugs are tracked on this project board.
+  - name: 📖 Docmost docs
+    url: https://docmost.com/docs
+    about: Upstream Docmost usage and self-hosting docs.
