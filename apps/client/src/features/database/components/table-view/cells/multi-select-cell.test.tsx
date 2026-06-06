@@ -150,7 +150,10 @@ describe("MultiSelectCell", () => {
     await waitFor(() => expect(setMutate).toHaveBeenCalledTimes(1));
   });
 
-  function openEditPanel(label: string, value: any = { type: "multi_select", value: [] }) {
+  function openEditPanel(
+    label: string,
+    value: any = { type: "multi_select", value: [] },
+  ) {
     renderCell(value);
     fireEvent.click(screen.getByLabelText("Tags"));
     const edit = screen.getByLabelText(`Edit ${label}`);

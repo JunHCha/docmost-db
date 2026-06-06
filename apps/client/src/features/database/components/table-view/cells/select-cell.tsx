@@ -110,11 +110,9 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
   }
 
   function deleteOption(id: string) {
+    // Pure config change: a removed option's id renders as graceful blank
+    // (unknown ids are ignored), so the cell value never needs clearing.
     commit(removeOption(options, id));
-    // Drop the cell's value if it pointed at the option just removed.
-    if (selectedId === id) {
-      clearValue.mutate({ pageId, propertyId: property.id });
-    }
     setEditingOptionId(null);
   }
 

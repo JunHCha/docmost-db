@@ -39,7 +39,12 @@ const property: IDatabaseProperty = {
 function renderCell(value: any, prop: IDatabaseProperty = property) {
   return render(
     <MantineProvider>
-      <SelectCell property={prop} value={value} pageId="page1" databaseId="db1" />
+      <SelectCell
+        property={prop}
+        value={value}
+        pageId="page1"
+        databaseId="db1"
+      />
     </MantineProvider>,
   );
 }

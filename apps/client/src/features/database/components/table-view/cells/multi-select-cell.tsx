@@ -124,11 +124,9 @@ export function MultiSelectCell({
   }
 
   function deleteOption(id: string) {
+    // Pure config change: a removed option's id renders as graceful blank
+    // (unknown ids are ignored), so the cell value never needs rewriting.
     commitConfig(removeOption(options, id));
-    // Drop the removed option's id from this cell's value (if present).
-    if (selectedIds.includes(id)) {
-      commit(selectedIds.filter((sid) => sid !== id));
-    }
     setEditingOptionId(null);
   }
 
