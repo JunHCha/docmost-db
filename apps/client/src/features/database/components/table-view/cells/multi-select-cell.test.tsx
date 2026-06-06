@@ -204,23 +204,26 @@ describe("MultiSelectCell", () => {
     });
   });
 
-  it("removes a deleted option's id from a multi-value, keeping the rest", () => {
+  it("deleting an option in a multi-value only rewrites config (no value change)", () => {
     openEditPanel("Red", { type: "multi_select", value: ["o1", "o2"] });
     fireEvent.click(screen.getByLabelText("Delete Red"));
-    expect(setMutate).toHaveBeenCalledWith({
-      pageId: "page1",
+    // Pure config change: the value array is left untouched (gone id ignored).
+    expect(updateMutate).toHaveBeenCalledWith({
       propertyId: "prop1",
-      value: { type: "multi_select", value: ["o2"] },
+      config: { options: [{ id: "o2", label: "Green", color: "green" }] },
     });
+    expect(setMutate).not.toHaveBeenCalled();
+    expect(clearMutate).not.toHaveBeenCalled();
   });
 
-  it("clears the cell when deleting the only selected option", () => {
+  it("deleting the only selected option does not clear the cell", () => {
     openEditPanel("Red", { type: "multi_select", value: ["o1"] });
     fireEvent.click(screen.getByLabelText("Delete Red"));
-    expect(clearMutate).toHaveBeenCalledWith({
-      pageId: "page1",
+    expect(updateMutate).toHaveBeenCalledWith({
       propertyId: "prop1",
+      config: { options: [{ id: "o2", label: "Green", color: "green" }] },
     });
+    expect(clearMutate).not.toHaveBeenCalled();
     expect(setMutate).not.toHaveBeenCalled();
   });
 
