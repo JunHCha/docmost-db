@@ -21,7 +21,7 @@ describe("getSuggestionItems database view item", () => {
     expect(items.some((i) => i.title === "Database view (linked)")).toBe(true);
   });
 
-  it("command deletes the slash range and dispatches an open-picker event", () => {
+  it("command deletes the slash range and dispatches a page-scoped open-picker event", () => {
     const items = flatten(getSuggestionItems({ query: "database" }));
     const item = items.find((i) => i.title === "Database view (linked)")!;
 
@@ -29,10 +29,12 @@ describe("getSuggestionItems database view item", () => {
     const deleteRange = vi.fn(() => ({ run }));
     const focus = vi.fn(() => ({ deleteRange }));
     const chain = vi.fn(() => ({ focus }));
-    const editor = { chain } as any;
+    // editor.storage.pageId scopes the event so only the dispatching page's
+    // editor opens the picker (not other mounted editors).
+    const editor = { chain, storage: { pageId: "page-1" } } as any;
 
-    const dispatched: Event[] = [];
-    const listener = (e: Event) => dispatched.push(e);
+    const dispatched: CustomEvent[] = [];
+    const listener = (e: Event) => dispatched.push(e as CustomEvent);
     document.addEventListener("openDatabasePickerFromEditor", listener);
 
     item.command({ editor, range: { from: 1, to: 5 } } as any);
@@ -42,5 +44,6 @@ describe("getSuggestionItems database view item", () => {
     expect(deleteRange).toHaveBeenCalledWith({ from: 1, to: 5 });
     expect(run).toHaveBeenCalled();
     expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].detail).toEqual({ pageId: "page-1" });
   });
 });

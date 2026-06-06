@@ -340,12 +340,19 @@ export default function PageEditor({
   // picker is a two-step async flow), so it dispatches this event for us to
   // open the modal (mirrors search-and-replace's openFindDialogFromEditor).
   useEffect(() => {
-    const openPicker = () => setDbPickerOpened(true);
+    const openPicker = (e: Event) => {
+      // Only respond when the event targets this page (or carries no page, for
+      // backward-compat), so a picker opened in one editor can't surface in
+      // another mounted instance.
+      const detail = (e as CustomEvent).detail;
+      if (detail?.pageId && detail.pageId !== pageId) return;
+      setDbPickerOpened(true);
+    };
     document.addEventListener("openDatabasePickerFromEditor", openPicker);
     return () => {
       document.removeEventListener("openDatabasePickerFromEditor", openPicker);
     };
-  }, []);
+  }, [pageId]);
 
   const debouncedUpdateContent = useDebouncedCallback((newContent: any) => {
     const pageData = queryClient.getQueryData<IPage>(["pages", slugId]);

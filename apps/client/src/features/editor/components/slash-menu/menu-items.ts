@@ -524,8 +524,14 @@ const CommandGroups: SlashMenuGroupedItemsType = {
         // here. Remove the slash text and hand off to the page-level modal via
         // a CustomEvent (mirrors the Mod-f openFindDialogFromEditor pattern).
         editor.chain().focus().deleteRange(range).run();
+        // @ts-ignore - pageId is injected onto editor.storage at editor setup
+        const pageId = editor.storage?.pageId;
+        // Scope the event to this editor's page so only its page-editor opens
+        // the picker, even if another editable editor is mounted at the time.
         document.dispatchEvent(
-          new CustomEvent("openDatabasePickerFromEditor", {}),
+          new CustomEvent("openDatabasePickerFromEditor", {
+            detail: { pageId },
+          }),
         );
       },
     },
