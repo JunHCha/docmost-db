@@ -25,6 +25,7 @@ import {
   IconSitemap,
   IconColumns3,
   IconColumns2,
+  IconDatabase,
   IconTag,
   IconMoodSmile,
   IconRotate2,
@@ -511,6 +512,21 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       icon: IconSitemap,
       command: ({ editor, range }: CommandProps) => {
         editor.chain().focus().deleteRange(range).insertSubpages().run();
+      },
+    },
+    {
+      title: "Database view (linked)",
+      description: "Embed a linked view of an existing database.",
+      searchTerms: ["database", "db", "linked", "table", "view"],
+      icon: IconDatabase,
+      command: ({ editor, range }: CommandProps) => {
+        // The picker is a two-step async flow, so we can't insert synchronously
+        // here. Remove the slash text and hand off to the page-level modal via
+        // a CustomEvent (mirrors the Mod-f openFindDialogFromEditor pattern).
+        editor.chain().focus().deleteRange(range).run();
+        document.dispatchEvent(
+          new CustomEvent("openDatabasePickerFromEditor", {}),
+        );
       },
     },
     {
