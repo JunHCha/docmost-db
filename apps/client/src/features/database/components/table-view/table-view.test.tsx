@@ -15,6 +15,7 @@ const createRowMutate = vi.fn();
 const createPropertyMutate = vi.fn();
 const updateRowTitleMutate = vi.fn();
 const updateViewMutate = vi.fn();
+const deleteRowsMutate = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
@@ -26,6 +27,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
   useUpdateViewMutation: () => ({ mutate: updateViewMutate }),
   useUpdateRowTitleMutation: () => ({ mutate: updateRowTitleMutate }),
+  useDeleteRowsMutation: () => ({ mutate: deleteRowsMutate }),
   useListDatabasesQuery: () => ({ data: [] }),
   useDatabaseRowsQuery: () => ({ data: [] }),
 }));
@@ -92,7 +94,13 @@ function view(config: IDatabaseView["config"]): IDatabaseView {
   };
 }
 
-function renderGrid(opts: { spaceSlug?: string; activeView?: IDatabaseView } = {}) {
+function renderGrid(
+  opts: {
+    spaceSlug?: string;
+    activeView?: IDatabaseView;
+    rows?: IDatabaseRow[];
+  } = {},
+) {
   return render(
     <MantineProvider>
       <MemoryRouter>
@@ -100,13 +108,20 @@ function renderGrid(opts: { spaceSlug?: string; activeView?: IDatabaseView } = {
           databaseId="db1"
           spaceId="space1"
           properties={properties}
-          rows={rows}
+          rows={opts.rows ?? rows}
           spaceSlug={opts.spaceSlug ?? "my-space"}
           activeView={opts.activeView ?? view({})}
         />
       </MemoryRouter>
     </MantineProvider>,
   );
+}
+
+function makeRow(id: string, title: string): IDatabaseRow {
+  return {
+    row: { id, title, slugId: `slug-${id}` } as any,
+    values: [],
+  };
 }
 
 describe("TableView", () => {
@@ -264,5 +279,75 @@ describe("TableView active-view column config", () => {
         ],
       },
     });
+  });
+});
+
+describe("TableView row multi-select", () => {
+  beforeEach(() => {
+    deleteRowsMutate.mockReset();
+    navigate.mockReset();
+  });
+
+  const threeRows = [
+    makeRow("r1", "Alpha"),
+    makeRow("r2", "Beta"),
+    makeRow("r3", "Gamma"),
+  ];
+
+  it("renders a header select-all checkbox in the gutter", () => {
+    renderGrid({ rows: threeRows });
+    expect(screen.getByLabelText("Select all rows")).toBeTruthy();
+  });
+
+  it("renders a select checkbox per row", () => {
+    renderGrid({ rows: threeRows });
+    expect(screen.getAllByLabelText("Select row")).toHaveLength(3);
+  });
+
+  it("selects all visible rows via the header checkbox", () => {
+    renderGrid({ rows: threeRows });
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    expect(screen.getByText(/3\s+selected/)).toBeTruthy();
+  });
+
+  it("shows the action bar once a row is selected", () => {
+    renderGrid({ rows: threeRows });
+    expect(screen.queryByLabelText("Delete selected rows")).toBeNull();
+    fireEvent.click(screen.getAllByLabelText("Select row")[0]);
+    expect(screen.getByLabelText("Delete selected rows")).toBeTruthy();
+    expect(screen.getByText(/1\s+selected/)).toBeTruthy();
+  });
+
+  it("bulk-deletes the selected pageIds via useDeleteRowsMutation", () => {
+    renderGrid({ rows: threeRows });
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.click(screen.getByLabelText("Delete selected rows"));
+    expect(deleteRowsMutate).toHaveBeenCalledWith(
+      { databaseId: "db1", pageIds: ["r1", "r2", "r3"] },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("selects a shift-range in visible order", () => {
+    renderGrid({ rows: threeRows });
+    const boxes = screen.getAllByLabelText("Select row");
+    fireEvent.click(boxes[0]);
+    fireEvent.click(boxes[2], { shiftKey: true });
+    expect(screen.getByText(/3\s+selected/)).toBeTruthy();
+  });
+
+  it("does not navigate when a row checkbox is clicked", () => {
+    renderGrid({ rows: threeRows });
+    fireEvent.click(screen.getAllByLabelText("Select row")[0]);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the +Row footer spanning gutter, columns and add-column", () => {
+    const { container } = renderGrid({ rows: threeRows });
+    const footerCell = container.querySelector(
+      "tbody tr:last-child td[colspan]",
+    ) as HTMLTableCellElement;
+    // gutter + title + 2 properties + add-column = 5 (columns.length + 3)
+    expect(footerCell.getAttribute("colspan")).toBe("5");
   });
 });
