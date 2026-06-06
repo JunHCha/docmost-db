@@ -1,21 +1,25 @@
 import { useState } from "react";
 import { Badge, Button, Group, Popover } from "@mantine/core";
-import { IconArrowsSort, IconFilter } from "@tabler/icons-react";
+import { IconArrowsSort, IconFilter, IconColumns3 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
   IFilterCondition,
   ISortCondition,
+  IViewColumnConfig,
 } from "@/features/database/types/database.types.ts";
 import { FilterPopover } from "./filter-popover";
 import { SortPopover } from "./sort-popover";
+import { PropertiesPopover } from "./properties-popover";
 
 interface ViewToolbarProps {
   properties: IDatabaseProperty[];
   filters: IFilterCondition[];
   sorts: ISortCondition[];
+  columns?: IViewColumnConfig[];
   onFiltersChange: (filters: IFilterCondition[]) => void;
   onSortsChange: (sorts: ISortCondition[]) => void;
+  onToggleColumn: (propertyId: string, visible: boolean) => void;
 }
 
 function CountBadge({ count }: { count: number }) {
@@ -33,12 +37,15 @@ export function ViewToolbar({
   properties,
   filters,
   sorts,
+  columns,
   onFiltersChange,
   onSortsChange,
+  onToggleColumn,
 }: ViewToolbarProps) {
   const { t } = useTranslation();
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   return (
     <Group gap="xs">
@@ -93,6 +100,32 @@ export function ViewToolbar({
             properties={properties}
             sorts={sorts}
             onChange={onSortsChange}
+          />
+        </Popover.Dropdown>
+      </Popover>
+      <Popover
+        opened={propertiesOpen}
+        onChange={setPropertiesOpen}
+        position="bottom-end"
+        withinPortal={false}
+        shadow="md"
+        trapFocus={false}
+      >
+        <Popover.Target>
+          <Button
+            variant="subtle"
+            size="xs"
+            leftSection={<IconColumns3 size={16} />}
+            onClick={() => setPropertiesOpen((o) => !o)}
+          >
+            {t("Properties")}
+          </Button>
+        </Popover.Target>
+        <Popover.Dropdown>
+          <PropertiesPopover
+            properties={properties}
+            columns={columns}
+            onToggle={onToggleColumn}
           />
         </Popover.Dropdown>
       </Popover>
