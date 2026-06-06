@@ -6,6 +6,7 @@ import {
   IViewColumnConfig,
 } from "@/features/database/types/database.types.ts";
 import { groupByCandidates } from "../board-view/board-config";
+import { dateCandidates } from "../calendar-view/calendar-config";
 import { PropertiesPopover } from "./properties-popover";
 
 interface ViewSettingsMenuProps {
@@ -18,6 +19,9 @@ interface ViewSettingsMenuProps {
   onToggleColumn: (propertyId: string, visible: boolean) => void;
   groupByPropertyId?: string;
   onChangeGroupBy?: (id: string | null) => void;
+  startDatePropertyId?: string;
+  endDatePropertyId?: string;
+  onChangeDateProperty?: (slot: "start" | "end", id: string | null) => void;
 }
 
 // The toolbar's "View settings" control: an icon button opening a menu whose
@@ -32,9 +36,49 @@ export function ViewSettingsMenu({
   onToggleColumn,
   groupByPropertyId,
   onChangeGroupBy,
+  startDatePropertyId,
+  endDatePropertyId,
+  onChangeDateProperty,
 }: ViewSettingsMenuProps) {
   const { t } = useTranslation();
   const candidates = groupByCandidates(properties);
+  const dates = dateCandidates(properties);
+
+  // A reusable date-property submenu (Start date / End date). Picking the
+  // already-selected property clears it, so the slot can be unset again.
+  function dateSubmenu(
+    label: string,
+    slot: "start" | "end",
+    selectedId: string | undefined,
+  ) {
+    return (
+      <Menu.Sub>
+        <Menu.Sub.Target>
+          <Menu.Sub.Item>{label}</Menu.Sub.Item>
+        </Menu.Sub.Target>
+        <Menu.Sub.Dropdown>
+          {dates.map((property) => (
+            <Menu.Item
+              key={property.id}
+              leftSection={
+                selectedId === property.id ? (
+                  <IconCheck size={14} />
+                ) : undefined
+              }
+              onClick={() =>
+                onChangeDateProperty?.(
+                  slot,
+                  selectedId === property.id ? null : property.id,
+                )
+              }
+            >
+              {property.name}
+            </Menu.Item>
+          ))}
+        </Menu.Sub.Dropdown>
+      </Menu.Sub>
+    );
+  }
 
   return (
     <Menu closeOnItemClick={false} position="bottom-end" withinPortal={false}>
@@ -83,6 +127,12 @@ export function ViewSettingsMenu({
               ))}
             </Menu.Sub.Dropdown>
           </Menu.Sub>
+        ) : null}
+        {viewType === "calendar" && onChangeDateProperty ? (
+          <>
+            {dateSubmenu(t("Start date"), "start", startDatePropertyId)}
+            {dateSubmenu(t("End date"), "end", endDatePropertyId)}
+          </>
         ) : null}
       </Menu.Dropdown>
     </Menu>
