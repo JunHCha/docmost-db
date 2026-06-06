@@ -134,6 +134,16 @@ export function DatabaseView({
     });
   }
 
+  // Set/clear the board's group-by property. Like the other view edits the embed
+  // keeps this session-local (no write back to the shared config).
+  function changeGroupBy(id: string | null) {
+    if (!activeView || !persistViewConfig) return;
+    updateView.mutate({
+      viewId: activeView.id,
+      config: { ...activeView.config, groupByPropertyId: id ?? undefined },
+    });
+  }
+
   if (propertiesQuery.isLoading || rowsQuery.isLoading || !activeView) {
     return (
       <Center p="xl">
@@ -152,6 +162,7 @@ export function DatabaseView({
           onActivate={setSelectedViewId}
         />
         <ViewToolbar
+          viewType={activeView.type}
           properties={propertiesQuery.data ?? []}
           filters={filters}
           sorts={sorts}
@@ -159,6 +170,8 @@ export function DatabaseView({
           onFiltersChange={changeFilters}
           onSortsChange={changeSorts}
           onToggleColumn={toggleColumn}
+          groupByPropertyId={activeView.config.groupByPropertyId}
+          onChangeGroupBy={changeGroupBy}
         />
       </Group>
       {activeView.type === "board" ? (
