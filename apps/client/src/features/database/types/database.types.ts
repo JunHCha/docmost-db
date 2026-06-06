@@ -119,8 +119,35 @@ export interface IViewColumnConfig {
   width?: number;
 }
 
+// Filter operators — kept in sync with the server `filter-ops.ts` whitelist.
+export type FilterOp =
+  | "eq"
+  | "neq"
+  | "contains"
+  | "not_contains"
+  | "gt"
+  | "lt"
+  | "gte"
+  | "lte"
+  | "is_empty"
+  | "is_not_empty";
+
+export interface IFilterCondition {
+  propertyId: string;
+  op: FilterOp;
+  // Raw comparison value (not the tagged {type,value}); omitted for empty ops.
+  value?: unknown;
+}
+
+export interface ISortCondition {
+  propertyId: string;
+  direction: "asc" | "desc";
+}
+
 export interface IDatabaseViewConfig {
   columns?: IViewColumnConfig[];
+  filters?: IFilterCondition[];
+  sorts?: ISortCondition[];
   // Board view: the select / multi_select property whose options become columns.
   groupByPropertyId?: string;
   // Board view: property ids shown on each card (besides the title).
@@ -163,6 +190,13 @@ export interface IViewIdParams {
 
 export interface IListRowsParams {
   databaseId: string;
+  filters?: IFilterCondition[];
+  sorts?: ISortCondition[];
+}
+
+export interface IDeleteRowsParams {
+  databaseId: string;
+  pageIds: string[];
 }
 
 export interface ICreateRowParams {
