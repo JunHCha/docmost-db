@@ -27,6 +27,13 @@ interface DatabaseViewProps {
   databaseId: string;
   spaceId: string;
   spaceSlug?: string;
+  // The embed (issue #24) pins a specific view rather than always opening the
+  // default; a deleted id still falls through to the default/first view below.
+  initialViewId?: string;
+  // The embed scopes filter/sort edits to the session instead of writing them
+  // back to the shared database_views.config. Defaults to the page behaviour
+  // (persist) so DatabaseViewContainer needs no change.
+  persistViewConfig?: boolean;
 }
 
 /**
@@ -39,6 +46,8 @@ export function DatabaseView({
   databaseId,
   spaceId,
   spaceSlug,
+  initialViewId,
+  persistViewConfig = true,
 }: DatabaseViewProps) {
   const { t } = useTranslation();
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
@@ -48,7 +57,9 @@ export function DatabaseView({
   // Local active-view selection. Resolve against the live list every render so
   // a deleted (or not-yet-chosen) active view falls back to the default/first
   // view rather than querying a dead view id.
-  const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
+  const [selectedViewId, setSelectedViewId] = useState<string | null>(
+    initialViewId ?? null,
+  );
   const activeView =
     views.find((v) => v.id === selectedViewId) ??
     views.find((v) => v.isDefault) ??
@@ -82,7 +93,9 @@ export function DatabaseView({
 
   const persistConfig = useDebouncedCallback(
     (nextFilters: IFilterCondition[], nextSorts: ISortCondition[]) => {
-      if (!activeView) return;
+      // The embed keeps filter/sort edits session-local, so it never writes
+      // back to the shared view config.
+      if (!activeView || !persistViewConfig) return;
       updateView.mutate({
         viewId: activeView.id,
         config: {
