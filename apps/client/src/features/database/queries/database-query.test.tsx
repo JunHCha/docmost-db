@@ -316,6 +316,62 @@ describe("useDatabaseRowsQuery passes the view's filters/sorts", () => {
       databaseRowsKey(dbId, "v2"),
     );
   });
+
+  it("refetches and caches a separate slot when the filter changes (Critical regression)", async () => {
+    // Real QueryClient with the production staleTime/refetch defaults — proves a
+    // filter change forces a fresh listRows call and a distinct cache slot
+    // (without the config in the queryKey React Query would serve the stale
+    // unfiltered result for the same viewId).
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          refetchOnMount: false,
+          refetchOnWindowFocus: false,
+          staleTime: 5 * 60 * 1000,
+        },
+      },
+    });
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    }
+    service.listRows.mockResolvedValue([]);
+
+    const noFilter = { filters: [], sorts: [] } as never;
+    const withFilter = {
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+      sorts: [],
+    } as never;
+
+    const { rerender } = renderHook(
+      ({ config }: { config: never }) =>
+        useDatabaseRowsQuery(dbId, "v1", config),
+      { wrapper: localWrapper, initialProps: { config: noFilter } },
+    );
+    await waitFor(() => expect(service.listRows).toHaveBeenCalledTimes(1));
+
+    // Apply a filter on the same view -> new queryKey slot -> refetch.
+    rerender({ config: withFilter });
+    await waitFor(() => expect(service.listRows).toHaveBeenCalledTimes(2));
+    expect(service.listRows).toHaveBeenLastCalledWith({
+      databaseId: dbId,
+      filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+      sorts: [],
+    });
+
+    // Two distinct cache slots survive for the same view.
+    expect(
+      qc.getQueryData(databaseRowsKey(dbId, "v1", { filters: [], sorts: [] })),
+    ).toBeDefined();
+    expect(
+      qc.getQueryData(
+        databaseRowsKey(dbId, "v1", {
+          filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+          sorts: [],
+        }),
+      ),
+    ).toBeDefined();
+  });
 });
 
 describe("useDeleteRowsMutation", () => {
@@ -390,14 +446,31 @@ describe("view mutations invalidate the views query", () => {
     });
   });
 
-  it("updateView invalidates views on success", async () => {
-    service.updateView.mockResolvedValue({ id: "v1" });
+  it("updateView patches the view in the cache (no invalidate) on success", async () => {
+    // Seed the views cache so patchView has something to map over.
+    queryClient.setQueryData(databaseViewsKey(dbId), [
+      { id: "v1", name: "Grid", config: {} },
+      { id: "v2", name: "Board", config: {} },
+    ]);
+    const updated = {
+      id: "v1",
+      name: "Renamed",
+      config: { filters: [{ propertyId: "p1", op: "eq", value: "x" }] },
+    };
+    service.updateView.mockResolvedValue(updated);
     const { result } = renderHook(() => useUpdateViewMutation(dbId), {
       wrapper,
     });
     result.current.mutate({ viewId: "v1", name: "Renamed" } as never);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({
+    // Patched in place, not invalidated — invalidating would refetch+replace the
+    // views array and clobber the container's in-flight filter edit (reseed race).
+    const views = queryClient.getQueryData<{ id: string; config: unknown }[]>(
+      databaseViewsKey(dbId),
+    )!;
+    expect(views[0]).toEqual(updated);
+    expect(views[1].id).toBe("v2");
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
       queryKey: databaseViewsKey(dbId),
     });
   });
