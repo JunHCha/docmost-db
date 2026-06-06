@@ -8,9 +8,23 @@ import {
 // when switching a cell into edit mode.
 export const DEFAULT_COLUMN_WIDTH = 180;
 
+// Compact default width for select / multi_select columns. Their cells only
+// render option pills, so the full text-column width wastes horizontal space
+// that the data columns need. Only the default changes — an explicit width in
+// the view config (user resize) still wins.
+export const SELECT_COLUMN_WIDTH = 140;
+
 export interface ResolvedColumn {
   property: IDatabaseProperty;
   width: number;
+}
+
+// Type-aware default column width: select / multi_select get the compact width,
+// everything else the standard default.
+function defaultWidthFor(property: IDatabaseProperty): number {
+  return property.type === "select" || property.type === "multi_select"
+    ? SELECT_COLUMN_WIDTH
+    : DEFAULT_COLUMN_WIDTH;
 }
 
 function byPosition(a: IDatabaseProperty, b: IDatabaseProperty): number {
@@ -55,7 +69,7 @@ export function resolveColumns(
     .filter((p) => config.get(p.id)?.visible !== false)
     .map((property) => ({
       property,
-      width: config.get(property.id)?.width ?? DEFAULT_COLUMN_WIDTH,
+      width: config.get(property.id)?.width ?? defaultWidthFor(property),
     }));
 }
 
