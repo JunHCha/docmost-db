@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import { ActionIcon, Center, Loader, Menu, Tooltip } from "@mantine/core";
 import {
@@ -21,6 +22,17 @@ export default function DatabaseEmbedView(props: NodeViewProps) {
   const isEditable = props.editor.isEditable;
   const databaseId: string | null = props.node.attrs.databaseId ?? null;
   const viewId: string | null = props.node.attrs.viewId ?? null;
+  const embedId: string | null = props.node.attrs.embedId ?? null;
+
+  // Backfill an embedId on legacy embeds inserted before issue #39. Idempotent:
+  // once an id exists the effect short-circuits. Collaborative docs converge on
+  // a single id because only the editing client writes it (skipped on missing
+  // updateAttributes / read-only mounts).
+  useEffect(() => {
+    if (!embedId && isEditable && props.updateAttributes) {
+      props.updateAttributes({ embedId: crypto.randomUUID() });
+    }
+  }, [embedId, isEditable, props.updateAttributes]);
 
   return (
     <NodeViewWrapper
@@ -44,6 +56,7 @@ function DatabaseEmbedBody({ editor, node, deleteNode }: NodeViewProps) {
   const { spaceSlug } = useParams();
   const databaseId: string | null = node.attrs.databaseId ?? null;
   const viewId: string | null = node.attrs.viewId ?? null;
+  const embedId: string | null = node.attrs.embedId ?? null;
   const isEditable = editor.isEditable;
 
   const infoQuery = useDatabaseInfoByIdQuery(databaseId ?? "");
@@ -148,7 +161,7 @@ function DatabaseEmbedBody({ editor, node, deleteNode }: NodeViewProps) {
         spaceId={database.spaceId}
         spaceSlug={spaceSlug}
         initialViewId={viewId ?? undefined}
-        persistViewConfig={false}
+        embedId={embedId ?? undefined}
       />
     </>
   );

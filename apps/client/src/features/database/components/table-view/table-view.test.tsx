@@ -87,6 +87,8 @@ function view(config: IDatabaseView["config"]): IDatabaseView {
     name: "Table",
     type: "table",
     config,
+    embedId: null,
+    ownerUserId: null,
     isDefault: true,
     position: "a0",
     createdAt: new Date(),

@@ -235,8 +235,18 @@ describe("database-cache", () => {
     expect(qc.getQueryData<IDatabaseRow[]>(key)).toEqual([makeRow("p2")]);
   });
 
-  it("databaseViewsKey is namespaced by databaseId", () => {
-    expect(databaseViewsKey(dbId)).toEqual(["database-views", dbId]);
+  it("databaseViewsKey is namespaced by databaseId with a null embed slot by default", () => {
+    expect(databaseViewsKey(dbId)).toEqual(["database-views", dbId, null]);
+  });
+
+  it("databaseViewsKey includes the embedId in its own scope slot", () => {
+    expect(databaseViewsKey(dbId, "embed-1")).toEqual([
+      "database-views",
+      dbId,
+      "embed-1",
+    ]);
+    // The original scope (no embed) and an embed scope are distinct cache slots.
+    expect(databaseViewsKey(dbId)).not.toEqual(databaseViewsKey(dbId, "embed-1"));
   });
 
   it("patchView replaces the matching view without touching the array identity of others", () => {
@@ -248,7 +258,7 @@ describe("database-cache", () => {
       ...v1,
       config: { filters: [{ propertyId: "p1", op: "eq", value: "x" }] },
     } as unknown as IDatabaseView;
-    patchView(qc, dbId, updated);
+    patchView(qc, dbId, undefined, updated);
 
     const views = qc.getQueryData<IDatabaseView[]>(databaseViewsKey(dbId))!;
     expect(views[0]).toEqual(updated);
@@ -259,9 +269,27 @@ describe("database-cache", () => {
     expect(views[1].config).toEqual({});
   });
 
+  it("patchView targets only the given embed scope's cache slot", () => {
+    const original = { id: "v1", config: {}, name: "Orig" } as unknown as IDatabaseView;
+    const embedView = { id: "v9", config: {}, name: "Embed" } as unknown as IDatabaseView;
+    qc.setQueryData(databaseViewsKey(dbId), [original]);
+    qc.setQueryData(databaseViewsKey(dbId, "embed-1"), [embedView]);
+
+    const updated = { ...embedView, name: "EmbedRenamed" } as unknown as IDatabaseView;
+    patchView(qc, dbId, "embed-1", updated);
+
+    // Only the embed scope slot is patched; the original scope is untouched.
+    expect(
+      qc.getQueryData<IDatabaseView[]>(databaseViewsKey(dbId, "embed-1"))![0].name,
+    ).toBe("EmbedRenamed");
+    expect(
+      qc.getQueryData<IDatabaseView[]>(databaseViewsKey(dbId))![0].name,
+    ).toBe("Orig");
+  });
+
   it("patchView is a no-op when the views cache is empty", () => {
     expect(() =>
-      patchView(qc, dbId, { id: "v1" } as unknown as IDatabaseView),
+      patchView(qc, dbId, undefined, { id: "v1" } as unknown as IDatabaseView),
     ).not.toThrow();
     expect(qc.getQueryData(databaseViewsKey(dbId))).toBeUndefined();
   });

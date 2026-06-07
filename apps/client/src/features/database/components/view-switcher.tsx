@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Group, Menu, ActionIcon, TextInput, UnstyledButton } from "@mantine/core";
+import { IconLock } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { IDatabaseView } from "@/features/database/types/database.types.ts";
 import {
@@ -11,6 +12,9 @@ import {
 
 interface ViewSwitcherProps {
   databaseId: string;
+  // The embed scope (issue #39) new views belong to; undefined for the original
+  // database. Forwarded to createView so a view is created in the right scope.
+  embedId?: string;
   views: IDatabaseView[];
   activeViewId: string;
   onActivate: (viewId: string) => void;
@@ -93,6 +97,16 @@ function ViewTab({
               : "2px solid transparent",
           }}
         >
+          {/* Personal views (issue #39: ownerUserId set) are visible only to
+              their owner, so flag them with a lock to distinguish them from
+              shared views in the same tab strip. */}
+          {view.ownerUserId ? (
+            <IconLock
+              size={12}
+              style={{ marginRight: 4, verticalAlign: "middle" }}
+              aria-label={t("Personal view")}
+            />
+          ) : null}
           {view.name}
         </UnstyledButton>
       </Menu.Target>
@@ -121,17 +135,36 @@ function ViewTab({
   );
 }
 
+// The view types offered by the add-view menu, each created in both a shared
+// and a personal variant below.
+const VIEW_TYPES: { type: string; label: string }[] = [
+  { type: "table", label: "Table" },
+  { type: "board", label: "Board" },
+  { type: "calendar", label: "Calendar" },
+];
+
 export function ViewSwitcher({
   databaseId,
+  embedId,
   views,
   activeViewId,
   onActivate,
 }: ViewSwitcherProps) {
   const { t } = useTranslation();
-  const createView = useCreateViewMutation(databaseId);
-  const updateView = useUpdateViewMutation(databaseId);
-  const setDefault = useSetDefaultViewMutation(databaseId);
-  const deleteView = useDeleteViewMutation(databaseId);
+  const createView = useCreateViewMutation(databaseId, embedId);
+  const updateView = useUpdateViewMutation(databaseId, embedId);
+  const setDefault = useSetDefaultViewMutation(databaseId, embedId);
+  const deleteView = useDeleteViewMutation(databaseId, embedId);
+
+  function addView(type: string, visibility: "personal" | "shared") {
+    createView.mutate({
+      databaseId,
+      name: t(VIEW_TYPES.find((v) => v.type === type)!.label),
+      type,
+      embedId,
+      visibility,
+    });
+  }
 
   return (
     <Group gap="xs" wrap="nowrap">
@@ -154,31 +187,28 @@ export function ViewSwitcher({
           </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            onClick={() =>
-              createView.mutate({ databaseId, name: t("Table"), type: "table" })
-            }
-          >
-            {t("Table")}
-          </Menu.Item>
-          <Menu.Item
-            onClick={() =>
-              createView.mutate({ databaseId, name: t("Board"), type: "board" })
-            }
-          >
-            {t("Board")}
-          </Menu.Item>
-          <Menu.Item
-            onClick={() =>
-              createView.mutate({
-                databaseId,
-                name: t("Calendar"),
-                type: "calendar",
-              })
-            }
-          >
-            {t("Calendar")}
-          </Menu.Item>
+          {/* Shared views are visible to everyone with access; personal views
+              (issue #39) are private to their creator. */}
+          <Menu.Label>{t("Shared")}</Menu.Label>
+          {VIEW_TYPES.map((v) => (
+            <Menu.Item
+              key={`shared-${v.type}`}
+              onClick={() => addView(v.type, "shared")}
+            >
+              {t(v.label)}
+            </Menu.Item>
+          ))}
+          <Menu.Divider />
+          <Menu.Label>{t("Personal")}</Menu.Label>
+          {VIEW_TYPES.map((v) => (
+            <Menu.Item
+              key={`personal-${v.type}`}
+              leftSection={<IconLock size={14} />}
+              onClick={() => addView(v.type, "personal")}
+            >
+              {t(v.label)}
+            </Menu.Item>
+          ))}
         </Menu.Dropdown>
       </Menu>
     </Group>

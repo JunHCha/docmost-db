@@ -36,10 +36,11 @@ interface DatabaseViewProps {
   // The embed (issue #24) pins a specific view rather than always opening the
   // default; a deleted id still falls through to the default/first view below.
   initialViewId?: string;
-  // The embed scopes filter/sort edits to the session instead of writing them
-  // back to the shared database_views.config. Defaults to the page behaviour
-  // (persist) so DatabaseViewContainer needs no change.
-  persistViewConfig?: boolean;
+  // The embed's own view scope (issue #39). When set, all view queries and
+  // mutations target this scope's views rather than the original database's,
+  // and edits persist there. Undefined => the original database scope
+  // (DatabaseViewContainer), so its existing behaviour is unchanged.
+  embedId?: string;
 }
 
 /**
@@ -53,11 +54,11 @@ export function DatabaseView({
   spaceId,
   spaceSlug,
   initialViewId,
-  persistViewConfig = true,
+  embedId,
 }: DatabaseViewProps) {
   const { t } = useTranslation();
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
-  const viewsQuery = useDatabaseViewsQuery(databaseId);
+  const viewsQuery = useDatabaseViewsQuery(databaseId, embedId);
   const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
 
   // Local active-view selection. Resolve against the live list every render so
@@ -71,7 +72,7 @@ export function DatabaseView({
     views.find((v) => v.isDefault) ??
     views[0];
   const activeViewId = activeView?.id ?? "";
-  const updateView = useUpdateViewMutation(databaseId);
+  const updateView = useUpdateViewMutation(databaseId, embedId);
 
   // Local working copy of the active view's filters/sorts. The rows query reads
   // it (so changes apply immediately) while a debounced updateView persists it
@@ -109,9 +110,7 @@ export function DatabaseView({
 
   const persistConfig = useDebouncedCallback(
     (nextFilters: IFilterCondition[], nextSorts: ISortCondition[]) => {
-      // The embed keeps filter/sort edits session-local, so it never writes
-      // back to the shared view config.
-      if (!activeView || !persistViewConfig) return;
+      if (!activeView) return;
       updateView.mutate({
         viewId: activeView.id,
         config: {
@@ -134,11 +133,10 @@ export function DatabaseView({
     persistConfig(filters, next);
   }
 
-  // Toggle a column's visibility in the active view. Like filters/sorts the
-  // embed keeps this session-local, so it never writes back to the shared view
-  // config (avoids polluting the cache other embeds read).
+  // Toggle a column's visibility in the active view. Persists to the active
+  // scope's view config (embed scope when embedId is set, original otherwise).
   function toggleColumn(propertyId: string, visible: boolean) {
-    if (!activeView || !persistViewConfig) return;
+    if (!activeView) return;
     const columns = echoColumns(propertiesQuery.data ?? [], activeView.config.columns, {
       propertyId,
       visible,
@@ -149,21 +147,19 @@ export function DatabaseView({
     });
   }
 
-  // Set/clear the board's group-by property. Like the other view edits the embed
-  // keeps this session-local (no write back to the shared config).
+  // Set/clear the board's group-by property. Persists to the active scope's view.
   function changeGroupBy(id: string | null) {
-    if (!activeView || !persistViewConfig) return;
+    if (!activeView) return;
     updateView.mutate({
       viewId: activeView.id,
       config: { ...activeView.config, groupByPropertyId: id ?? undefined },
     });
   }
 
-  // Set/clear a calendar view's single date property. Like the other view edits
-  // the embed keeps this session-local (no write back to shared config), which
-  // also makes calendar auto-adoption a render-time fallback there.
+  // Set/clear a calendar view's single date property. Persists to the active
+  // scope's view config.
   function changeDateProperty(id: string | null) {
-    if (!activeView || !persistViewConfig) return;
+    if (!activeView) return;
     updateView.mutate({
       viewId: activeView.id,
       config: { ...activeView.config, datePropertyId: id ?? undefined },
@@ -183,6 +179,7 @@ export function DatabaseView({
       <Group justify="space-between" align="center">
         <ViewSwitcher
           databaseId={databaseId}
+          embedId={embedId}
           views={views}
           activeViewId={activeViewId}
           onActivate={setSelectedViewId}
@@ -217,11 +214,7 @@ export function DatabaseView({
           rows={rowsQuery.data ?? []}
           activeView={activeView}
           spaceSlug={spaceSlug}
-          // Persist auto-adoption only when the view config is shared; embeds
-          // fall back to render-time adoption without writing back.
-          onAutoAdoptDate={
-            persistViewConfig ? changeDateProperty : undefined
-          }
+          onAutoAdoptDate={changeDateProperty}
         />
       ) : !rowsQuery.isLoading &&
         (rowsQuery.data ?? []).length === 0 &&
