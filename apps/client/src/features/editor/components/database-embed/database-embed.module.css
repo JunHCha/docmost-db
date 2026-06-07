@@ -72,6 +72,10 @@
   user-select: none;
 }
 
+.lazyPlaceholder {
+  min-height: 160px;
+}
+
 .placeholderIcon {
   display: inline-flex;
   flex: none;
