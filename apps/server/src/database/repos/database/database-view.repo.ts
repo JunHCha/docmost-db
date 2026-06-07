@@ -57,6 +57,7 @@ export class DatabaseViewRepo {
       .where(
         sql<boolean>`embed_id is not distinct from ${embedId ?? null}`,
       )
+      .where('orphanedAt', 'is', null)
       .where((eb) =>
         eb.or([
           eb('ownerUserId', 'is', null),
@@ -65,6 +66,59 @@ export class DatabaseViewRepo {
       )
       .orderBy('position', 'asc')
       .execute();
+  }
+
+  // Save-time reconcile: soft-delete embed views on a page whose embed_id no
+  // longer appears in the doc. keepEmbedIds may be empty — `<> ALL(ARRAY[])`
+  // is true, so every embed view on the page is orphaned, which is correct.
+  async softDeleteOrphans(
+    {
+      sourcePageId,
+      keepEmbedIds,
+    }: { sourcePageId: string; keepEmbedIds: string[] },
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    await db
+      .updateTable('databaseViews')
+      .set({ orphanedAt: new Date() })
+      .where('sourcePageId', '=', sourcePageId)
+      .where('embedId', 'is not', null)
+      .where('orphanedAt', 'is', null)
+      .where(
+        sql<boolean>`embed_id <> ALL(${sql.val(keepEmbedIds)}::varchar[])`,
+      )
+      .execute();
+  }
+
+  // Undo support: a re-appearing embed_id restores its soft-deleted view.
+  async restoreOrphans(
+    { sourcePageId, embedIds }: { sourcePageId: string; embedIds: string[] },
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    if (embedIds.length === 0) return;
+    const db = dbOrTx(this.db, trx);
+    await db
+      .updateTable('databaseViews')
+      .set({ orphanedAt: null })
+      .where('sourcePageId', '=', sourcePageId)
+      .where('orphanedAt', 'is not', null)
+      .where('embedId', 'in', embedIds)
+      .execute();
+  }
+
+  // Grace batch: permanently drop embed views soft-deleted before the cutoff.
+  async hardDeleteOrphanedBefore(
+    cutoff: Date,
+    trx?: KyselyTransaction,
+  ): Promise<number> {
+    const db = dbOrTx(this.db, trx);
+    const result = await db
+      .deleteFrom('databaseViews')
+      .where('orphanedAt', 'is not', null)
+      .where('orphanedAt', '<', cutoff)
+      .executeTakeFirst();
+    return Number(result.numDeletedRows ?? 0n);
   }
 
   async insertView(
