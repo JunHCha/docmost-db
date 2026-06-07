@@ -159,14 +159,14 @@ export function DatabaseView({
     });
   }
 
-  // Set/clear a calendar view's start or end date property. Like the other view
-  // edits the embed keeps this session-local (no write back to shared config).
-  function changeDateProperty(slot: "start" | "end", id: string | null) {
+  // Set/clear a calendar view's single date property. Like the other view edits
+  // the embed keeps this session-local (no write back to shared config), which
+  // also makes calendar auto-adoption a render-time fallback there.
+  function changeDateProperty(id: string | null) {
     if (!activeView || !persistViewConfig) return;
-    const key = slot === "start" ? "startDatePropertyId" : "endDatePropertyId";
     updateView.mutate({
       viewId: activeView.id,
-      config: { ...activeView.config, [key]: id ?? undefined },
+      config: { ...activeView.config, datePropertyId: id ?? undefined },
     });
   }
 
@@ -198,8 +198,7 @@ export function DatabaseView({
           onToggleColumn={toggleColumn}
           groupByPropertyId={activeView.config.groupByPropertyId}
           onChangeGroupBy={changeGroupBy}
-          startDatePropertyId={activeView.config.startDatePropertyId}
-          endDatePropertyId={activeView.config.endDatePropertyId}
+          datePropertyId={activeView.config.datePropertyId}
           onChangeDateProperty={changeDateProperty}
         />
       </Group>
@@ -218,6 +217,11 @@ export function DatabaseView({
           rows={rowsQuery.data ?? []}
           activeView={activeView}
           spaceSlug={spaceSlug}
+          // Persist auto-adoption only when the view config is shared; embeds
+          // fall back to render-time adoption without writing back.
+          onAutoAdoptDate={
+            persistViewConfig ? changeDateProperty : undefined
+          }
         />
       ) : !rowsQuery.isLoading &&
         (rowsQuery.data ?? []).length === 0 &&

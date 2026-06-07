@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dateCandidates } from "./calendar-config";
+import { dateCandidates, defaultDateProperty } from "./calendar-config";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
 function prop(id: string, type: IDatabaseProperty["type"]): IDatabaseProperty {
@@ -25,5 +25,21 @@ describe("dateCandidates", () => {
       prop("d", "date"),
     ];
     expect(dateCandidates(props).map((p) => p.id)).toEqual(["b", "d"]);
+  });
+});
+
+describe("defaultDateProperty", () => {
+  it("returns the first date property in display order", () => {
+    const props = [
+      prop("a", "text"),
+      prop("b", "date"),
+      prop("c", "date"),
+    ];
+    expect(defaultDateProperty(props)?.id).toBe("b");
+  });
+
+  it("returns undefined when there is no date property", () => {
+    const props = [prop("a", "text"), prop("b", "select")];
+    expect(defaultDateProperty(props)).toBeUndefined();
   });
 });
