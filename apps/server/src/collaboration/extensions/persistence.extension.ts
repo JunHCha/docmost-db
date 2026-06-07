@@ -33,6 +33,7 @@ import {
   HISTORY_INTERVAL,
 } from '../constants';
 import { TransclusionService } from '../../core/page/transclusion/transclusion.service';
+import { DatabaseViewService } from '../../core/database/services/database-view.service';
 
 @Injectable()
 export class PersistenceExtension implements Extension {
@@ -47,6 +48,7 @@ export class PersistenceExtension implements Extension {
     @InjectQueue(QueueName.NOTIFICATION_QUEUE) private notificationQueue: Queue,
     private readonly collabHistory: CollabHistoryService,
     private readonly transclusionService: TransclusionService,
+    private readonly databaseViewService: DatabaseViewService,
   ) {}
 
   async onLoadDocument(data: onLoadDocumentPayload) {
@@ -181,6 +183,7 @@ export class PersistenceExtension implements Extension {
       );
 
       await this.syncTransclusion(pageId, page.workspaceId, tiptapJson);
+      await this.syncEmbedViews(pageId, tiptapJson);
     }
 
     if (page) {
@@ -290,6 +293,26 @@ export class PersistenceExtension implements Extension {
       this.logger.error(
         { err, pageId },
         'Failed to sync transclusion references for page',
+      );
+    }
+  }
+
+  /**
+   * Reconcile `database_views` embed rows to the page's current content:
+   * soft-delete embed views whose node vanished and restore re-appeared ones
+   * (undo). Isolated like syncTransclusion so a failure here cannot affect the
+   * page save; the diff is idempotent so the next save converges.
+   */
+  private async syncEmbedViews(
+    pageId: string,
+    tiptapJson: unknown,
+  ): Promise<void> {
+    try {
+      await this.databaseViewService.reconcileEmbedViews(pageId, tiptapJson);
+    } catch (err) {
+      this.logger.error(
+        { err, pageId },
+        'Failed to reconcile database embed views for page',
       );
     }
   }
