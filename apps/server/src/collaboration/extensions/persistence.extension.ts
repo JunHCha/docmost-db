@@ -8,7 +8,12 @@ import {
 import * as Y from 'yjs';
 import { Injectable, Logger } from '@nestjs/common';
 import { TiptapTransformer } from '@hocuspocus/transformer';
-import { getPageId, jsonToText, tiptapExtensions } from '../collaboration.util';
+import {
+  getPageId,
+  isDatabaseCollabDoc,
+  jsonToText,
+  tiptapExtensions,
+} from '../collaboration.util';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
@@ -51,6 +56,13 @@ export class PersistenceExtension implements Extension {
 
   async onLoadDocument(data: onLoadDocumentPayload) {
     const { documentName, document } = data;
+
+    // DB view collab docs are presence/transport only — never load page
+    // content into them. Hand back the fresh, empty Y.Doc as-is.
+    if (isDatabaseCollabDoc(documentName)) {
+      return document;
+    }
+
     const pageId = getPageId(documentName);
 
     if (!document.isEmpty('default')) {
@@ -97,6 +109,12 @@ export class PersistenceExtension implements Extension {
 
   async onStoreDocument(data: onStoreDocumentPayload) {
     const { documentName, document, context } = data;
+
+    // DB view collab docs are not persisted: skip page save, history,
+    // mentions, transclusion, AI queue and the page.updated broadcast.
+    if (isDatabaseCollabDoc(documentName)) {
+      return;
+    }
 
     const pageId = getPageId(documentName);
 
@@ -222,6 +240,9 @@ export class PersistenceExtension implements Extension {
     const userId = data.context?.user?.id;
 
     if (!userId) return;
+
+    // DB view collab docs do not persist content, so no contributor tracking.
+    if (isDatabaseCollabDoc(documentName)) return;
 
     if (!this.contributors.has(documentName)) {
       this.contributors.set(documentName, new Set());
