@@ -31,9 +31,26 @@ export class DatabaseViewService {
   ) {}
 
   async create(user: User, dto: CreateViewDto): Promise<DatabaseView> {
-    await this.authorize(user, dto.databaseId, SpaceCaslAction.Edit);
-    const siblings = await this.viewRepo.findByDatabaseId(dto.databaseId);
-    const last = siblings[siblings.length - 1];
+    const embedId = dto.embedId ?? null;
+    const isPersonal = dto.visibility === 'personal';
+    // Personal views only need Read (a read-only user owns their own views);
+    // shared views mutate everyone's context and need Edit.
+    await this.authorize(
+      user,
+      dto.databaseId,
+      isPersonal ? SpaceCaslAction.Read : SpaceCaslAction.Edit,
+    );
+    const ownerUserId = isPersonal ? user.id : null;
+
+    const siblings = await this.viewRepo.findByScope({
+      databaseId: dto.databaseId,
+      embedId,
+      ownerUserId: user.id,
+    });
+    const scopeSiblings = siblings.filter(
+      (v) => (v.ownerUserId ?? null) === ownerUserId,
+    );
+    const last = scopeSiblings[scopeSiblings.length - 1];
     const position = generateJitteredKeyBetween(last?.position ?? null, null);
 
     return this.viewRepo.insertView({
@@ -42,16 +59,14 @@ export class DatabaseViewService {
       type: dto.type ?? 'table',
       config: (dto.config ?? {}) as Record<string, any>,
       position,
-      isDefault: siblings.length === 0,
+      isDefault: scopeSiblings.length === 0,
+      embedId,
+      ownerUserId,
     });
   }
 
   async update(user: User, dto: UpdateViewDto): Promise<DatabaseView> {
-    const { view } = await this.getViewDatabase(
-      user,
-      dto.viewId,
-      SpaceCaslAction.Edit,
-    );
+    const { view } = await this.getViewForWrite(user, dto.viewId);
     const patch: Record<string, any> = {};
     if (dto.name !== undefined) patch.name = dto.name;
     if (dto.config !== undefined) patch.config = dto.config;
@@ -60,30 +75,36 @@ export class DatabaseViewService {
   }
 
   async setDefault(user: User, dto: ViewIdDto): Promise<void> {
-    const { view } = await this.getViewDatabase(
-      user,
-      dto.viewId,
-      SpaceCaslAction.Edit,
-    );
+    const { view } = await this.getViewForWrite(user, dto.viewId);
     await this.runInTransaction(async (trx) => {
-      await this.viewRepo.clearDefaultViews(view.databaseId, trx);
+      await this.viewRepo.clearDefaultViews(
+        {
+          databaseId: view.databaseId,
+          embedId: view.embedId ?? null,
+          ownerUserId: view.ownerUserId ?? null,
+        },
+        trx,
+      );
       await this.viewRepo.updateView({ isDefault: true }, view.id, trx);
     });
   }
 
   async delete(user: User, dto: ViewIdDto): Promise<void> {
-    const { view } = await this.getViewDatabase(
-      user,
-      dto.viewId,
-      SpaceCaslAction.Edit,
+    const { view } = await this.getViewForWrite(user, dto.viewId);
+    const views = await this.viewRepo.findByScope({
+      databaseId: view.databaseId,
+      embedId: view.embedId ?? null,
+      ownerUserId: user.id,
+    });
+    const scopeViews = views.filter(
+      (v) => (v.ownerUserId ?? null) === (view.ownerUserId ?? null),
     );
-    const views = await this.viewRepo.findByDatabaseId(view.databaseId);
-    if (views.length <= 1) {
+    if (scopeViews.length <= 1) {
       throw new BadRequestException('A database must keep at least one view');
     }
     await this.runInTransaction(async (trx) => {
       if (view.isDefault) {
-        const next = views.find((v) => v.id !== view.id);
+        const next = scopeViews.find((v) => v.id !== view.id);
         if (next) {
           await this.viewRepo.updateView({ isDefault: true }, next.id, trx);
         }
@@ -94,14 +115,49 @@ export class DatabaseViewService {
 
   async list(user: User, dto: ListViewsDto): Promise<DatabaseView[]> {
     await this.authorize(user, dto.databaseId, SpaceCaslAction.Read);
-    const views = await this.viewRepo.findByDatabaseId(dto.databaseId);
+    const embedId = dto.embedId ?? null;
+    const views = await this.viewRepo.findByScope({
+      databaseId: dto.databaseId,
+      embedId,
+      ownerUserId: user.id,
+    });
     if (views.length > 0) return views;
-    // Lazily create the first view. Two concurrent first-loads (e.g. the grid
-    // container and a relation picker on the same database) can both see zero
-    // views and try to insert; the partial-unique default index then makes the
-    // loser throw 23505. Swallow that and re-read so both callers converge on
-    // the view the winner created.
+
+    // Empty scope: an embed scope seeds from the original DB's shared views;
+    // the original scope (or an embed whose origin is also empty) lazily gets a
+    // default Table view. Concurrent first-loads can both see zero views and
+    // insert; the per-scope partial-unique default index makes the loser throw
+    // 23505. Swallow it and re-read so callers converge on the winner's views.
     try {
+      if (embedId !== null) {
+        const originViews = await this.viewRepo.findByScope({
+          databaseId: dto.databaseId,
+          embedId: null,
+          ownerUserId: user.id,
+        });
+        const originShared = originViews.filter(
+          (v) => (v.ownerUserId ?? null) === null,
+        );
+        if (originShared.length > 0) {
+          const seeded: DatabaseView[] = [];
+          for (const origin of originShared) {
+            seeded.push(
+              await this.viewRepo.insertView({
+                databaseId: dto.databaseId,
+                name: origin.name,
+                type: origin.type,
+                config: origin.config as Record<string, any>,
+                position: origin.position,
+                isDefault: origin.isDefault,
+                embedId,
+                ownerUserId: null,
+              }),
+            );
+          }
+          return seeded;
+        }
+      }
+
       const created = await this.viewRepo.insertView({
         databaseId: dto.databaseId,
         name: 'Table',
@@ -109,11 +165,17 @@ export class DatabaseViewService {
         config: {},
         position: generateJitteredKeyBetween(null, null),
         isDefault: true,
+        embedId,
+        ownerUserId: null,
       });
       return [created];
     } catch (err) {
       if ((err as { code?: string })?.code !== '23505') throw err;
-      return this.viewRepo.findByDatabaseId(dto.databaseId);
+      return this.viewRepo.findByScope({
+        databaseId: dto.databaseId,
+        embedId,
+        ownerUserId: user.id,
+      });
     }
   }
 
@@ -145,16 +207,26 @@ export class DatabaseViewService {
     return database;
   }
 
-  private async getViewDatabase(
+  // Authorizes a mutating op on a view by its scope: a personal view (owner set)
+  // requires the owner to be the caller and only space Read; a shared view (owner
+  // NULL) requires space Edit.
+  private async getViewForWrite(
     user: User,
     viewId: string,
-    action: SpaceCaslAction,
   ): Promise<{ view: DatabaseView; database: Database }> {
     const view = await this.viewRepo.findById(viewId);
     if (!view) {
       throw new NotFoundException('View not found');
     }
-    const database = await this.authorize(user, view.databaseId, action);
+    const isPersonal = (view.ownerUserId ?? null) !== null;
+    if (isPersonal && view.ownerUserId !== user.id) {
+      throw new ForbiddenException();
+    }
+    const database = await this.authorize(
+      user,
+      view.databaseId,
+      isPersonal ? SpaceCaslAction.Read : SpaceCaslAction.Edit,
+    );
     return { view, database };
   }
 }
