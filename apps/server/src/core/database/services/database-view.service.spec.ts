@@ -42,6 +42,9 @@ describe('DatabaseViewService', () => {
       | 'updateView'
       | 'deleteView'
       | 'clearDefaultViews'
+      | 'softDeleteOrphans'
+      | 'restoreOrphans'
+      | 'hardDeleteOrphanedBefore'
     >
   >;
   let databaseRepo: jest.Mocked<Pick<DatabaseRepo, 'findById'>>;
@@ -58,6 +61,9 @@ describe('DatabaseViewService', () => {
       updateView: jest.fn(),
       deleteView: jest.fn(),
       clearDefaultViews: jest.fn(),
+      softDeleteOrphans: jest.fn(),
+      restoreOrphans: jest.fn(),
+      hardDeleteOrphanedBefore: jest.fn(),
     } as any;
     databaseRepo = {
       findById: jest.fn().mockResolvedValue(database),
@@ -114,6 +120,7 @@ describe('DatabaseViewService', () => {
           isDefault: true,
           embedId: null,
           ownerUserId: null,
+          sourcePageId: null,
           position: expect.any(String),
         }),
       );
@@ -154,6 +161,31 @@ describe('DatabaseViewService', () => {
       } as any);
       expect(viewRepo.insertView).toHaveBeenCalledWith(
         expect.objectContaining({ embedId: 'embed-x', ownerUserId: null }),
+      );
+    });
+
+    it('records sourcePageId for an embed view created with a pageId', async () => {
+      viewRepo.findByScope.mockResolvedValue([]);
+      await service.create(user, {
+        databaseId: 'db-1',
+        name: 'Embed view',
+        embedId: 'embed-x',
+        pageId: 'page-1',
+      } as any);
+      expect(viewRepo.insertView).toHaveBeenCalledWith(
+        expect.objectContaining({ embedId: 'embed-x', sourcePageId: 'page-1' }),
+      );
+    });
+
+    it('keeps sourcePageId null for an original DB view even with a pageId', async () => {
+      viewRepo.findByScope.mockResolvedValue([]);
+      await service.create(user, {
+        databaseId: 'db-1',
+        name: 'Original',
+        pageId: 'page-1',
+      } as any);
+      expect(viewRepo.insertView).toHaveBeenCalledWith(
+        expect.objectContaining({ embedId: null, sourcePageId: null }),
       );
     });
   });
@@ -224,6 +256,7 @@ describe('DatabaseViewService', () => {
       const result = await service.list(user, {
         databaseId: 'db-1',
         embedId: 'embed-x',
+        pageId: 'page-1',
       } as any);
       expect(viewRepo.insertView).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -232,6 +265,7 @@ describe('DatabaseViewService', () => {
           embedId: 'embed-x',
           ownerUserId: null,
           isDefault: true,
+          sourcePageId: 'page-1',
         }),
       );
       expect(result).toHaveLength(1);
@@ -405,6 +439,38 @@ describe('DatabaseViewService', () => {
       await expect(
         service.delete(user, { viewId: 'v1' } as any),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('reconcileEmbedViews', () => {
+    it('soft-deletes orphans (keep = doc embedIds) then restores re-appeared', async () => {
+      const doc = {
+        type: 'doc',
+        content: [
+          { type: 'databaseView', attrs: { embedId: 'e1' } },
+          { type: 'databaseView', attrs: { embedId: 'e2' } },
+        ],
+      };
+      await service.reconcileEmbedViews('page-1', doc);
+      expect(viewRepo.softDeleteOrphans).toHaveBeenCalledWith(
+        { sourcePageId: 'page-1', keepEmbedIds: ['e1', 'e2'] },
+        trx,
+      );
+      expect(viewRepo.restoreOrphans).toHaveBeenCalledWith(
+        { sourcePageId: 'page-1', embedIds: ['e1', 'e2'] },
+        trx,
+      );
+      const softOrder = viewRepo.softDeleteOrphans.mock.invocationCallOrder[0];
+      const restoreOrder = viewRepo.restoreOrphans.mock.invocationCallOrder[0];
+      expect(softOrder).toBeLessThan(restoreOrder);
+    });
+
+    it('passes an empty keep list when the page has no embeds', async () => {
+      await service.reconcileEmbedViews('page-1', { type: 'doc', content: [] });
+      expect(viewRepo.softDeleteOrphans).toHaveBeenCalledWith(
+        { sourcePageId: 'page-1', keepEmbedIds: [] },
+        trx,
+      );
     });
   });
 });

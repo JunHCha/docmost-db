@@ -26,6 +26,10 @@ export class CreateViewDto {
   embedId?: string;
 
   @IsOptional()
+  @IsUUID()
+  pageId?: string;
+
+  @IsOptional()
   @IsIn(['personal', 'shared'])
   visibility?: 'personal' | 'shared';
 }
