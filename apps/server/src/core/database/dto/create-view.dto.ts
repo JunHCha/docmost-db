@@ -1,4 +1,10 @@
-import { IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsIn,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateViewDto {
   @IsUUID()
@@ -14,4 +20,12 @@ export class CreateViewDto {
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  embedId?: string;
+
+  @IsOptional()
+  @IsIn(['personal', 'shared'])
+  visibility?: 'personal' | 'shared';
 }
