@@ -25,6 +25,7 @@ import {
 import { useSetValueMutation } from "@/features/database/queries/database-query.ts";
 import { patchRowValue } from "@/features/database/queries/database-cache.ts";
 import { layoutRows, CalendarBar as BarData } from "./layout-rows";
+import { dateCandidates } from "./calendar-config";
 import { monthGrid } from "./month-grid";
 import { CalendarBar } from "./calendar-bar";
 import { CALENDAR_BAR_DRAG } from "./calendar-dnd";
@@ -39,6 +40,9 @@ interface CalendarViewProps {
   rows: IDatabaseRow[];
   activeView: IDatabaseView;
   spaceSlug?: string;
+  // Persist an auto-adopted date property back to the view config. Omitted in
+  // embed (session-only) mode, where adoption is render-time fallback only.
+  onAutoAdoptDate?: (id: string) => void;
 }
 
 // A bar occupies every day from startDay..endDay; index it per day-of-month so
@@ -169,37 +173,48 @@ export function CalendarView({
   rows,
   activeView,
   spaceSlug,
+  onAutoAdoptDate,
 }: CalendarViewProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const setValue = useSetValueMutation(databaseId);
   const [month, setMonth] = useState(() => dayjs().startOf("month"));
 
-  const startDatePropertyId = activeView.config.startDatePropertyId;
-  const endDatePropertyId = activeView.config.endDatePropertyId;
+  const datePropertyId = activeView.config.datePropertyId;
 
   // Guard against a stale config pointing at a non-date (or deleted) property.
-  const validStart = useMemo(() => {
-    const p = properties.find((p) => p.id === startDatePropertyId);
+  const validDateId = useMemo(() => {
+    const p = properties.find((p) => p.id === datePropertyId);
     return p && p.type === "date" ? p.id : undefined;
-  }, [properties, startDatePropertyId]);
-  const validEnd = useMemo(() => {
-    const p = properties.find((p) => p.id === endDatePropertyId);
-    return p && p.type === "date" ? p.id : undefined;
-  }, [properties, endDatePropertyId]);
+  }, [properties, datePropertyId]);
 
-  const configured = !!validStart || !!validEnd;
+  // When nothing valid is configured, adopt the first date column. effectiveId
+  // drives the render so the grid shows immediately (even in embed mode where
+  // adoption is not persisted), and the effect below writes it back once.
+  const firstCandidate = useMemo(
+    () => dateCandidates(properties)[0]?.id,
+    [properties],
+  );
+  const effectiveDateId = validDateId ?? firstCandidate;
+
+  useEffect(() => {
+    // Persist the auto-adoption exactly once: only when the config has no valid
+    // date property but a candidate exists. Guarding on validDateId/datePropertyId
+    // prevents re-firing after the write echoes back.
+    if (!validDateId && firstCandidate && datePropertyId !== firstCandidate) {
+      onAutoAdoptDate?.(firstCandidate);
+    }
+  }, [validDateId, firstCandidate, datePropertyId, onAutoAdoptDate]);
 
   const cells = useMemo(() => monthGrid(month), [month]);
   const dayMap = useMemo(
-    () => barsByDay(layoutRows(rows, validStart, validEnd, month)),
-    [rows, validStart, validEnd, month],
+    () => barsByDay(layoutRows(rows, effectiveDateId, month)),
+    [rows, effectiveDateId, month],
   );
 
-  // Move a single-date bar onto the dropped day: optimistically patch the rows
-  // cache so the chip jumps immediately, then persist via set-value (its onError
-  // invalidates the rows prefix and rolls back). A start==end bar carries both
-  // property ids so the two endpoints move together and it stays single-day.
+  // Move a bar onto the dropped day: optimistically patch the rows cache so the
+  // chip jumps immediately, then persist via set-value (its onError invalidates
+  // the rows prefix and rolls back). The bar carries the single date property id.
   const onDropOnDay = useCallback(
     (rowId: string, propertyIds: string[], date: Dayjs) => {
       const value = { type: "date" as const, value: date.format(ISO) };
@@ -246,9 +261,11 @@ export function CalendarView({
         </Group>
       </Group>
 
-      {!configured ? (
+      {!effectiveDateId ? (
+        // Only reachable when the database has no date column at all; otherwise
+        // the first candidate is auto-adopted above.
         <Box p="xl">
-          <Text c="dimmed">{t("Select a start or end date property")}</Text>
+          <Text c="dimmed">{t("No date property")}</Text>
         </Box>
       ) : (
         <>

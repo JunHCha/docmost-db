@@ -153,10 +153,9 @@ export interface IDatabaseViewConfig {
   sorts?: ISortCondition[];
   // Board view: the select / multi_select property whose options become columns.
   groupByPropertyId?: string;
-  // Calendar view: the date properties anchoring each row's bar. Either may be
-  // set independently; at least one is required to place bars.
-  startDatePropertyId?: string;
-  endDatePropertyId?: string;
+  // Calendar view: the single date property whose value anchors each row's bar
+  // on the month grid. Auto-adopted from the first date column when unset.
+  datePropertyId?: string;
   // @deprecated Board cards now follow the view's visible columns; kept only so
   // older stored configs still type-check. No longer read or written by the UI.
   cardProperties?: string[];
