@@ -344,9 +344,11 @@ export interface DatabaseViews {
   config: Generated<Json>;
   createdAt: Generated<Timestamp>;
   databaseId: string;
+  embedId: string | null;
   id: Generated<string>;
   isDefault: Generated<boolean>;
   name: string;
+  ownerUserId: string | null;
   position: string;
   type: string;
   updatedAt: Generated<Timestamp>;
