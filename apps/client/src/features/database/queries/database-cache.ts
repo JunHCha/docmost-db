@@ -31,8 +31,12 @@ export function databasePropertiesKey(databaseId: string): QueryKey {
   return ["database-properties", databaseId];
 }
 
-export function databaseViewsKey(databaseId: string): QueryKey {
-  return ["database-views", databaseId];
+// Views are scoped per embed (issue #39): the original database and each inline
+// embed own a distinct set of views. embedId rides as a trailing slot so the
+// original scope (embedId omitted) keys ["database-views", databaseId, null].
+// Rows are intentionally NOT embed-scoped — every scope shares the same row data.
+export function databaseViewsKey(databaseId: string, embedId?: string): QueryKey {
+  return ["database-views", databaseId, embedId ?? null];
 }
 
 // Rows differ per view AND per active filter/sort config. The key trails a
@@ -202,10 +206,14 @@ export function removeProperty(
 export function patchView(
   qc: QueryClient,
   databaseId: string,
+  embedId: string | undefined,
   view: IDatabaseView,
 ) {
-  qc.setQueryData<IDatabaseView[]>(databaseViewsKey(databaseId), (old) => {
-    if (!old) return old;
-    return old.map((v) => (v.id === view.id ? view : v));
-  });
+  qc.setQueryData<IDatabaseView[]>(
+    databaseViewsKey(databaseId, embedId),
+    (old) => {
+      if (!old) return old;
+      return old.map((v) => (v.id === view.id ? view : v));
+    },
+  );
 }

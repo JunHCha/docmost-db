@@ -170,12 +170,18 @@ export interface IDatabaseView {
   config: IDatabaseViewConfig;
   isDefault: boolean;
   position: string;
+  // The embed scope that owns this view (issue #39); null for the original
+  // database's views.
+  embedId: string | null;
+  // The user that owns this personal view; null for shared views.
+  ownerUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IListViewsParams {
   databaseId: string;
+  embedId?: string;
 }
 
 export interface ICreateViewParams {
@@ -183,6 +189,8 @@ export interface ICreateViewParams {
   name: string;
   type?: string;
   config?: IDatabaseViewConfig;
+  embedId?: string;
+  visibility?: "personal" | "shared";
 }
 
 export interface IUpdateViewParams {

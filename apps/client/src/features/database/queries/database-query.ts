@@ -171,18 +171,19 @@ export function useDatabaseRowsQuery(
 
 export function useDatabaseViewsQuery(
   databaseId: string,
+  embedId?: string,
 ): UseQueryResult<IDatabaseView[], Error> {
   return useQuery({
-    queryKey: databaseViewsKey(databaseId),
-    queryFn: () => listViews({ databaseId }),
+    queryKey: databaseViewsKey(databaseId, embedId),
+    queryFn: () => listViews({ databaseId, embedId }),
     enabled: !!databaseId,
   });
 }
 
 // The view whose rows a read-only consumer (relation picker, row panel) should
 // load. Rows are identical across views, so any view works; prefer the default.
-export function useDefaultViewId(databaseId: string): string {
-  const { data } = useDatabaseViewsQuery(databaseId);
+export function useDefaultViewId(databaseId: string, embedId?: string): string {
+  const { data } = useDatabaseViewsQuery(databaseId, embedId);
   if (!data || data.length === 0) return "";
   return (data.find((v) => v.isDefault) ?? data[0]).id;
 }
@@ -361,22 +362,27 @@ export function useReorderPropertyMutation(databaseId: string) {
   });
 }
 
-function invalidateViews(databaseId: string) {
-  queryClient.invalidateQueries({ queryKey: databaseViewsKey(databaseId) });
+// Views are embed-scoped (issue #39), so invalidate/patch target the scope the
+// caller is viewing. The original database page passes embedId undefined =>
+// the original scope (keyed null).
+function invalidateViews(databaseId: string, embedId?: string) {
+  queryClient.invalidateQueries({
+    queryKey: databaseViewsKey(databaseId, embedId),
+  });
 }
 
-export function useCreateViewMutation(databaseId: string) {
+export function useCreateViewMutation(databaseId: string, embedId?: string) {
   const { t } = useTranslation();
   return useMutation<IDatabaseView, Error, ICreateViewParams>({
     mutationFn: (data) => createView(data),
-    onSuccess: () => invalidateViews(databaseId),
+    onSuccess: () => invalidateViews(databaseId, embedId),
     onError: () => {
       notifications.show({ message: t("Failed to create view"), color: "red" });
     },
   });
 }
 
-export function useUpdateViewMutation(databaseId: string) {
+export function useUpdateViewMutation(databaseId: string, embedId?: string) {
   const { t } = useTranslation();
   return useMutation<IDatabaseView, Error, IUpdateViewParams>({
     mutationFn: (data) => updateView(data),
@@ -386,21 +392,21 @@ export function useUpdateViewMutation(databaseId: string) {
     // clobber an in-flight local edit mid-debounce. Patching keeps the other
     // views' identities stable while still reflecting the server's canonical
     // copy (filters/sorts, columns, name).
-    onSuccess: (view) => patchView(queryClient, databaseId, view),
+    onSuccess: (view) => patchView(queryClient, databaseId, embedId, view),
     onError: () => {
-      invalidateViews(databaseId);
+      invalidateViews(databaseId, embedId);
       notifications.show({ message: t("Failed to update view"), color: "red" });
     },
   });
 }
 
-export function useSetDefaultViewMutation(databaseId: string) {
+export function useSetDefaultViewMutation(databaseId: string, embedId?: string) {
   const { t } = useTranslation();
   return useMutation<void, Error, IViewIdParams>({
     mutationFn: (data) => setDefaultView(data),
-    onSuccess: () => invalidateViews(databaseId),
+    onSuccess: () => invalidateViews(databaseId, embedId),
     onError: () => {
-      invalidateViews(databaseId);
+      invalidateViews(databaseId, embedId);
       notifications.show({
         message: t("Failed to set default view"),
         color: "red",
@@ -409,13 +415,13 @@ export function useSetDefaultViewMutation(databaseId: string) {
   });
 }
 
-export function useDeleteViewMutation(databaseId: string) {
+export function useDeleteViewMutation(databaseId: string, embedId?: string) {
   const { t } = useTranslation();
   return useMutation<void, Error, IViewIdParams>({
     mutationFn: (data) => deleteView(data),
-    onSuccess: () => invalidateViews(databaseId),
+    onSuccess: () => invalidateViews(databaseId, embedId),
     onError: () => {
-      invalidateViews(databaseId);
+      invalidateViews(databaseId, embedId);
       notifications.show({ message: t("Failed to delete view"), color: "red" });
     },
   });

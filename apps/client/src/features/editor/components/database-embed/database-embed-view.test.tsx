@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 const infoQuery = vi.fn();
 const deleteNode = vi.fn();
+const updateAttributes = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseInfoByIdQuery: () => infoQuery(),
@@ -17,19 +18,19 @@ vi.mock("@/features/database/components/database-view.tsx", () => ({
     databaseId,
     spaceId,
     initialViewId,
-    persistViewConfig,
+    embedId,
   }: {
     databaseId: string;
     spaceId: string;
     initialViewId?: string;
-    persistViewConfig?: boolean;
+    embedId?: string;
   }) => (
     <div
       data-testid="database-view"
       data-database-id={databaseId}
       data-space-id={spaceId}
       data-initial-view-id={initialViewId}
-      data-persist={String(persistViewConfig)}
+      data-embed-id={embedId}
     />
   ),
 }));
@@ -48,7 +49,11 @@ const database = {
 const page = { id: "p1", slugId: "abc", title: "Roadmap" };
 
 function renderEmbed(
-  attrs: { databaseId?: string | null; viewId?: string | null } = {},
+  attrs: {
+    databaseId?: string | null;
+    viewId?: string | null;
+    embedId?: string | null;
+  } = {},
   isEditable = true,
 ) {
   const props = {
@@ -57,9 +62,11 @@ function renderEmbed(
       attrs: {
         databaseId: attrs.databaseId ?? "db1",
         viewId: attrs.viewId ?? "v1",
+        embedId: "embedId" in attrs ? attrs.embedId : "embed-1",
       },
     },
     deleteNode,
+    updateAttributes,
     selected: false,
   } as any;
   return render(
@@ -75,21 +82,49 @@ describe("DatabaseEmbedView", () => {
   beforeEach(() => {
     infoQuery.mockReset();
     deleteNode.mockReset();
+    updateAttributes.mockReset();
   });
 
-  it("mounts DatabaseView with the resolved space and pinned view, session-local", () => {
+  it("mounts DatabaseView with the resolved space, pinned view and embed scope", () => {
     infoQuery.mockReturnValue({
       data: { database, page },
       isLoading: false,
       isError: false,
       error: null,
     });
-    renderEmbed({ viewId: "v2" });
+    renderEmbed({ viewId: "v2", embedId: "embed-9" });
     const body = screen.getByTestId("database-view");
     expect(body.getAttribute("data-database-id")).toBe("db1");
     expect(body.getAttribute("data-space-id")).toBe("space1");
     expect(body.getAttribute("data-initial-view-id")).toBe("v2");
-    expect(body.getAttribute("data-persist")).toBe("false");
+    // The embed scopes its views by embedId (issue #39).
+    expect(body.getAttribute("data-embed-id")).toBe("embed-9");
+  });
+
+  it("backfills a missing embedId on mount (legacy embeds)", () => {
+    infoQuery.mockReturnValue({
+      data: { database, page },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderEmbed({ embedId: null });
+    // A legacy node without an embedId gets one assigned once on mount.
+    expect(updateAttributes).toHaveBeenCalledTimes(1);
+    expect(updateAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({ embedId: expect.any(String) }),
+    );
+  });
+
+  it("does not re-assign an embedId when one already exists (idempotent)", () => {
+    infoQuery.mockReturnValue({
+      data: { database, page },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderEmbed({ embedId: "embed-1" });
+    expect(updateAttributes).not.toHaveBeenCalled();
   });
 
   it("shows a no-access placeholder on 403", () => {

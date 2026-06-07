@@ -95,6 +95,8 @@ function view(config: IDatabaseView["config"]): IDatabaseView {
     name: "Board",
     type: "board",
     config,
+    embedId: null,
+    ownerUserId: null,
     isDefault: true,
     position: "a0",
     createdAt: new Date(),

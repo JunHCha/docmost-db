@@ -17,7 +17,8 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabasePropertiesQuery: () => propertiesQuery(),
   useDatabaseRowsQuery: (databaseId: string, viewId: string, config?: any) =>
     rowsQuery(databaseId, viewId, config),
-  useDatabaseViewsQuery: () => viewsQuery(),
+  useDatabaseViewsQuery: (databaseId: string, embedId?: string) =>
+    viewsQuery(databaseId, embedId),
   useSetValueMutation: () => ({ mutate: vi.fn() }),
   useClearValueMutation: () => ({ mutate: vi.fn() }),
   useCreateRowMutation: () => ({ mutate: vi.fn() }),
@@ -47,6 +48,8 @@ function makeView(
     config,
     isDefault,
     position: id,
+    embedId: null,
+    ownerUserId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -127,7 +130,7 @@ function renderView(
     spaceId: string;
     spaceSlug?: string;
     initialViewId?: string;
-    persistViewConfig?: boolean;
+    embedId?: string;
   }> = {},
 ) {
   return render(
@@ -137,7 +140,7 @@ function renderView(
         spaceId={props.spaceId ?? "space1"}
         spaceSlug={props.spaceSlug}
         initialViewId={props.initialViewId}
-        persistViewConfig={props.persistViewConfig}
+        embedId={props.embedId}
       />
     </MantineProvider>,
   );
@@ -208,20 +211,23 @@ describe("DatabaseView", () => {
     expect(rowsQuery).toHaveBeenCalledWith("db1", "v2", expect.anything());
   });
 
-  it("skips persisting config when persistViewConfig is false (session-local)", () => {
-    renderView({ persistViewConfig: false });
+  it("queries the embed scope's views when an embedId is given", () => {
+    renderView({ embedId: "embed-1" });
+    // The views query is scoped to the embed (issue #39), not the original db.
+    expect(viewsQuery).toHaveBeenCalledWith("db1", "embed-1");
+  });
+
+  it("queries the original scope (no embedId) for the database page", () => {
+    renderView();
+    expect(viewsQuery).toHaveBeenCalledWith("db1", undefined);
+  });
+
+  it("persists filter/sort changes for an embed too (embedId-scoped, not session-local)", () => {
+    renderView({ embedId: "embed-1" });
     fireEvent.click(screen.getByTestId("change-filters"));
-    fireEvent.click(screen.getByTestId("change-sorts"));
-    // Filters/sorts still apply locally (rows query re-reads them) but the embed
-    // must not write back to the shared view config.
-    expect(updateViewMutate).not.toHaveBeenCalled();
-    expect(rowsQuery).toHaveBeenLastCalledWith(
-      "db1",
-      "v1",
-      expect.objectContaining({
-        sorts: [{ propertyId: "p1", direction: "asc" }],
-      }),
-    );
+    // The embed now owns its views, so its edits persist to its own scope
+    // (persistViewConfig session-local special case removed in issue #39).
+    expect(updateViewMutate).toHaveBeenCalled();
   });
 
   it("shows the table-only empty state when a filtered view returns no rows", () => {

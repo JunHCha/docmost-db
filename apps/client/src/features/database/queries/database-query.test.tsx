@@ -58,6 +58,7 @@ const service = {
   setDefaultView: vi.fn(),
   deleteView: vi.fn(),
   getDatabaseInfo: vi.fn(),
+  listViews: vi.fn(),
 };
 
 vi.mock("@/features/database/services/database-service.ts", () => ({
@@ -74,7 +75,7 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   listRows: (...a: unknown[]) => service.listRows(...a),
   deleteRows: (...a: unknown[]) => service.deleteRows(...a),
   listDatabases: (...a: unknown[]) => service.listDatabases(...a),
-  listViews: vi.fn(),
+  listViews: (...a: unknown[]) => service.listViews(...a),
   createView: (...a: unknown[]) => service.createView(...a),
   updateView: (...a: unknown[]) => service.updateView(...a),
   setDefaultView: (...a: unknown[]) => service.setDefaultView(...a),
@@ -88,6 +89,7 @@ import {
   useCreateViewMutation,
   useDatabaseInfoByIdQuery,
   useDatabaseRowsQuery,
+  useDatabaseViewsQuery,
   useDeletePropertyMutation,
   useDeleteRowsMutation,
   useListDatabasesQuery,
@@ -521,5 +523,58 @@ describe("view mutations invalidate the views query", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: databaseViewsKey(dbId),
     });
+  });
+
+  it("createView forwards embedId/visibility to the service and invalidates the embed scope", async () => {
+    service.createView.mockResolvedValue({ id: "v9" });
+    const { result } = renderHook(
+      () => useCreateViewMutation(dbId, "embed-1"),
+      { wrapper },
+    );
+    result.current.mutate({
+      databaseId: dbId,
+      name: "Mine",
+      type: "table",
+      embedId: "embed-1",
+      visibility: "personal",
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(service.createView).toHaveBeenCalledWith({
+      databaseId: dbId,
+      name: "Mine",
+      type: "table",
+      embedId: "embed-1",
+      visibility: "personal",
+    });
+    // The embed scope (not the original) is the slot invalidated.
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databaseViewsKey(dbId, "embed-1"),
+    });
+  });
+});
+
+describe("useDatabaseViewsQuery embed scope", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+  });
+
+  it("passes the embedId to listViews and caches under the embed scope slot", async () => {
+    const views = [{ id: "v9", embedId: "embed-1" }];
+    service.listViews.mockResolvedValue(views);
+
+    const { result } = renderHook(
+      () => useDatabaseViewsQuery(dbId, "embed-1"),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(service.listViews).toHaveBeenCalledWith({
+      databaseId: dbId,
+      embedId: "embed-1",
+    });
+    expect(
+      queryClient.getQueryData(databaseViewsKey(dbId, "embed-1")),
+    ).toBe(views);
   });
 });
