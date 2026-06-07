@@ -9,6 +9,9 @@ export interface DatabaseViewOptions {
 export interface DatabaseViewAttributes {
   databaseId?: string | null;
   viewId?: string | null;
+  // The embed's own view scope (issue #39). Generated on insert so each embed
+  // owns its views without mutating the original database's view set.
+  embedId?: string | null;
 }
 
 declare module "@tiptap/core" {
@@ -48,6 +51,12 @@ export const DatabaseView = Node.create<DatabaseViewOptions>({
         renderHTML: (attrs) =>
           attrs.viewId ? { "data-view-id": attrs.viewId } : {},
       },
+      embedId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-embed-id"),
+        renderHTML: (attrs) =>
+          attrs.embedId ? { "data-embed-id": attrs.embedId } : {},
+      },
     };
   },
 
@@ -73,7 +82,13 @@ export const DatabaseView = Node.create<DatabaseViewOptions>({
         ({ commands }) =>
           commands.insertContent({
             type: this.name,
-            attrs: attributes,
+            // Give every inserted embed its own view scope (issue #39) so its
+            // views are isolated from the original database. Preserve an
+            // explicitly supplied embedId (e.g. duplicated node).
+            attrs: {
+              ...attributes,
+              embedId: attributes.embedId ?? crypto.randomUUID(),
+            },
           }),
     };
   },
