@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 
@@ -139,6 +139,47 @@ describe("DatabaseEmbedView", () => {
       screen.getByText("You don't have access to this database"),
     ).toBeTruthy();
     expect(screen.queryByTestId("database-view")).toBeNull();
+  });
+
+  it("does not mount the body or query database info until visible", () => {
+    (globalThis as any).__ioAutoIntersect = false;
+    try {
+      renderEmbed();
+      // Lazy mount: the body (and its info query) must not run while off-screen.
+      expect(infoQuery).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("database-view")).toBeNull();
+      expect(screen.getByTestId("database-embed-placeholder")).toBeTruthy();
+    } finally {
+      (globalThis as any).__ioAutoIntersect = true;
+    }
+  });
+
+  it("mounts the body once it scrolls into view and stays mounted afterwards", () => {
+    (globalThis as any).__ioAutoIntersect = false;
+    infoQuery.mockReturnValue({
+      data: { database, page },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    try {
+      renderEmbed();
+      const observers = (globalThis as any).__intersectionObservers as any[];
+      const observer = observers[observers.length - 1];
+
+      // Becomes visible -> body mounts and the info query runs.
+      act(() => observer.trigger(true));
+      expect(screen.getByTestId("database-view")).toBeTruthy();
+      expect(infoQuery).toHaveBeenCalled();
+      // Once visible the observer disconnects (stay-mounted, no flicker).
+      expect(observer.disconnected).toBe(true);
+
+      // Scrolling back out keeps the body mounted.
+      act(() => observer.trigger(false));
+      expect(screen.getByTestId("database-view")).toBeTruthy();
+    } finally {
+      (globalThis as any).__ioAutoIntersect = true;
+    }
   });
 
   it("shows a not-found placeholder with remove action when the database is gone", () => {

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import { ActionIcon, Center, Loader, Menu, Tooltip } from "@mantine/core";
 import {
@@ -34,6 +34,30 @@ export default function DatabaseEmbedView(props: NodeViewProps) {
     }
   }, [embedId, isEditable, props.updateAttributes]);
 
+  // Lazy mount (issue #39): a long page with many embeds would otherwise fire
+  // every embed's info/views/rows queries at once on mount. Only mount the body
+  // once the wrapper scrolls near the viewport. Once visible we keep it mounted
+  // and disconnect, so scrolling away does not unmount/refetch or flicker.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [hasBeenVisible, setHasBeenVisible] = useState(false);
+
+  useEffect(() => {
+    if (hasBeenVisible) return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setHasBeenVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasBeenVisible]);
+
   return (
     <NodeViewWrapper
       className={classes.embedWrap}
@@ -41,12 +65,21 @@ export default function DatabaseEmbedView(props: NodeViewProps) {
       data-focused={isEditable && props.selected ? "true" : "false"}
       contentEditable={false}
     >
-      <ErrorBoundary
-        resetKeys={[databaseId, viewId]}
-        fallback={<ErrorPlaceholder />}
-      >
-        <DatabaseEmbedBody {...props} />
-      </ErrorBoundary>
+      <div ref={wrapperRef}>
+        {hasBeenVisible ? (
+          <ErrorBoundary
+            resetKeys={[databaseId, viewId]}
+            fallback={<ErrorPlaceholder />}
+          >
+            <DatabaseEmbedBody {...props} />
+          </ErrorBoundary>
+        ) : (
+          <div
+            data-testid="database-embed-placeholder"
+            className={classes.lazyPlaceholder}
+          />
+        )}
+      </div>
     </NodeViewWrapper>
   );
 }
