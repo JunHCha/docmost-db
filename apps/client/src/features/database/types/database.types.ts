@@ -182,6 +182,9 @@ export interface IDatabaseView {
 export interface IListViewsParams {
   databaseId: string;
   embedId?: string;
+  // Host page of an embed. Lets the server scope its save-time orphan cleanup
+  // and seed embed views with a source_page_id. Omitted for the original DB.
+  pageId?: string;
 }
 
 export interface ICreateViewParams {
@@ -190,6 +193,8 @@ export interface ICreateViewParams {
   type?: string;
   config?: IDatabaseViewConfig;
   embedId?: string;
+  // Host page of an embed view; see IListViewsParams.pageId.
+  pageId?: string;
   visibility?: "personal" | "shared";
 }
 

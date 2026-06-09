@@ -15,6 +15,9 @@ interface ViewSwitcherProps {
   // The embed scope (issue #39) new views belong to; undefined for the original
   // database. Forwarded to createView so a view is created in the right scope.
   embedId?: string;
+  // Host page of an embed (issue #60). Sent on create so the new embed view
+  // records its source_page_id for save-time orphan reconcile.
+  pageId?: string;
   views: IDatabaseView[];
   activeViewId: string;
   onActivate: (viewId: string) => void;
@@ -146,6 +149,7 @@ const VIEW_TYPES: { type: string; label: string }[] = [
 export function ViewSwitcher({
   databaseId,
   embedId,
+  pageId,
   views,
   activeViewId,
   onActivate,
@@ -162,6 +166,7 @@ export function ViewSwitcher({
       name: t(VIEW_TYPES.find((v) => v.type === type)!.label),
       type,
       embedId,
+      pageId,
       visibility,
     });
   }

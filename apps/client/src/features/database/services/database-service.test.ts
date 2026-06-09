@@ -207,6 +207,30 @@ describe("database-service", () => {
     expect(result).toBe(data);
   });
 
+  it("forwards embedId and pageId on list/create for orphan reconcile", async () => {
+    post.mockResolvedValue({ data: [] });
+    await listViews({ databaseId: "db1", embedId: "e1", pageId: "p1" });
+    expect(post).toHaveBeenCalledWith("/databases/views/list", {
+      databaseId: "db1",
+      embedId: "e1",
+      pageId: "p1",
+    });
+
+    post.mockResolvedValue({ data: {} });
+    await createView({
+      databaseId: "db1",
+      name: "Grid",
+      embedId: "e1",
+      pageId: "p1",
+    });
+    expect(post).toHaveBeenCalledWith("/databases/views/create", {
+      databaseId: "db1",
+      name: "Grid",
+      embedId: "e1",
+      pageId: "p1",
+    });
+  });
+
   it("updateView posts to /databases/views/update and returns data", async () => {
     const data = { id: "v1" };
     post.mockResolvedValue({ data });

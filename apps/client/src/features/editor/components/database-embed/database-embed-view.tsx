@@ -90,6 +90,10 @@ function DatabaseEmbedBody({ editor, node, deleteNode }: NodeViewProps) {
   const databaseId: string | null = node.attrs.databaseId ?? null;
   const viewId: string | null = node.attrs.viewId ?? null;
   const embedId: string | null = node.attrs.embedId ?? null;
+  // Host page id the editor stashes on its storage (page-editor sets it). Lets
+  // the server scope save-time orphan reconcile to this page (issue #60).
+  const pageId: string | undefined =
+    (editor.storage as { pageId?: string } | undefined)?.pageId ?? undefined;
   const isEditable = editor.isEditable;
 
   const infoQuery = useDatabaseInfoByIdQuery(databaseId ?? "");
@@ -195,6 +199,7 @@ function DatabaseEmbedBody({ editor, node, deleteNode }: NodeViewProps) {
         spaceSlug={spaceSlug}
         initialViewId={viewId ?? undefined}
         embedId={embedId ?? undefined}
+        pageId={pageId}
       />
     </>
   );

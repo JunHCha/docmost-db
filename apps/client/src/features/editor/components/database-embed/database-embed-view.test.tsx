@@ -19,11 +19,13 @@ vi.mock("@/features/database/components/database-view.tsx", () => ({
     spaceId,
     initialViewId,
     embedId,
+    pageId,
   }: {
     databaseId: string;
     spaceId: string;
     initialViewId?: string;
     embedId?: string;
+    pageId?: string;
   }) => (
     <div
       data-testid="database-view"
@@ -31,6 +33,7 @@ vi.mock("@/features/database/components/database-view.tsx", () => ({
       data-space-id={spaceId}
       data-initial-view-id={initialViewId}
       data-embed-id={embedId}
+      data-page-id={pageId}
     />
   ),
 }));
@@ -57,7 +60,7 @@ function renderEmbed(
   isEditable = true,
 ) {
   const props = {
-    editor: { isEditable },
+    editor: { isEditable, storage: { pageId: "host-page-1" } },
     node: {
       attrs: {
         databaseId: attrs.databaseId ?? "db1",
@@ -99,6 +102,8 @@ describe("DatabaseEmbedView", () => {
     expect(body.getAttribute("data-initial-view-id")).toBe("v2");
     // The embed scopes its views by embedId (issue #39).
     expect(body.getAttribute("data-embed-id")).toBe("embed-9");
+    // The host page id (issue #60) flows through for orphan reconcile.
+    expect(body.getAttribute("data-page-id")).toBe("host-page-1");
   });
 
   it("backfills a missing embedId on mount (legacy embeds)", () => {
