@@ -47,6 +47,10 @@ const mocks = vi.hoisted(() => {
     setAwarenessField = vi.fn((field: string, value: any) => {
       this.awareness.setLocalStateField(field, value);
     });
+    // HocuspocusProvider only subscribes to the socket's open event (and thus
+    // sends auth/sync/awareness frames) once attach() is called when a shared
+    // websocketProvider is supplied; the hook must call it explicitly.
+    attach = vi.fn();
     destroy = vi.fn();
     constructor(config: any) {
       this.name = config.name;
@@ -107,6 +111,16 @@ describe("useDatabaseCollab", () => {
       wrapper: wrapper(store),
     });
     expect(mocks.state.lastProvider?.name).toBe("db.page-42");
+  });
+
+  it("attaches the provider so it actually connects and syncs", () => {
+    const store = buildStore();
+    renderHook(() => useDatabaseCollab("page-42"), {
+      wrapper: wrapper(store),
+    });
+    // Without attach() a websocketProvider-backed HocuspocusProvider never
+    // subscribes to the socket open event and stays silent (regression guard).
+    expect(mocks.state.lastProvider?.attach).toHaveBeenCalled();
   });
 
   it("publishes the current user into awareness", () => {

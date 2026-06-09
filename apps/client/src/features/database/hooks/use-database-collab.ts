@@ -51,6 +51,11 @@ export function useDatabaseCollab(
       name: documentName,
       token,
     });
+    // When a websocketProvider is supplied, HocuspocusProvider leaves
+    // manageSocket=false and does NOT auto-attach, so it never subscribes to
+    // the socket's open event — no auth/sync/awareness frames are ever sent.
+    // Attach explicitly to establish the connection (mirrors page-editor).
+    remote.attach();
 
     providersRef.current = { provider: remote, socket };
     setProvider(remote);
