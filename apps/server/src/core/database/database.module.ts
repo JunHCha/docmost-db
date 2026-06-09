@@ -7,6 +7,8 @@ import { DatabaseRowController } from './database-row.controller';
 import { DatabaseRowService } from './services/database-row.service';
 import { DatabaseViewController } from './database-view.controller';
 import { DatabaseViewService } from './services/database-view.service';
+import { DatabaseTemplateController } from './database-template.controller';
+import { DatabaseTemplateService } from './services/database-template.service';
 import { OrphanViewCleanupService } from './services/orphan-view-cleanup.service';
 import { PageModule } from '../page/page.module';
 
@@ -18,12 +20,14 @@ import { PageModule } from '../page/page.module';
     DatabasePropertyController,
     DatabaseRowController,
     DatabaseViewController,
+    DatabaseTemplateController,
   ],
   providers: [
     DatabaseService,
     DatabasePropertyService,
     DatabaseRowService,
     DatabaseViewService,
+    DatabaseTemplateService,
     OrphanViewCleanupService,
   ],
   imports: [PageModule],
