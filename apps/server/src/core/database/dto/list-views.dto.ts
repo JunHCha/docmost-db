@@ -7,4 +7,8 @@ export class ListViewsDto {
   @IsOptional()
   @IsString()
   embedId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  pageId?: string;
 }

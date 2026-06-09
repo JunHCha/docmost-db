@@ -7,6 +7,7 @@ import { DatabaseRowController } from './database-row.controller';
 import { DatabaseRowService } from './services/database-row.service';
 import { DatabaseViewController } from './database-view.controller';
 import { DatabaseViewService } from './services/database-view.service';
+import { OrphanViewCleanupService } from './services/orphan-view-cleanup.service';
 import { PageModule } from '../page/page.module';
 
 // Core feature module for the Notion-like database. Named `DatabasesModule`
@@ -23,7 +24,9 @@ import { PageModule } from '../page/page.module';
     DatabasePropertyService,
     DatabaseRowService,
     DatabaseViewService,
+    OrphanViewCleanupService,
   ],
   imports: [PageModule],
+  exports: [DatabaseViewService],
 })
 export class DatabasesModule {}

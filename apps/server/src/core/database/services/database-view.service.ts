@@ -20,6 +20,7 @@ import { CreateViewDto } from '../dto/create-view.dto';
 import { UpdateViewDto } from '../dto/update-view.dto';
 import { ViewIdDto } from '../dto/view-id.dto';
 import { ListViewsDto } from '../dto/list-views.dto';
+import { collectEmbedIdsFromPmJson } from '../utils/database-embed-prosemirror.util';
 
 @Injectable()
 export class DatabaseViewService {
@@ -62,6 +63,7 @@ export class DatabaseViewService {
       isDefault: scopeSiblings.length === 0,
       embedId,
       ownerUserId,
+      sourcePageId: embedId ? (dto.pageId ?? null) : null,
     });
   }
 
@@ -151,6 +153,7 @@ export class DatabaseViewService {
                 isDefault: origin.isDefault,
                 embedId,
                 ownerUserId: null,
+                sourcePageId: embedId ? (dto.pageId ?? null) : null,
               }),
             );
           }
@@ -167,6 +170,7 @@ export class DatabaseViewService {
         isDefault: true,
         embedId,
         ownerUserId: null,
+        sourcePageId: embedId ? (dto.pageId ?? null) : null,
       });
       return [created];
     } catch (err) {
@@ -177,6 +181,23 @@ export class DatabaseViewService {
         ownerUserId: user.id,
       });
     }
+  }
+
+  // Save-time reconcile (system op, no CASL): soft-delete embed views whose
+  // node vanished from the page and restore any that re-appeared (undo). The
+  // diff is idempotent so the next save converges if a round drops anything.
+  async reconcileEmbedViews(pageId: string, pmJson: unknown): Promise<void> {
+    const desired = collectEmbedIdsFromPmJson(pmJson);
+    await this.runInTransaction(async (trx) => {
+      await this.viewRepo.softDeleteOrphans(
+        { sourcePageId: pageId, keepEmbedIds: desired },
+        trx,
+      );
+      await this.viewRepo.restoreOrphans(
+        { sourcePageId: pageId, embedIds: desired },
+        trx,
+      );
+    });
   }
 
   // --- helpers ---

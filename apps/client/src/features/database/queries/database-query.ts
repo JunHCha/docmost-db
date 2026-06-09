@@ -172,10 +172,13 @@ export function useDatabaseRowsQuery(
 export function useDatabaseViewsQuery(
   databaseId: string,
   embedId?: string,
+  // Embed host page. Not part of the query key (the view list is identical
+  // regardless) — sent only so the server can backfill source_page_id on seed.
+  pageId?: string,
 ): UseQueryResult<IDatabaseView[], Error> {
   return useQuery({
     queryKey: databaseViewsKey(databaseId, embedId),
-    queryFn: () => listViews({ databaseId, embedId }),
+    queryFn: () => listViews({ databaseId, embedId, pageId }),
     enabled: !!databaseId,
   });
 }
