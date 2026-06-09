@@ -41,6 +41,9 @@ interface DatabaseViewProps {
   // and edits persist there. Undefined => the original database scope
   // (DatabaseViewContainer), so its existing behaviour is unchanged.
   embedId?: string;
+  // Host page id of an embed (issue #60). Threaded to view list/create so the
+  // server can record source_page_id and reconcile orphan views on save.
+  pageId?: string;
 }
 
 /**
@@ -55,10 +58,11 @@ export function DatabaseView({
   spaceSlug,
   initialViewId,
   embedId,
+  pageId,
 }: DatabaseViewProps) {
   const { t } = useTranslation();
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
-  const viewsQuery = useDatabaseViewsQuery(databaseId, embedId);
+  const viewsQuery = useDatabaseViewsQuery(databaseId, embedId, pageId);
   const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
 
   // Local active-view selection. Resolve against the live list every render so
@@ -180,6 +184,7 @@ export function DatabaseView({
         <ViewSwitcher
           databaseId={databaseId}
           embedId={embedId}
+          pageId={pageId}
           views={views}
           activeViewId={activeViewId}
           onActivate={setSelectedViewId}

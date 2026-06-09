@@ -45,6 +45,7 @@ function renderSwitcher(
     activeViewId?: string;
     onActivate?: (id: string) => void;
     embedId?: string;
+    pageId?: string;
     views?: IDatabaseView[];
   } = {},
 ) {
@@ -53,6 +54,7 @@ function renderSwitcher(
       <ViewSwitcher
         databaseId="db1"
         embedId={opts.embedId}
+        pageId={opts.pageId}
         views={opts.views ?? views}
         activeViewId={opts.activeViewId ?? "v1"}
         onActivate={opts.onActivate ?? vi.fn()}
@@ -148,6 +150,15 @@ describe("ViewSwitcher", () => {
     fireEvent.click(screen.getAllByText("Table")[0]);
     expect(createViewMutate).toHaveBeenCalledWith(
       expect.objectContaining({ embedId: "embed-1", visibility: "shared" }),
+    );
+  });
+
+  it("forwards the embed host pageId to createView for orphan reconcile", () => {
+    renderSwitcher({ embedId: "embed-1", pageId: "page-1" });
+    fireEvent.click(screen.getByLabelText("Add view"));
+    fireEvent.click(screen.getAllByText("Table")[0]);
+    expect(createViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ embedId: "embed-1", pageId: "page-1" }),
     );
   });
 

@@ -304,8 +304,10 @@ export interface DatabaseViews {
   id: Generated<string>;
   isDefault: Generated<boolean>;
   name: string;
+  orphanedAt: Timestamp | null;
   ownerUserId: string | null;
   position: string;
+  sourcePageId: string | null;
   type: string;
   updatedAt: Generated<Timestamp>;
 }
