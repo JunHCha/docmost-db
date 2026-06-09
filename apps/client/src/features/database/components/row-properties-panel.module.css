@@ -1,0 +1,20 @@
+/* The panel renders as a bare child of the editor Container, which has no
+ * horizontal padding — the title and body get their inset from ProseMirror's
+ * own 3rem gutter. Without matching that gutter the panel overhangs the page
+ * body on both edges (#72). maxWidth pins it inside the container so a wide
+ * cell value can never force horizontal overflow. */
+.panel {
+  padding-left: 3rem;
+  padding-right: 3rem;
+  max-width: 100%;
+
+  @media (max-width: $mantine-breakpoint-sm) {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media print {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
