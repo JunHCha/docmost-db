@@ -31,6 +31,7 @@ import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
 import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
 import { DatabaseViewRepo } from '@docmost/db/repos/database/database-view.repo';
+import { DatabaseTemplateRepo } from '@docmost/db/repos/database/database-template.repo';
 import { PageListener } from '@docmost/db/listeners/page.listener';
 import { PostgresJSDialect } from 'kysely-postgres-js';
 import * as postgres from 'postgres';
@@ -100,6 +101,7 @@ import { normalizePostgresUrl } from '../common/helpers';
     DatabasePropertyRepo,
     DatabasePropertyValueRepo,
     DatabaseViewRepo,
+    DatabaseTemplateRepo,
     PageListener,
   ],
   exports: [
@@ -129,6 +131,7 @@ import { normalizePostgresUrl } from '../common/helpers';
     DatabasePropertyRepo,
     DatabasePropertyValueRepo,
     DatabaseViewRepo,
+    DatabaseTemplateRepo,
   ],
 })
 export class DatabaseModule implements OnApplicationBootstrap {
