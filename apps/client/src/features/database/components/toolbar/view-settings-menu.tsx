@@ -74,7 +74,12 @@ export function ViewSettingsMenu({
   }
 
   return (
-    <Menu closeOnItemClick={false} position="bottom-end" withinPortal={false}>
+    <Menu
+      closeOnItemClick={false}
+      position="bottom-end"
+      shadow="md"
+      withinPortal={false}
+    >
       <Menu.Target>
         <Tooltip label={t("View settings")}>
           <ActionIcon
