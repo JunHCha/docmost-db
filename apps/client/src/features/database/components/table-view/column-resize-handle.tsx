@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { useTranslation } from "react-i18next";
+import classes from "./column-resize-handle.module.css";
 
 interface ColumnResizeHandleProps {
   // Current persisted width (px) of the column this handle belongs to.
@@ -50,21 +51,13 @@ export function ColumnResizeHandle({
 
   return (
     <div
+      className={classes.handle}
       role="separator"
       aria-label={t("Resize column")}
       aria-orientation="vertical"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      style={{
-        position: "absolute",
-        top: 0,
-        bottom: 0,
-        right: -3,
-        width: 6,
-        cursor: "col-resize",
-        touchAction: "none",
-      }}
     />
   );
 }
