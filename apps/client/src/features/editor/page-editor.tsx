@@ -457,8 +457,8 @@ export default function PageEditor({
                 opened={dbPickerOpened}
                 spaceId={page.spaceId}
                 onClose={() => setDbPickerOpened(false)}
-                onConfirm={({ databaseId, viewId }) => {
-                  editor.commands.insertDatabaseView({ databaseId, viewId });
+                onConfirm={({ databaseId }) => {
+                  editor.commands.insertDatabaseView({ databaseId });
                   setDbPickerOpened(false);
                 }}
               />
