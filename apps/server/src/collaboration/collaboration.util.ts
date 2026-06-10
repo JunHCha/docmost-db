@@ -155,6 +155,14 @@ export function getPageId(documentName: string) {
   return documentName.split('.')[1];
 }
 
+export function getDocPrefix(documentName: string): string {
+  return documentName.split('.')[0];
+}
+
+export function isDatabaseCollabDoc(documentName: string): boolean {
+  return getDocPrefix(documentName) === 'db';
+}
+
 export function isEmptyParagraphDoc(tiptapJson: JSONContent): boolean {
   if (!tiptapJson || tiptapJson.type !== 'doc') return false;
   const content = tiptapJson.content;

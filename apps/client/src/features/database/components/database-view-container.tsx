@@ -8,6 +8,7 @@ import { useUpdatePageMutation } from "@/features/page/queries/page-query.ts";
 import { useQueryEmit } from "@/features/websocket/use-query-emit.ts";
 import { UpdateEvent } from "@/features/websocket/types";
 import localEmitter from "@/lib/local-emitter.ts";
+import { useDatabaseCollab } from "../hooks/use-database-collab";
 import { DatabaseView } from "./database-view";
 
 interface DatabaseViewContainerProps {
@@ -29,6 +30,12 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   const updatePage = useUpdatePageMutation();
   const emit = useQueryEmit();
   const [titleDraft, setTitleDraft] = useState(page.title ?? "");
+
+  // Open the DB view collaboration channel (presence/transport only, #55 Phase
+  // 1) once this page resolves to an actual database. Plain pages pass "" so the
+  // hook stays disconnected. The collab doc reuses the DB page id, so the
+  // existing page-permission auth applies unchanged.
+  useDatabaseCollab(databaseId ? page.id : "");
 
   function commitTitle() {
     const next = titleDraft.trim();
