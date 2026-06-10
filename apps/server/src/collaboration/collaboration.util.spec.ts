@@ -1,4 +1,11 @@
-import { htmlToJson, jsonToHtml, jsonToNode } from './collaboration.util';
+import {
+  getDocPrefix,
+  getPageId,
+  htmlToJson,
+  isDatabaseCollabDoc,
+  jsonToHtml,
+  jsonToNode,
+} from './collaboration.util';
 
 const findFirstChild = (json: any, type: string): any | undefined => {
   if (!json || typeof json !== 'object') return undefined;
@@ -49,5 +56,24 @@ describe('databaseView node round-trip', () => {
     expect(child!.type.name).toBe('databaseView');
     expect(child!.attrs.databaseId).toBe('db-123');
     expect(child!.attrs.viewId).toBe('view-456');
+  });
+});
+
+describe('collab document name prefix helpers', () => {
+  it('getDocPrefix returns the segment before the first dot', () => {
+    expect(getDocPrefix('page.abc-123')).toBe('page');
+    expect(getDocPrefix('db.abc-123')).toBe('db');
+  });
+
+  it('getPageId still extracts the id after the prefix for db docs', () => {
+    expect(getPageId('db.abc-123')).toBe('abc-123');
+    expect(getPageId('page.abc-123')).toBe('abc-123');
+  });
+
+  it('isDatabaseCollabDoc is true only for the db prefix', () => {
+    expect(isDatabaseCollabDoc('db.abc-123')).toBe(true);
+    expect(isDatabaseCollabDoc('page.abc-123')).toBe(false);
+    expect(isDatabaseCollabDoc('abc-123')).toBe(false);
+    expect(isDatabaseCollabDoc('')).toBe(false);
   });
 });
