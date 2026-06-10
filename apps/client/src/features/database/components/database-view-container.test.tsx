@@ -36,6 +36,12 @@ vi.mock("../hooks/use-database-collab", () => ({
   },
 }));
 
+// Phase 2 realtime hook needs a QueryClient and a real provider; stub it and
+// just hand back a no-op broadcaster so the container renders standalone.
+vi.mock("../hooks/use-database-realtime", () => ({
+  useDatabaseRealtime: () => ({ broadcastChange: () => {} }),
+}));
+
 vi.mock("@/lib/local-emitter.ts", () => ({
   default: { emit: localEmitterEmit },
 }));
