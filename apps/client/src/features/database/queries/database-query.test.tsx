@@ -586,7 +586,14 @@ describe("value mutations broadcast the change to collaborators (#55 Phase 2)", 
   function collabWrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <DatabaseCollabContext.Provider value={{ broadcastChange }}>
+        <DatabaseCollabContext.Provider
+          value={{
+            broadcastChange,
+            onlineUsers: [],
+            editingByCell: {},
+            setEditingCell: () => {},
+          }}
+        >
           {children}
         </DatabaseCollabContext.Provider>
       </QueryClientProvider>
@@ -646,7 +653,14 @@ describe("row mutations broadcast the change to collaborators (#55 Phase 3)", ()
   function collabWrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <DatabaseCollabContext.Provider value={{ broadcastChange }}>
+        <DatabaseCollabContext.Provider
+          value={{
+            broadcastChange,
+            onlineUsers: [],
+            editingByCell: {},
+            setEditingCell: () => {},
+          }}
+        >
           {children}
         </DatabaseCollabContext.Provider>
       </QueryClientProvider>

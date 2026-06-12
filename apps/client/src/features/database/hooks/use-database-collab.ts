@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   HocuspocusProvider,
   HocuspocusProviderWebsocket,
@@ -14,9 +14,26 @@ export interface DatabaseCollabUser {
   avatarUrl: string;
 }
 
+export interface DatabaseEditingCell {
+  rowId: string;
+  propertyId: string;
+}
+
+// Key for the editingByCell map, shared with cells so they can look up who is
+// editing a given (rowId, propertyId).
+export function cellEditingKey(rowId: string, propertyId: string): string {
+  return `${rowId}:${propertyId}`;
+}
+
 interface UseDatabaseCollabResult {
   provider: HocuspocusProvider | null;
   onlineUsers: DatabaseCollabUser[];
+  // Remote users currently editing a cell, keyed by cellEditingKey. Self is
+  // excluded (you don't highlight your own editing).
+  editingByCell: Record<string, DatabaseCollabUser[]>;
+  // Publish (or clear, with null) the cell the local user is editing so peers
+  // can highlight it.
+  setEditingCell: (cell: DatabaseEditingCell | null) => void;
 }
 
 /**
@@ -32,12 +49,19 @@ export function useDatabaseCollab(
   const token = collabQuery?.token;
   const currentUser = useAtomValue(userAtom);
   const [onlineUsers, setOnlineUsers] = useState<DatabaseCollabUser[]>([]);
+  const [editingByCell, setEditingByCell] = useState<
+    Record<string, DatabaseCollabUser[]>
+  >({});
 
   const providersRef = useRef<{
     provider: HocuspocusProvider;
     socket: HocuspocusProviderWebsocket;
   } | null>(null);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
+
+  const setEditingCell = useCallback((cell: DatabaseEditingCell | null) => {
+    providersRef.current?.provider.setAwarenessField("editing", cell);
+  }, []);
 
   useEffect(() => {
     if (!dbPageId || !token) return;
@@ -62,27 +86,36 @@ export function useDatabaseCollab(
 
     const awareness = remote.awareness;
 
-    const syncOnlineUsers = () => {
+    const syncPresence = () => {
       const localClientId = awareness?.clientID;
       const users: DatabaseCollabUser[] = [];
+      const editing: Record<string, DatabaseCollabUser[]> = {};
       awareness?.getStates().forEach((state, clientId) => {
         if (clientId === localClientId) return;
         const user = state?.user as DatabaseCollabUser | undefined;
-        if (user?.id) users.push(user);
+        if (!user?.id) return;
+        users.push(user);
+        const cell = state?.editing as DatabaseEditingCell | undefined;
+        if (cell?.rowId && cell?.propertyId) {
+          const key = cellEditingKey(cell.rowId, cell.propertyId);
+          (editing[key] ??= []).push(user);
+        }
       });
       setOnlineUsers(users);
+      setEditingByCell(editing);
     };
 
-    awareness?.on("change", syncOnlineUsers);
-    syncOnlineUsers();
+    awareness?.on("change", syncPresence);
+    syncPresence();
 
     return () => {
-      awareness?.off("change", syncOnlineUsers);
+      awareness?.off("change", syncPresence);
       remote.destroy();
       socket.destroy();
       providersRef.current = null;
       setProvider(null);
       setOnlineUsers([]);
+      setEditingByCell({});
     };
   }, [dbPageId, token]);
 
@@ -95,5 +128,5 @@ export function useDatabaseCollab(
     });
   }, [provider, currentUser?.id, currentUser?.name, currentUser?.avatarUrl]);
 
-  return { provider, onlineUsers };
+  return { provider, onlineUsers, editingByCell, setEditingCell };
 }

@@ -32,7 +32,12 @@ const {
 vi.mock("../hooks/use-database-collab", () => ({
   useDatabaseCollab: (dbPageId: string) => {
     databaseCollab(dbPageId);
-    return { provider: null, onlineUsers: [] };
+    return {
+      provider: null,
+      onlineUsers: [],
+      editingByCell: {},
+      setEditingCell: () => {},
+    };
   },
 }));
 
