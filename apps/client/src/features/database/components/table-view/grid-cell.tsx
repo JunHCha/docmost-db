@@ -22,30 +22,26 @@ export function GridCell({
   databaseId,
 }: GridCellProps) {
   const Cell = getCellComponent(property.type);
-  const { editingByCell, setEditingCell } = useDatabaseCollabPresence();
+  const { editingByCell } = useDatabaseCollabPresence();
   // Remote peers editing this exact cell (#55 Phase 4). Self is excluded by the
   // collab hook, so this only ever highlights *other* people's editing.
   const editors = editingByCell[cellEditingKey(pageId, property.id)] ?? [];
   const isRemoteEditing = editors.length > 0;
 
   return (
+    // The data-* attributes let the view-level focus tracker (which fires even
+    // when a cell's inline editor unmounts on commit) resolve the focused cell
+    // and publish/clear the local editing presence.
     <div
+      data-db-cell=""
+      data-row-id={pageId}
+      data-property-id={property.id}
       style={{
         position: "relative",
         borderRadius: 4,
         boxShadow: isRemoteEditing
           ? "inset 0 0 0 2px var(--mantine-color-blue-5)"
           : undefined,
-      }}
-      // Publish/clear which cell the local user is focused on so peers can
-      // highlight it. Skip clearing when focus merely moves within the cell.
-      onFocusCapture={() =>
-        setEditingCell({ rowId: pageId, propertyId: property.id })
-      }
-      onBlurCapture={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-          setEditingCell(null);
-        }
       }}
     >
       <Cell
