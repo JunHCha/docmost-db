@@ -82,6 +82,7 @@ function ViewTab({
       opened={active && menuOpened}
       onChange={(o) => active && setMenuOpened(o)}
       position="bottom-start"
+      shadow="md"
       transitionProps={{ duration: 0 }}
     >
       <Menu.Target>
@@ -185,7 +186,11 @@ export function ViewSwitcher({
           onDelete={() => deleteView.mutate({ viewId: view.id })}
         />
       ))}
-      <Menu position="bottom-start" transitionProps={{ duration: 0 }}>
+      <Menu
+        position="bottom-start"
+        shadow="md"
+        transitionProps={{ duration: 0 }}
+      >
         <Menu.Target>
           <ActionIcon size="sm" variant="subtle" aria-label={t("Add view")}>
             +

@@ -1,10 +1,28 @@
 .embedWrap {
   position: relative;
   width: 100%;
-  padding: 0.5em 0;
+  /* Extra left padding clears the editor's drag handle, which custom nodes pin
+   * to the wrapper's inner top-left (drag-handle.ts) — without it the grip
+   * overlaps the header's "open source database" icon (issue #68). Header and
+   * body share the inset so they stay left-aligned. */
+  padding: 0.5em 0.75em 0.5em 2rem;
   border-radius: 8px;
   border: 2px solid transparent;
-  transition: border 0.3s;
+  /* A soft drop shadow makes the embed's boundary legible against the page
+   * background even when the (transparent) border is not lit by hover/focus. */
+  box-shadow: 0 1px 3px
+      light-dark(
+        color-mix(in srgb, var(--mantine-color-gray-9), transparent 92%),
+        color-mix(in srgb, black, transparent 70%)
+      ),
+    0 0 0 1px
+      light-dark(
+        var(--mantine-color-gray-2),
+        color-mix(in srgb, var(--mantine-color-dark-3), transparent 30%)
+      );
+  transition:
+    border 0.3s,
+    box-shadow 0.3s;
 }
 
 .embedWrap[data-editable="true"]:hover,
