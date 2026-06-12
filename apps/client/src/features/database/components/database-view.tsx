@@ -22,6 +22,7 @@ import { BoardView } from "./board-view/board-view";
 import { CalendarView } from "./calendar-view/calendar-view";
 import { ViewSwitcher } from "./view-switcher";
 import { ViewToolbar } from "./toolbar/view-toolbar";
+import { DatabasePresenceAvatars } from "./database-presence-avatars";
 
 const PERSIST_DEBOUNCE_MS = 400;
 
@@ -189,20 +190,23 @@ export function DatabaseView({
           activeViewId={activeViewId}
           onActivate={setSelectedViewId}
         />
-        <ViewToolbar
-          viewType={activeView.type}
-          properties={propertiesQuery.data ?? []}
-          filters={filters}
-          sorts={sorts}
-          columns={activeView.config.columns}
-          onFiltersChange={changeFilters}
-          onSortsChange={changeSorts}
-          onToggleColumn={toggleColumn}
-          groupByPropertyId={activeView.config.groupByPropertyId}
-          onChangeGroupBy={changeGroupBy}
-          datePropertyId={activeView.config.datePropertyId}
-          onChangeDateProperty={changeDateProperty}
-        />
+        <Group gap="sm" align="center" wrap="nowrap">
+          <DatabasePresenceAvatars />
+          <ViewToolbar
+            viewType={activeView.type}
+            properties={propertiesQuery.data ?? []}
+            filters={filters}
+            sorts={sorts}
+            columns={activeView.config.columns}
+            onFiltersChange={changeFilters}
+            onSortsChange={changeSorts}
+            onToggleColumn={toggleColumn}
+            groupByPropertyId={activeView.config.groupByPropertyId}
+            onChangeGroupBy={changeGroupBy}
+            datePropertyId={activeView.config.datePropertyId}
+            onChangeDateProperty={changeDateProperty}
+          />
+        </Group>
       </Group>
       {activeView.type === "board" ? (
         <BoardView

@@ -1,7 +1,11 @@
+import { Avatar, Tooltip } from "@mantine/core";
 import {
   IDatabaseProperty,
   IDatabasePropertyValue,
 } from "@/features/database/types/database.types.ts";
+import { CustomAvatar } from "@/components/ui/custom-avatar.tsx";
+import { cellEditingKey } from "../../hooks/use-database-collab";
+import { useDatabaseCollabPresence } from "../../hooks/database-collab-context";
 import { getCellComponent } from "./cells/registry";
 
 interface GridCellProps {
@@ -18,13 +22,57 @@ export function GridCell({
   databaseId,
 }: GridCellProps) {
   const Cell = getCellComponent(property.type);
+  const { editingByCell, setEditingCell } = useDatabaseCollabPresence();
+  // Remote peers editing this exact cell (#55 Phase 4). Self is excluded by the
+  // collab hook, so this only ever highlights *other* people's editing.
+  const editors = editingByCell[cellEditingKey(pageId, property.id)] ?? [];
+  const isRemoteEditing = editors.length > 0;
+
   return (
-    <Cell
-      property={property}
-      value={value?.value}
-      pageId={pageId}
-      databaseId={databaseId}
-    />
+    <div
+      style={{
+        position: "relative",
+        borderRadius: 4,
+        boxShadow: isRemoteEditing
+          ? "inset 0 0 0 2px var(--mantine-color-blue-5)"
+          : undefined,
+      }}
+      // Publish/clear which cell the local user is focused on so peers can
+      // highlight it. Skip clearing when focus merely moves within the cell.
+      onFocusCapture={() =>
+        setEditingCell({ rowId: pageId, propertyId: property.id })
+      }
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setEditingCell(null);
+        }
+      }}
+    >
+      <Cell
+        property={property}
+        value={value?.value}
+        pageId={pageId}
+        databaseId={databaseId}
+      />
+      {isRemoteEditing && (
+        <Tooltip label={editors.map((u) => u.name).join(", ")} withArrow>
+          <Avatar.Group
+            spacing="xs"
+            style={{ position: "absolute", top: -8, right: -2, zIndex: 1 }}
+          >
+            {editors.slice(0, 2).map((user) => (
+              <CustomAvatar
+                key={user.id}
+                avatarUrl={user.avatarUrl}
+                name={user.name}
+                size={16}
+                radius="xl"
+              />
+            ))}
+          </Avatar.Group>
+        </Tooltip>
+      )}
+    </div>
   );
 }
 
