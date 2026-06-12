@@ -238,10 +238,13 @@ export function useClearValueMutation(databaseId: string) {
 
 export function useCreateRowMutation(databaseId: string) {
   const { t } = useTranslation();
+  const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<IPage, Error, ICreateRowParams>({
     mutationFn: (data) => createRow(data),
     onSuccess: (page) => {
       appendRow(queryClient, databaseId, page);
+      // Tell other clients on this DB view about the new row (#55 Phase 3).
+      broadcastChange({ kind: "row-create", page });
       // A row is a page parented to the database, but it is intentionally not
       // surfaced in the sidebar tree (Notion-like), so we don't patch the
       // sidebar create cache here.
@@ -255,11 +258,17 @@ export function useCreateRowMutation(databaseId: string) {
 
 export function useDeleteRowsMutation(databaseId: string) {
   const { t } = useTranslation();
+  const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<void, Error, IDeleteRowsParams>({
     mutationFn: (data) => deleteRows(data),
     onMutate: (variables) => {
       // Optimistically drop the selected rows from every cached view.
       removeRows(queryClient, databaseId, variables.pageIds);
+    },
+    onSuccess: (_, variables) => {
+      // Broadcast only after the server confirms the delete, so a rejected
+      // delete (rolled back by onError) is never propagated to peers.
+      broadcastChange({ kind: "row-delete", pageIds: variables.pageIds });
     },
     onError: () => {
       // Resync on failure so a rejected delete never leaves a row hidden.
