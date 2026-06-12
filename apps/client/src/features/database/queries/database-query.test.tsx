@@ -105,6 +105,7 @@ import {
   databasesKey,
 } from "./database-cache.ts";
 import { IDatabaseRow } from "@/features/database/types/database.types.ts";
+import { DatabaseCollabContext } from "@/features/database/hooks/database-collab-context";
 
 const dbId = "db1";
 
@@ -576,5 +577,65 @@ describe("useDatabaseViewsQuery embed scope", () => {
     expect(
       queryClient.getQueryData(databaseViewsKey(dbId, "embed-1")),
     ).toBe(views);
+  });
+});
+
+describe("value mutations broadcast the change to collaborators (#55 Phase 2)", () => {
+  const broadcastChange = vi.fn();
+
+  function collabWrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <DatabaseCollabContext.Provider value={{ broadcastChange }}>
+          {children}
+        </DatabaseCollabContext.Provider>
+      </QueryClientProvider>
+    );
+  }
+
+  beforeEach(() => {
+    broadcastChange.mockReset();
+    service.setValue.mockReset();
+    service.clearValue.mockReset();
+  });
+
+  it("setValue broadcasts a set signal carrying the committed value", async () => {
+    const value = {
+      id: "val1",
+      pageId: "p1",
+      propertyId: "prop1",
+      value: { type: "text", value: "hi" },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    service.setValue.mockResolvedValue(value);
+    const { result } = renderHook(() => useSetValueMutation(dbId), {
+      wrapper: collabWrapper,
+    });
+
+    result.current.mutate({
+      pageId: "p1",
+      propertyId: "prop1",
+      value: { type: "text", value: "hi" },
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(broadcastChange).toHaveBeenCalledWith({ kind: "set", value });
+  });
+
+  it("clearValue broadcasts a clear signal for the cleared cell", async () => {
+    service.clearValue.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useClearValueMutation(dbId), {
+      wrapper: collabWrapper,
+    });
+
+    result.current.mutate({ pageId: "p1", propertyId: "prop1" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(broadcastChange).toHaveBeenCalledWith({
+      kind: "clear",
+      pageId: "p1",
+      propertyId: "prop1",
+    });
   });
 });

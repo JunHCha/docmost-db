@@ -72,6 +72,7 @@ import {
 } from "@/features/page/queries/page-query.ts";
 import { updatePage } from "@/features/page/services/page-service.ts";
 import { queryClient } from "@/main.tsx";
+import { useDatabaseCollabBroadcast } from "@/features/database/hooks/database-collab-context";
 
 // Rows are not view-scoped on the server yet, so invalidate every cached view
 // for the database via the shared prefix.
@@ -193,10 +194,13 @@ export function useDefaultViewId(databaseId: string, embedId?: string): string {
 
 export function useSetValueMutation(databaseId: string) {
   const { t } = useTranslation();
+  const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<IDatabasePropertyValue, Error, ISetValueParams>({
     mutationFn: (data) => setValue(data),
     onSuccess: (value) => {
       patchRowValue(queryClient, databaseId, value);
+      // Tell other clients on this DB view what changed (#55 Phase 2).
+      broadcastChange({ kind: "set", value });
     },
     onError: () => {
       // Force a resync so a failed patch never leaves the cache out of step
@@ -209,6 +213,7 @@ export function useSetValueMutation(databaseId: string) {
 
 export function useClearValueMutation(databaseId: string) {
   const { t } = useTranslation();
+  const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<void, Error, IClearValueParams>({
     mutationFn: (data) => clearValue(data),
     onSuccess: (_, variables) => {
@@ -218,6 +223,11 @@ export function useClearValueMutation(databaseId: string) {
         variables.pageId,
         variables.propertyId,
       );
+      broadcastChange({
+        kind: "clear",
+        pageId: variables.pageId,
+        propertyId: variables.propertyId,
+      });
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
