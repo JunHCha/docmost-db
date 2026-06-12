@@ -9,6 +9,18 @@
   opacity: 1;
 }
 
+/* The "open as page" trigger on the Title column stays hidden until the row is
+ * hovered (or the button itself is keyboard-focused), mirroring Notion. */
+.openRow {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.row:hover .openRow,
+.openRow:focus-visible {
+  opacity: 1;
+}
+
 /* Trailing column with no data: a subtle tint distinguishes the empty area
  * (which absorbs the page's leftover width) from the real data columns. */
 .noData {

@@ -28,17 +28,19 @@ export function SelectionActionBar({
   }
 
   return (
-    <Paper withBorder p="xs" radius="md">
-      <Group justify="space-between" align="center">
-        <Text size="sm" fw={500}>
+    // Compact bar: tight vertical padding and compact-xs buttons keep the
+    // selection header from dominating the view (issue #67).
+    <Paper withBorder px="xs" py={4} radius="sm" mb={4}>
+      <Group justify="space-between" align="center" wrap="nowrap">
+        <Text size="xs" fw={500}>
           {selectedIds.size} {t("selected")}
         </Text>
-        <Group gap="xs">
+        <Group gap={4} wrap="nowrap">
           <Button
             variant="light"
             color="red"
-            size="xs"
-            leftSection={<IconTrash size={16} />}
+            size="compact-xs"
+            leftSection={<IconTrash size={14} />}
             aria-label={t("Delete selected rows")}
             onClick={handleDelete}
           >
@@ -46,8 +48,8 @@ export function SelectionActionBar({
           </Button>
           <Button
             variant="subtle"
-            size="xs"
-            leftSection={<IconX size={16} />}
+            size="compact-xs"
+            leftSection={<IconX size={14} />}
             aria-label={t("Clear selection")}
             onClick={onClear}
           >

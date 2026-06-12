@@ -8,6 +8,7 @@ import {
   useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
 import { GridCell } from "./table-view/grid-cell";
+import classes from "./row-properties-panel.module.css";
 
 interface RowPropertiesPanelProps {
   page: IPage;
@@ -43,16 +44,30 @@ export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
   }
 
   // Notion-style property list under the page title: narrow dimmed labels on
-  // the left, editable cell values filling the rest. No horizontal padding —
-  // the editor Container already provides the page gutter.
+  // the left, editable cell values filling the rest. The editor Container has
+  // no horizontal padding (the title/body get their inset from ProseMirror's
+  // own gutter), so the panel reproduces that 3rem gutter via `classes.panel`
+  // and pins maxWidth to stay inside the page body width (#72).
   return (
-    <Stack gap={2} mb="md">
+    <Stack gap={2} className={classes.panel} style={{ maxWidth: "100%" }}>
       {ordered.map((property) => (
-        <Group key={property.id} wrap="nowrap" align="center" gap="md">
-          <Text size="sm" c="dimmed" w={140} style={{ flexShrink: 0 }}>
+        <Group
+          key={property.id}
+          wrap="nowrap"
+          align="center"
+          gap="md"
+          className={classes.row}
+        >
+          <Text
+            size="sm"
+            c="dimmed"
+            w={140}
+            className={classes.label}
+            style={{ flexShrink: 0 }}
+          >
             {property.name}
           </Text>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className={classes.value} style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
             <GridCell
               property={property}
               value={values.find((v) => v.propertyId === property.id)}

@@ -13,6 +13,7 @@ const {
   updateViewMutate,
   localEmitterEmit,
   queryEmit,
+  databaseCollab,
 } = vi.hoisted(() => ({
   infoQuery: vi.fn(),
   propertiesQuery: vi.fn(),
@@ -23,6 +24,22 @@ const {
   updateViewMutate: vi.fn(),
   localEmitterEmit: vi.fn(),
   queryEmit: vi.fn(),
+  databaseCollab: vi.fn(),
+}));
+
+// The collab hook opens a real Hocuspocus websocket; stub it and just record
+// the page id it is asked to connect with.
+vi.mock("../hooks/use-database-collab", () => ({
+  useDatabaseCollab: (dbPageId: string) => {
+    databaseCollab(dbPageId);
+    return { provider: null, onlineUsers: [] };
+  },
+}));
+
+// Phase 2 realtime hook needs a QueryClient and a real provider; stub it and
+// just hand back a no-op broadcaster so the container renders standalone.
+vi.mock("../hooks/use-database-realtime", () => ({
+  useDatabaseRealtime: () => ({ broadcastChange: () => {} }),
 }));
 
 vi.mock("@/lib/local-emitter.ts", () => ({
@@ -123,6 +140,7 @@ function renderContainer() {
 
 describe("DatabaseViewContainer", () => {
   beforeEach(() => {
+    databaseCollab.mockReset();
     rowsQuery.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     viewsQuery.mockReturnValue({ data: [makeView("v1", "Grid", true)] });
@@ -157,6 +175,27 @@ describe("DatabaseViewContainer", () => {
     const { container } = renderContainer();
     expect(container.querySelector(".mantine-Loader-root")).toBeNull();
     expect(screen.getByText("This page is not a database")).toBeTruthy();
+  });
+
+  it("opens the DB collab channel with the page id once it resolves to a database", () => {
+    infoQuery.mockReturnValue({
+      data: { database: { id: "db1" }, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    renderContainer();
+    expect(databaseCollab).toHaveBeenLastCalledWith("page1");
+  });
+
+  it("does not open the collab channel for a plain (non-database) page", () => {
+    infoQuery.mockReturnValue({
+      data: { database: null, page },
+      isLoading: false,
+    });
+    propertiesQuery.mockReturnValue({ data: undefined });
+    rowsQuery.mockReturnValue({ data: undefined });
+    renderContainer();
+    expect(databaseCollab).toHaveBeenLastCalledWith("");
   });
 
   it("renders the grid once info, properties and rows resolve", () => {

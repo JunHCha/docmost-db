@@ -30,8 +30,8 @@ import { PageModule } from '../page/page.module';
     DatabaseTemplateService,
     OrphanViewCleanupService,
   ],
-  // PageModule → CollaborationModule → DatabasesModule forms a module cycle;
-  // forwardRef defers PageModule resolution so the ring can close.
+  // forwardRef breaks the module cycle with CollaborationModule (#73); see the
+  // note in collaboration.module.ts.
   imports: [forwardRef(() => PageModule)],
   exports: [DatabaseViewService],
 })

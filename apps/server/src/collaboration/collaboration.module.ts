@@ -43,8 +43,10 @@ import { EnvironmentModule } from '../integrations/environment/environment.modul
       imports: [EnvironmentModule],
     }),
     TransclusionModule,
-    // DatabasesModule → PageModule → CollaborationModule → DatabasesModule is a
-    // module cycle. forwardRef defers resolution so the ring can close.
+    // Broke a module cycle introduced with the orphan-view reconcile (#73):
+    // PageModule -> CollaborationModule -> DatabasesModule -> PageModule.
+    // DatabasesModule is only needed for DatabaseViewService (one-way), so
+    // defer it to let NestJS finish scanning PageModule first.
     forwardRef(() => DatabasesModule),
   ],
 })

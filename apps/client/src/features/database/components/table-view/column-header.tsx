@@ -176,6 +176,7 @@ export function ColumnHeader({
             </Text>
             <Menu
               position="bottom-end"
+              shadow="md"
               // Portal (Mantine default) so the dropdown escapes the grid's
               // overflow-x scroll container — inline rendering got clipped and
               // caused a scroll-snap glitch when the table was short.

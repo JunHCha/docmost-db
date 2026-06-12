@@ -1,0 +1,33 @@
+/* The resize hit area straddles the column's right edge. Raising it above the
+ * neighbouring cell (which, with column borders, otherwise overlaps the handle's
+ * right half) lets the cursor grab the handle from either side of the line —
+ * previously only the left half, just inside the column, responded (issue #69). */
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+/* A thin blue rule on the column line gives the handle visible feedback on
+ * hover (and while dragging) so it is clear where the edge will land. */
+.handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: var(--mantine-color-blue-5);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.handle:hover::after,
+.handle:active::after {
+  opacity: 1;
+}

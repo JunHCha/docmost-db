@@ -7,6 +7,7 @@ import {
   databasePropertiesKey,
   databaseViewsKey,
   patchRowValue,
+  patchRowValueIfNewer,
   removeRowValue,
   removeRows,
   appendRow,
@@ -102,6 +103,48 @@ describe("database-cache", () => {
 
     const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows![0].values).toEqual([b]);
+  });
+
+  it("patchRowValueIfNewer upserts when the cell is absent", () => {
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1")]);
+    const value = makeValue("p1", "prop1", "remote");
+
+    patchRowValueIfNewer(qc, dbId, value);
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
+    expect(rows![0].values).toEqual([value]);
+  });
+
+  it("patchRowValueIfNewer replaces when the incoming value is newer", () => {
+    const old = { ...makeValue("p1", "prop1", "old"), updatedAt: new Date(1000) };
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [
+      { row: { id: "p1" } as any, values: [old] },
+    ]);
+    const next = { ...makeValue("p1", "prop1", "new"), updatedAt: new Date(2000) };
+
+    patchRowValueIfNewer(qc, dbId, next);
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
+    expect(rows![0].values[0].value.value).toBe("new");
+  });
+
+  it("patchRowValueIfNewer ignores a stale value (LWW convergence)", () => {
+    const current = {
+      ...makeValue("p1", "prop1", "current"),
+      updatedAt: new Date(2000),
+    };
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [
+      { row: { id: "p1" } as any, values: [current] },
+    ]);
+    const stale = {
+      ...makeValue("p1", "prop1", "stale"),
+      updatedAt: new Date(1000),
+    };
+
+    patchRowValueIfNewer(qc, dbId, stale);
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
+    expect(rows![0].values[0].value.value).toBe("current");
   });
 
   it("removeRows drops the selected rows across every cached view", () => {
