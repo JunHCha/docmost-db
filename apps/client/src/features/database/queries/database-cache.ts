@@ -107,6 +107,35 @@ export function patchRowValue(
   );
 }
 
+// Like patchRowValue but applies the value only when it is at least as recent
+// as whatever is already cached (compared by the server-assigned updatedAt).
+// Used when applying a *remote* edit signal (#55 Phase 2): two clients can edit
+// the same cell concurrently, so the last server write must win (LWW) and a
+// stale signal arriving after a newer one must not clobber it.
+export function patchRowValueIfNewer(
+  qc: QueryClient,
+  databaseId: string,
+  value: IDatabasePropertyValue,
+) {
+  const incoming = new Date(value.updatedAt).getTime();
+  patchRows(qc, databaseId, (rows) =>
+    rows.map((row) => {
+      if (row.row.id !== value.pageId) return row;
+      const existing = row.values.find(
+        (v) => v.propertyId === value.propertyId,
+      );
+      if (existing && new Date(existing.updatedAt).getTime() > incoming) {
+        // A newer write already won — ignore the stale signal.
+        return row;
+      }
+      const others = row.values.filter(
+        (v) => v.propertyId !== value.propertyId,
+      );
+      return { ...row, values: [...others, value] };
+    }),
+  );
+}
+
 export function removeRowValue(
   qc: QueryClient,
   databaseId: string,
