@@ -178,4 +178,47 @@ describe("useDatabaseCollab", () => {
     unmount();
     expect(provider.destroy).toHaveBeenCalled();
   });
+
+  it("publishes the local editing cell into awareness", () => {
+    const store = buildStore();
+    const { result } = renderHook(() => useDatabaseCollab("page-42"), {
+      wrapper: wrapper(store),
+    });
+    act(() => {
+      result.current.setEditingCell({ rowId: "r1", propertyId: "p1" });
+    });
+    expect(mocks.state.lastProvider?.setAwarenessField).toHaveBeenCalledWith(
+      "editing",
+      { rowId: "r1", propertyId: "p1" },
+    );
+  });
+
+  it("groups remote editing cells by cell key with the editing user", () => {
+    const store = buildStore();
+    const { result } = renderHook(() => useDatabaseCollab("page-42"), {
+      wrapper: wrapper(store),
+    });
+    act(() => {
+      mocks.state.lastProvider!.awareness.__setRemote(2, {
+        user: { id: "user-2", name: "Other", avatarUrl: "o.png" },
+        editing: { rowId: "r1", propertyId: "p1" },
+      });
+    });
+    expect(result.current.editingByCell).toEqual({
+      "r1:p1": [{ id: "user-2", name: "Other", avatarUrl: "o.png" }],
+    });
+  });
+
+  it("excludes the local user's own editing cell", () => {
+    const store = buildStore();
+    const { result } = renderHook(() => useDatabaseCollab("page-42"), {
+      wrapper: wrapper(store),
+    });
+    // Local client is clientID 1; publishing my own editing must not appear in
+    // editingByCell (I don't highlight my own cell).
+    act(() => {
+      result.current.setEditingCell({ rowId: "r9", propertyId: "p9" });
+    });
+    expect(result.current.editingByCell).toEqual({});
+  });
 });

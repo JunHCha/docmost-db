@@ -22,6 +22,9 @@ import { BoardView } from "./board-view/board-view";
 import { CalendarView } from "./calendar-view/calendar-view";
 import { ViewSwitcher } from "./view-switcher";
 import { ViewToolbar } from "./toolbar/view-toolbar";
+import { DatabasePresenceAvatars } from "./database-presence-avatars";
+import { useDatabaseCollabPresence } from "../hooks/database-collab-context";
+import { useEditingCellTracker } from "../hooks/use-editing-cell-tracker";
 
 const PERSIST_DEBOUNCE_MS = 400;
 
@@ -61,6 +64,11 @@ export function DatabaseView({
   pageId,
 }: DatabaseViewProps) {
   const { t } = useTranslation();
+  // Publish which cell the local user is editing so peers can highlight it
+  // (#55 Phase 4). Scoped to this view's root so inline embeds don't collide.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { setEditingCell } = useDatabaseCollabPresence();
+  useEditingCellTracker(rootRef, setEditingCell);
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
   const viewsQuery = useDatabaseViewsQuery(databaseId, embedId, pageId);
   const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
@@ -179,7 +187,7 @@ export function DatabaseView({
   }
 
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" ref={rootRef}>
       <Group justify="space-between" align="center">
         <ViewSwitcher
           databaseId={databaseId}
@@ -189,20 +197,23 @@ export function DatabaseView({
           activeViewId={activeViewId}
           onActivate={setSelectedViewId}
         />
-        <ViewToolbar
-          viewType={activeView.type}
-          properties={propertiesQuery.data ?? []}
-          filters={filters}
-          sorts={sorts}
-          columns={activeView.config.columns}
-          onFiltersChange={changeFilters}
-          onSortsChange={changeSorts}
-          onToggleColumn={toggleColumn}
-          groupByPropertyId={activeView.config.groupByPropertyId}
-          onChangeGroupBy={changeGroupBy}
-          datePropertyId={activeView.config.datePropertyId}
-          onChangeDateProperty={changeDateProperty}
-        />
+        <Group gap="sm" align="center" wrap="nowrap">
+          <DatabasePresenceAvatars />
+          <ViewToolbar
+            viewType={activeView.type}
+            properties={propertiesQuery.data ?? []}
+            filters={filters}
+            sorts={sorts}
+            columns={activeView.config.columns}
+            onFiltersChange={changeFilters}
+            onSortsChange={changeSorts}
+            onToggleColumn={toggleColumn}
+            groupByPropertyId={activeView.config.groupByPropertyId}
+            onChangeGroupBy={changeGroupBy}
+            datePropertyId={activeView.config.datePropertyId}
+            onChangeDateProperty={changeDateProperty}
+          />
+        </Group>
       </Group>
       {activeView.type === "board" ? (
         <BoardView
