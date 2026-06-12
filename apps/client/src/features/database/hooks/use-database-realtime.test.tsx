@@ -141,6 +141,63 @@ describe("useDatabaseRealtime", () => {
     expect(rowValues(qc)).toEqual([]);
   });
 
+  it("applies a remote row-create signal by appending the row", () => {
+    const provider = new FakeProvider(11);
+    const { qc } = setup(provider);
+
+    provider.awareness.setPeer(22, {
+      dbChange: {
+        origin: 22,
+        rev: 1,
+        change: { kind: "row-create", page: { id: "p2" } as any },
+      },
+    });
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))!;
+    expect(rows.map((r) => r.row.id)).toEqual(["p1", "p2"]);
+  });
+
+  it("row-create is idempotent if the row already exists", () => {
+    const provider = new FakeProvider(11);
+    const { qc } = setup(provider);
+    qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"), [
+      { row: { id: "p1" } as any, values: [] },
+      { row: { id: "p2" } as any, values: [] },
+    ]);
+
+    provider.awareness.setPeer(22, {
+      dbChange: {
+        origin: 22,
+        rev: 1,
+        change: { kind: "row-create", page: { id: "p2" } as any },
+      },
+    });
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))!;
+    expect(rows.map((r) => r.row.id)).toEqual(["p1", "p2"]);
+  });
+
+  it("applies a remote row-delete signal by removing the rows", () => {
+    const provider = new FakeProvider(11);
+    const { qc } = setup(provider);
+    qc.setQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"), [
+      { row: { id: "p1" } as any, values: [] },
+      { row: { id: "p2" } as any, values: [] },
+      { row: { id: "p3" } as any, values: [] },
+    ]);
+
+    provider.awareness.setPeer(22, {
+      dbChange: {
+        origin: 22,
+        rev: 1,
+        change: { kind: "row-delete", pageIds: ["p1", "p3"] },
+      },
+    });
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"))!;
+    expect(rows.map((r) => r.row.id)).toEqual(["p2"]);
+  });
+
   it("ignores its own echo (same clientID)", () => {
     const provider = new FakeProvider(11);
     const { qc } = setup(provider);

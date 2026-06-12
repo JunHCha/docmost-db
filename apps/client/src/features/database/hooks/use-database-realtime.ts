@@ -2,17 +2,23 @@ import { useCallback, useEffect, useRef } from "react";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useQueryClient } from "@tanstack/react-query";
 import { IDatabasePropertyValue } from "@/features/database/types/database.types.ts";
+import { IPage } from "@/features/page/types/page.types.ts";
 import {
+  appendRowIfAbsent,
   patchRowValueIfNewer,
+  removeRows,
   removeRowValue,
 } from "@/features/database/queries/database-cache.ts";
 
-// A cell-level edit to propagate to other clients viewing the same database.
+// A database edit to propagate to other clients viewing the same database.
 // Postgres stays the source of truth (#55): this is only a hint telling peers
 // what changed so they can patch their React Query cache without a refetch.
-export type DatabaseValueChange =
+// Cell value edits (set/clear) ship in Phase 2; row add/delete in Phase 3.
+export type DatabaseChange =
   | { kind: "set"; value: IDatabasePropertyValue }
-  | { kind: "clear"; pageId: string; propertyId: string };
+  | { kind: "clear"; pageId: string; propertyId: string }
+  | { kind: "row-create"; page: IPage }
+  | { kind: "row-delete"; pageIds: string[] };
 
 interface SignalEnvelope {
   // The originating client, so peers can ignore their own echo.
@@ -20,24 +26,25 @@ interface SignalEnvelope {
   // Monotonic per-origin counter, so peers apply each broadcast once even
   // though awareness "change" also fires for unrelated presence updates.
   rev: number;
-  change: DatabaseValueChange;
+  change: DatabaseChange;
 }
 
 export interface UseDatabaseRealtimeResult {
-  broadcastChange: (change: DatabaseValueChange) => void;
+  broadcastChange: (change: DatabaseChange) => void;
 }
 
 // Awareness state field carrying the latest local change signal.
 const AWARENESS_FIELD = "dbChange";
 
 /**
- * Phase 2 of #55 — real-time cell value propagation over the DB collab channel.
+ * Phase 2/3 of #55 — real-time propagation over the DB collab channel.
  *
- * Publishes the local client's latest committed cell edit into Yjs awareness
- * and applies peers' edit signals to the React Query row cache. Self echoes are
- * ignored (origin clientID) and each peer broadcast is applied once (rev),
- * while concurrent edits to the same cell converge last-write-wins by the
- * server-assigned updatedAt (see patchRowValueIfNewer).
+ * Publishes the local client's latest committed edit (cell value set/clear, or
+ * row create/delete) into Yjs awareness and applies peers' signals to the
+ * React Query row cache. Self echoes are ignored (origin clientID) and each
+ * peer broadcast is applied once (rev), while concurrent edits to the same cell
+ * converge last-write-wins by the server-assigned updatedAt (see
+ * patchRowValueIfNewer).
  *
  * No-op until a connected `provider` is supplied, so embeds without a collab
  * channel simply skip propagation.
@@ -51,7 +58,7 @@ export function useDatabaseRealtime(
   providerRef.current = provider;
   const revRef = useRef(0);
 
-  const broadcastChange = useCallback((change: DatabaseValueChange) => {
+  const broadcastChange = useCallback((change: DatabaseChange) => {
     const p = providerRef.current;
     if (!p) return;
     revRef.current += 1;
@@ -88,6 +95,10 @@ export function useDatabaseRealtime(
             change.pageId,
             change.propertyId,
           );
+        } else if (change.kind === "row-create") {
+          appendRowIfAbsent(queryClient, databaseId, change.page);
+        } else if (change.kind === "row-delete") {
+          removeRows(queryClient, databaseId, change.pageIds);
         }
       });
     };
