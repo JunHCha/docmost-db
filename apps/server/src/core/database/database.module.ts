@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { DatabaseController } from './database.controller';
 import { DatabaseService } from './services/database.service';
 import { DatabasePropertyController } from './database-property.controller';
@@ -26,7 +26,9 @@ import { PageModule } from '../page/page.module';
     DatabaseViewService,
     OrphanViewCleanupService,
   ],
-  imports: [PageModule],
+  // forwardRef breaks the module cycle with CollaborationModule (#73); see the
+  // note in collaboration.module.ts.
+  imports: [forwardRef(() => PageModule)],
   exports: [DatabaseViewService],
 })
 export class DatabasesModule {}

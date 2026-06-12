@@ -97,6 +97,7 @@ function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
         {row.title || t("Untitled")}
       </Text>
       <ActionIcon
+        className={classes.openRow}
         variant="subtle"
         size="sm"
         aria-label={t("Open row")}
