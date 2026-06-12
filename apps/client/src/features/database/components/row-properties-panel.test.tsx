@@ -116,6 +116,18 @@ describe("RowPropertiesPanel", () => {
     expect(screen.getByText("Hello")).toBeTruthy();
   });
 
+  it("constrains the panel within the page gutter without overflowing", () => {
+    // The panel renders directly inside the editor Container (no horizontal
+    // padding), so it must reproduce the same 3rem page gutter the title and
+    // body use — otherwise it overhangs the page body width (#72). It must
+    // also never push wider than its container.
+    const { container } = renderPanel();
+    const root = container.querySelector(".mantine-Stack-root") as HTMLElement;
+    expect(root).not.toBeNull();
+    expect(root.className).toContain("panel");
+    expect(root.style.maxWidth).toBe("100%");
+  });
+
   it("passes the row's page id to the cell so edits target this row", () => {
     renderPanel();
     fireEvent.click(screen.getByText("Hello"));
