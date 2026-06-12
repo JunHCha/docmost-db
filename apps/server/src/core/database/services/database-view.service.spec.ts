@@ -430,6 +430,22 @@ describe('DatabaseViewService', () => {
       expect(viewRepo.deleteView).toHaveBeenCalledWith('v1', trx);
     });
 
+    it('allows deleting the last personal view while a shared view exists', async () => {
+      viewRepo.findById.mockResolvedValue({
+        id: 'pv1',
+        databaseId: 'db-1',
+        isDefault: true,
+        ownerUserId: 'user-1',
+      } as any);
+      // scope returns shared views + the caller's single personal view.
+      viewRepo.findByScope.mockResolvedValue([
+        { id: 'sv1', isDefault: true, ownerUserId: null } as any,
+        { id: 'pv1', isDefault: true, ownerUserId: 'user-1' } as any,
+      ]);
+      await service.delete(user, { viewId: 'pv1' } as any);
+      expect(viewRepo.deleteView).toHaveBeenCalledWith('pv1', trx);
+    });
+
     it("forbids deleting another user's personal view", async () => {
       viewRepo.findById.mockResolvedValue({
         id: 'v1',

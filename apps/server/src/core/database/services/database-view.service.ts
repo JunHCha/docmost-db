@@ -101,7 +101,12 @@ export class DatabaseViewService {
     const scopeViews = views.filter(
       (v) => (v.ownerUserId ?? null) === (view.ownerUserId ?? null),
     );
-    if (scopeViews.length <= 1) {
+    // The "keep at least one view" rule only applies to shared views: a #39
+    // 4-quadrant scope always retains the shared views, so a personal scope may
+    // safely drop to zero. Deleting a shared view that is the last shared one
+    // is still blocked.
+    const isShared = (view.ownerUserId ?? null) === null;
+    if (isShared && scopeViews.length <= 1) {
       throw new BadRequestException('A database must keep at least one view');
     }
     await this.runInTransaction(async (trx) => {
