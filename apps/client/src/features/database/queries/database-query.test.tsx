@@ -639,3 +639,63 @@ describe("value mutations broadcast the change to collaborators (#55 Phase 2)", 
     });
   });
 });
+
+describe("row mutations broadcast the change to collaborators (#55 Phase 3)", () => {
+  const broadcastChange = vi.fn();
+
+  function collabWrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <DatabaseCollabContext.Provider value={{ broadcastChange }}>
+          {children}
+        </DatabaseCollabContext.Provider>
+      </QueryClientProvider>
+    );
+  }
+
+  beforeEach(() => {
+    broadcastChange.mockReset();
+    service.createRow.mockReset();
+    service.deleteRows.mockReset();
+  });
+
+  it("createRow broadcasts a row-create signal carrying the new page", async () => {
+    const page = { id: "p9", title: "New" } as any;
+    service.createRow.mockResolvedValue(page);
+    const { result } = renderHook(() => useCreateRowMutation(dbId), {
+      wrapper: collabWrapper,
+    });
+
+    result.current.mutate({ databaseId: dbId } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(broadcastChange).toHaveBeenCalledWith({ kind: "row-create", page });
+  });
+
+  it("deleteRows broadcasts a row-delete signal only after server success", async () => {
+    service.deleteRows.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDeleteRowsMutation(dbId), {
+      wrapper: collabWrapper,
+    });
+
+    result.current.mutate({ databaseId: dbId, pageIds: ["p1", "p2"] } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(broadcastChange).toHaveBeenCalledWith({
+      kind: "row-delete",
+      pageIds: ["p1", "p2"],
+    });
+  });
+
+  it("deleteRows does not broadcast when the server rejects", async () => {
+    service.deleteRows.mockRejectedValue(new Error("boom"));
+    const { result } = renderHook(() => useDeleteRowsMutation(dbId), {
+      wrapper: collabWrapper,
+    });
+
+    result.current.mutate({ databaseId: dbId, pageIds: ["p1"] } as never);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(broadcastChange).not.toHaveBeenCalled();
+  });
+});

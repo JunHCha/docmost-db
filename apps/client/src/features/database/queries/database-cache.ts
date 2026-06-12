@@ -186,6 +186,22 @@ export function appendRow(qc: QueryClient, databaseId: string, page: IPage) {
   patchRows(qc, databaseId, (rows) => [...rows, { row: page, values: [] }]);
 }
 
+// Like appendRow but skips slots that already contain the row. Used when
+// applying a *remote* row-create signal (#55 Phase 3): the receiver may already
+// hold the row (e.g. from a refetch) when the signal lands, so guard against a
+// duplicate. A no-op for slots where the row is absent stays an append.
+export function appendRowIfAbsent(
+  qc: QueryClient,
+  databaseId: string,
+  page: IPage,
+) {
+  patchRows(qc, databaseId, (rows) =>
+    rows.some((row) => row.row.id === page.id)
+      ? rows
+      : [...rows, { row: page, values: [] }],
+  );
+}
+
 export function appendProperty(
   qc: QueryClient,
   databaseId: string,
