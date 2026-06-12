@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { DatabaseController } from './database.controller';
 import { DatabaseService } from './services/database.service';
 import { DatabasePropertyController } from './database-property.controller';
@@ -30,7 +30,9 @@ import { PageModule } from '../page/page.module';
     DatabaseTemplateService,
     OrphanViewCleanupService,
   ],
-  imports: [PageModule],
+  // PageModule → CollaborationModule → DatabasesModule forms a module cycle;
+  // forwardRef defers PageModule resolution so the ring can close.
+  imports: [forwardRef(() => PageModule)],
   exports: [DatabaseViewService],
 })
 export class DatabasesModule {}

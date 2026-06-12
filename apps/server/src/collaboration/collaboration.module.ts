@@ -1,4 +1,10 @@
-import { Logger, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  forwardRef,
+  Logger,
+  Module,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { AuthenticationExtension } from './extensions/authentication.extension';
 import { PersistenceExtension } from './extensions/persistence.extension';
 import { CollaborationGateway } from './collaboration.gateway';
@@ -37,7 +43,9 @@ import { EnvironmentModule } from '../integrations/environment/environment.modul
       imports: [EnvironmentModule],
     }),
     TransclusionModule,
-    DatabasesModule,
+    // DatabasesModule → PageModule → CollaborationModule → DatabasesModule is a
+    // module cycle. forwardRef defers resolution so the ring can close.
+    forwardRef(() => DatabasesModule),
   ],
 })
 export class CollaborationModule implements OnModuleInit, OnModuleDestroy {
