@@ -340,6 +340,19 @@ export interface Databases {
   workspaceId: string;
 }
 
+export interface DatabaseTemplates {
+  content: Json | null;
+  createdAt: Generated<Timestamp>;
+  databaseId: string;
+  icon: string | null;
+  id: Generated<string>;
+  name: string;
+  position: string;
+  propertyValues: Json | null;
+  updatedAt: Generated<Timestamp>;
+  workspaceId: string;
+}
+
 export interface DatabaseViews {
   config: Generated<Json>;
   createdAt: Generated<Timestamp>;
@@ -701,6 +714,7 @@ export interface DB {
   databaseProperties: DatabaseProperties;
   databasePropertyValues: DatabasePropertyValues;
   databases: Databases;
+  databaseTemplates: DatabaseTemplates;
   databaseViews: DatabaseViews;
   favorites: Favorites;
   fileTasks: FileTasks;

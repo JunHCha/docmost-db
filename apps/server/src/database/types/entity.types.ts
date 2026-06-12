@@ -43,6 +43,7 @@ import {
   Databases,
   DatabaseProperties,
   DatabasePropertyValues,
+  DatabaseTemplates,
   DatabaseViews,
 } from './db';
 import { PageEmbeddings } from '@docmost/db/types/embeddings.types';
@@ -282,3 +283,10 @@ export type UpdatableDatabasePropertyValue = Updateable<
 export type DatabaseView = Selectable<DatabaseViews>;
 export type InsertableDatabaseView = Insertable<DatabaseViews>;
 export type UpdatableDatabaseView = Updateable<Omit<DatabaseViews, 'id'>>;
+
+// Database Template (row-creation preset owned by a database)
+export type DatabaseTemplate = Selectable<DatabaseTemplates>;
+export type InsertableDatabaseTemplate = Insertable<DatabaseTemplates>;
+export type UpdatableDatabaseTemplate = Updateable<
+  Omit<DatabaseTemplates, 'id'>
+>;
