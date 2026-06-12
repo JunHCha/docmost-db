@@ -37,11 +37,16 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   // page resolves to an actual database. Plain pages pass "" so the hook stays
   // disconnected. The collab doc reuses the DB page id, so the existing
   // page-permission auth applies unchanged.
-  const { provider } = useDatabaseCollab(databaseId ? page.id : "");
-  // Phase 2: propagate cell edits over that channel. broadcastChange is handed
-  // to cell mutations via context below.
+  const { provider, onlineUsers, editingByCell, setEditingCell } =
+    useDatabaseCollab(databaseId ? page.id : "");
+  // Phase 2/3: propagate cell/row edits over that channel. broadcastChange is
+  // handed to cell mutations via context below; Phase 4 also surfaces presence
+  // (online users + who is editing which cell).
   const { broadcastChange } = useDatabaseRealtime(provider, databaseId);
-  const collabValue = useMemo(() => ({ broadcastChange }), [broadcastChange]);
+  const collabValue = useMemo(
+    () => ({ broadcastChange, onlineUsers, editingByCell, setEditingCell }),
+    [broadcastChange, onlineUsers, editingByCell, setEditingCell],
+  );
 
   function commitTitle() {
     const next = titleDraft.trim();
