@@ -11,6 +11,7 @@ import {
   removeRowValue,
   removeRows,
   appendRow,
+  appendRowIfAbsent,
   appendProperty,
   patchProperty,
   removeProperty,
@@ -174,6 +175,24 @@ describe("database-cache", () => {
     const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
     expect(rows).toHaveLength(2);
     expect(rows![1]).toEqual({ row: { id: "p2" }, values: [] });
+  });
+
+  it("appendRowIfAbsent appends a row that is not yet present", () => {
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1")]);
+
+    appendRowIfAbsent(qc, dbId, { id: "p2" } as any);
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
+    expect(rows!.map((r) => r.row.id)).toEqual(["p1", "p2"]);
+  });
+
+  it("appendRowIfAbsent is idempotent when the row already exists", () => {
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1"), makeRow("p2")]);
+
+    appendRowIfAbsent(qc, dbId, { id: "p2" } as any);
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
+    expect(rows!.map((r) => r.row.id)).toEqual(["p1", "p2"]);
   });
 
   it("appendProperty appends to the properties cache", () => {
