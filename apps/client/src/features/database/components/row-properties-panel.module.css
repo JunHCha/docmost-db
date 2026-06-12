@@ -1,0 +1,45 @@
+/* The panel renders as a bare child of the editor Container, which has no
+ * horizontal padding — the title and body get their inset from ProseMirror's
+ * own 3rem gutter. Without matching that gutter the panel overhangs the page
+ * body on both edges (#72). maxWidth pins it inside the container so a wide
+ * cell value can never force horizontal overflow. */
+.panel {
+  padding-left: 3rem;
+  padding-right: 3rem;
+  max-width: 100%;
+
+  /* Separate the property block from the page body with a subtle divider and
+   * breathing room below it, the way Notion sets metadata apart from content. */
+  padding-bottom: 0.875rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+
+  @media (max-width: $mantine-breakpoint-sm) {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media print {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Uniform row rhythm: every property occupies the same height and is centered
+ * vertically, so labels and values line up regardless of cell type. */
+.row {
+  min-height: 1.875rem;
+}
+
+.label {
+  line-height: 1.5;
+}
+
+/* The value column hosts a grid cell built for the table; clamp it to the row
+ * rhythm and center it so single-line values don't drift. */
+.value {
+  display: flex;
+  align-items: center;
+  min-height: 1.875rem;
+  line-height: 1.5;
+}
