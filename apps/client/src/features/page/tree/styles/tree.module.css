@@ -61,6 +61,35 @@
     color: light-dark(var(--mantine-color-dark-3), var(--mantine-color-gray-4));
 }
 
+/* Wraps the row's emoji/icon so the database badge can be absolutely positioned
+   over its corner (issue #7). */
+.iconWrap {
+    position: relative;
+    display: inline-flex;
+    margin-right: rem(4px);
+}
+
+/* A small database glyph pinned to the icon's bottom-right corner. It keeps a
+   database identifiable when a custom icon has replaced the default
+   IconDatabase. The ring matches the sidebar background so the badge reads as a
+   distinct overlay rather than part of the icon. */
+.dbBadge {
+    position: absolute;
+    right: rem(-2px);
+    bottom: rem(-2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mantine-color-gray-6);
+    background: var(--mantine-color-body);
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+:global([data-mantine-color-scheme="dark"]) .dbBadge {
+    color: var(--mantine-color-dark-1);
+}
+
 .text {
     flex: 1;
     /* min-width: 0 lets a flex child shrink below its content size — required

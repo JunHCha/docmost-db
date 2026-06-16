@@ -21,6 +21,22 @@
   opacity: 1;
 }
 
+/* A resizable column header. The cell becomes the positioning context for its
+ * ColumnResizeHandle (position:absolute; right:-3px), so the handle and its
+ * hover rule land on the th's actual right border — the column divider — rather
+ * than inset by the cell padding (issue #15). Padding is zeroed here and moved
+ * onto .headerCellContent so the wrapper width matches the th's content box and
+ * the handle stays flush with the divider. */
+.headerCell {
+  position: relative;
+  padding: 0;
+}
+
+.headerCellContent {
+  padding: var(--table-vertical-spacing)
+    var(--table-horizontal-spacing, var(--mantine-spacing-xs));
+}
+
 /* Trailing column with no data: a subtle tint distinguishes the empty area
  * (which absorbs the page's leftover width) from the real data columns. */
 .noData {

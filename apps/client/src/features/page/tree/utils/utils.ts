@@ -1,6 +1,20 @@
 import { IPage } from "@/features/page/types/page.types.ts";
 import { SpaceTreeNode } from "@/features/page/tree/types.ts";
 
+/**
+ * A custom icon replaces the default IconDatabase on database rows, so the row
+ * becomes visually indistinguishable from a regular page. When a database has a
+ * custom icon we overlay a small database badge so the type stays identifiable
+ * (issue #7). Regular pages, and databases still using the default icon, never
+ * get the badge.
+ */
+export function shouldShowDatabaseBadge(node: {
+  pageType?: string;
+  icon?: string | null;
+}): boolean {
+  return node.pageType === "database" && Boolean(node.icon);
+}
+
 export function sortPositionKeys(keys: any[]) {
   return keys.sort((a, b) => {
     if (a.position < b.position) return -1;
@@ -24,8 +38,7 @@ export function buildTree(pages: IPage[]): SpaceTreeNode[] {
       position: page.position,
       // Database rows are not shown in the tree, so a database page must never
       // get an expand chevron even if the server reports hasChildren=true.
-      hasChildren:
-        page.pageType === "database" ? false : page.hasChildren,
+      hasChildren: page.pageType === "database" ? false : page.hasChildren,
       spaceId: page.spaceId,
       parentPageId: page.parentPageId,
       isBase: page.isBase,

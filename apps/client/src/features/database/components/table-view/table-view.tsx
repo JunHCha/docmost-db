@@ -156,12 +156,18 @@ export function TableView({
 
   // Persist a single column's config change as a full echoed columns array —
   // the view config is replaced wholesale on update (see echoColumns).
-  function commitColumn(propertyId: string, patch: { visible?: boolean; width?: number }) {
+  function commitColumn(
+    propertyId: string,
+    patch: { visible?: boolean; width?: number },
+  ) {
     updateView.mutate({
       viewId: activeView.id,
       config: {
         ...activeView.config,
-        columns: echoColumns(properties, configColumns, { propertyId, ...patch }),
+        columns: echoColumns(properties, configColumns, {
+          propertyId,
+          ...patch,
+        }),
       },
     });
   }
@@ -213,19 +219,26 @@ export function TableView({
                 onToggleAll={selection.selectAll}
               />
             </Table.Th>
-            <Table.Th style={{ width: titleWidth }}>
-              <div style={{ position: "relative", width: "100%" }}>
+            <Table.Th
+              className={classes.headerCell}
+              style={{ width: titleWidth }}
+            >
+              <div className={classes.headerCellContent}>
                 <Text size="sm" fw={500}>
                   {t("Title")}
                 </Text>
-                <ColumnResizeHandle
-                  width={titleWidth}
-                  onResize={commitTitleWidth}
-                />
               </div>
+              <ColumnResizeHandle
+                width={titleWidth}
+                onResize={commitTitleWidth}
+              />
             </Table.Th>
             {columns.map(({ property, width }) => (
-              <Table.Th key={property.id} style={{ width }}>
+              <Table.Th
+                key={property.id}
+                className={classes.headerCell}
+                style={{ width }}
+              >
                 <ColumnHeader
                   property={property}
                   databaseId={databaseId}
@@ -233,7 +246,9 @@ export function TableView({
                   orderedProperties={ordered}
                   width={width}
                   onHide={() => commitColumn(property.id, { visible: false })}
-                  onResize={(next) => commitColumn(property.id, { width: next })}
+                  onResize={(next) =>
+                    commitColumn(property.id, { width: next })
+                  }
                 />
               </Table.Th>
             ))}
@@ -262,40 +277,40 @@ export function TableView({
           {rows.map(({ row, values }) => {
             const selected = selection.selectedIds.has(row.id);
             return (
-            <Table.Tr
-              key={row.id}
-              data-selected={selected || undefined}
-              className={classes.row}
-            >
-              <Table.Td
-                className={classes.gutter}
+              <Table.Tr
+                key={row.id}
                 data-selected={selected || undefined}
-                style={{ width: GUTTER_WIDTH }}
+                className={classes.row}
               >
-                <GutterRowCheckbox
-                  checked={selected}
-                  onSelect={(mods) => selectRow(row.id, mods)}
-                />
-              </Table.Td>
-              <Table.Td>
-                <RowTitleCell
-                  row={row}
-                  databaseId={databaseId}
-                  spaceSlug={spaceSlug}
-                />
-              </Table.Td>
-              {columns.map(({ property, width }) => (
-                <Table.Td key={property.id} style={{ width }}>
-                  <GridCell
-                    property={property}
-                    value={values.find((v) => v.propertyId === property.id)}
-                    pageId={row.id}
-                    databaseId={databaseId}
+                <Table.Td
+                  className={classes.gutter}
+                  data-selected={selected || undefined}
+                  style={{ width: GUTTER_WIDTH }}
+                >
+                  <GutterRowCheckbox
+                    checked={selected}
+                    onSelect={(mods) => selectRow(row.id, mods)}
                   />
                 </Table.Td>
-              ))}
-              <Table.Td className={classes.noData} />
-            </Table.Tr>
+                <Table.Td>
+                  <RowTitleCell
+                    row={row}
+                    databaseId={databaseId}
+                    spaceSlug={spaceSlug}
+                  />
+                </Table.Td>
+                {columns.map(({ property, width }) => (
+                  <Table.Td key={property.id} style={{ width }}>
+                    <GridCell
+                      property={property}
+                      value={values.find((v) => v.propertyId === property.id)}
+                      pageId={row.id}
+                      databaseId={databaseId}
+                    />
+                  </Table.Td>
+                ))}
+                <Table.Td className={classes.noData} />
+              </Table.Tr>
             );
           })}
           <Table.Tr>

@@ -174,6 +174,29 @@ describe("TableView", () => {
     expect(screen.getByText("Title")).toBeTruthy();
   });
 
+  it("anchors each resizable column's handle to the cell border (Th is the positioned context)", () => {
+    // The resize handle is absolutely positioned at right:-3px; its border must
+    // be the th itself, not the padded content box, or the handle/hover rule
+    // floats inside the cell instead of on the column divider (issue #15).
+    renderGrid();
+    const handles = screen.getAllByLabelText("Resize column");
+    expect(handles.length).toBeGreaterThan(0);
+    for (const handle of handles) {
+      const th = handle.closest("th") as HTMLElement;
+      expect(th).toBeTruthy();
+      // The handle's nearest positioned ancestor must be the th (so right:-3px
+      // lands on the th's right border). We mark that th with a known class that
+      // sets position:relative and zeroes the cell padding.
+      expect(th.className).toContain("headerCell");
+      // No intermediate position:relative wrapper between handle and th.
+      let el: HTMLElement | null = handle.parentElement;
+      while (el && el !== th) {
+        expect(el.style.position).not.toBe("relative");
+        el = el.parentElement;
+      }
+    }
+  });
+
   it("scrolls horizontally instead of squeezing columns when they overflow", () => {
     // Wide databases should scroll sideways; the column-config dropdown opens
     // in a portal (see column-header) so it is not clipped by this container.
