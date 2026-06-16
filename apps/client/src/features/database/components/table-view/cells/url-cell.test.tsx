@@ -79,6 +79,27 @@ describe("UrlCell", () => {
     ).toBe("https://localhost:3000");
   });
 
+  it("percent-encodes a human-typed file:// path so the browser gets a valid url", () => {
+    renderCell({ type: "url", value: "file:///Users/me/My Documents/리포트.pdf" });
+    // Display text is the readable path the user typed...
+    const link = screen.getByRole("link", {
+      name: "file:///Users/me/My Documents/리포트.pdf",
+    });
+    // ...but the href is properly encoded (spaces + unicode), scheme preserved.
+    expect(link.getAttribute("href")).toBe(
+      "file:///Users/me/My%20Documents/%EB%A6%AC%ED%8F%AC%ED%8A%B8.pdf",
+    );
+  });
+
+  it("does not double-encode an already-encoded file:// path", () => {
+    renderCell({ type: "url", value: "file:///Users/me/My%20Docs/x.pdf" });
+    expect(
+      screen
+        .getByRole("link", { name: "file:///Users/me/My%20Docs/x.pdf" })
+        .getAttribute("href"),
+    ).toBe("file:///Users/me/My%20Docs/x.pdf");
+  });
+
   it("does not swallow the link click into edit mode (navigation is preserved)", () => {
     renderCell({ type: "url", value: "https://example.com" });
     const link = screen.getByRole("link", { name: "https://example.com" });

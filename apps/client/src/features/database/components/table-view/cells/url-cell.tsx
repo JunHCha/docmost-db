@@ -19,6 +19,17 @@ import {
 // protocol-relative (//host) are left as-is.
 function toHref(raw: string): string {
   const v = raw.trim();
+  // file URLs: keep the scheme but percent-encode the (usually human-typed) path
+  // so spaces/unicode become valid. decodeURI first makes it idempotent — an
+  // already-encoded %20 round-trips instead of becoming %2520. Malformed escapes
+  // (decodeURI throws) fall back to a plain encode.
+  if (/^file:/i.test(v)) {
+    try {
+      return encodeURI(decodeURI(v));
+    } catch {
+      return encodeURI(v);
+    }
+  }
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) return v; // scheme://host
   if (/^(mailto:|tel:)/i.test(v)) return v; // schemes without //
   if (v.startsWith("//")) return `https:${v}`; // protocol-relative
