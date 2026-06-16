@@ -6,6 +6,9 @@ import { MemoryRouter } from "react-router-dom";
 const infoQuery = vi.fn();
 const deleteNode = vi.fn();
 const updateAttributes = vi.fn();
+const setNodeSelection = vi.fn();
+const focus = vi.fn(() => ({ setNodeSelection }));
+const getPos = vi.fn(() => 7);
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseInfoByIdQuery: () => infoQuery(),
@@ -60,7 +63,13 @@ function renderEmbed(
   isEditable = true,
 ) {
   const props = {
-    editor: { isEditable, storage: { pageId: "host-page-1" } },
+    editor: {
+      isEditable,
+      storage: { pageId: "host-page-1" },
+      commands: { setNodeSelection },
+      chain: () => ({ focus }),
+    },
+    getPos,
     node: {
       attrs: {
         databaseId: attrs.databaseId ?? "db1",
@@ -86,6 +95,7 @@ describe("DatabaseEmbedView", () => {
     infoQuery.mockReset();
     deleteNode.mockReset();
     updateAttributes.mockReset();
+    setNodeSelection.mockReset();
   });
 
   it("mounts DatabaseView with the resolved space, pinned view and embed scope", () => {
@@ -185,6 +195,39 @@ describe("DatabaseEmbedView", () => {
     } finally {
       (globalThis as any).__ioAutoIntersect = true;
     }
+  });
+
+  it("selects the embed node when its header is pressed", () => {
+    // The header doubles as the node's selection handle: pressing it must put
+    // a NodeSelection on the embed so it behaves like an ordinary block.
+    infoQuery.mockReturnValue({
+      data: { database, page },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    const { container } = renderEmbed();
+    const header = container.querySelector(
+      '[data-drag-handle]',
+    ) as HTMLElement;
+    expect(header).toBeTruthy();
+    fireEvent.mouseDown(header);
+    expect(setNodeSelection).toHaveBeenCalledWith(7);
+  });
+
+  it("does not select the node on header press when read-only", () => {
+    infoQuery.mockReturnValue({
+      data: { database, page },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    const { container } = renderEmbed({}, false);
+    const header = container.querySelector(
+      '[data-drag-handle]',
+    ) as HTMLElement;
+    if (header) fireEvent.mouseDown(header);
+    expect(setNodeSelection).not.toHaveBeenCalled();
   });
 
   it("shows a not-found placeholder with remove action when the database is gone", () => {
