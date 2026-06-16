@@ -19,15 +19,26 @@ import {
 // protocol-relative (//host) are left as-is.
 function toHref(raw: string): string {
   const v = raw.trim();
-  // file URLs: keep the scheme but percent-encode the (usually human-typed) path
-  // so spaces/unicode become valid. decodeURI first makes it idempotent — an
-  // already-encoded %20 round-trips instead of becoming %2520. Malformed escapes
-  // (decodeURI throws) fall back to a plain encode.
-  if (/^file:/i.test(v)) {
+  // Local/file targets. Windows paths copied from File Explorer come in two
+  // shapes; map both to a standard file URL so an environment that permits
+  // file:// navigation (intranet zone, group policy, older Edge/IE) opens them:
+  //   \\server\share\path  (UNC)   -> file://server/share/path
+  //   C:\path              (drive) -> file:///C:/path
+  // file:// values are kept as-is. The path is then percent-encoded so spaces/
+  // unicode are valid; decodeURI first keeps it idempotent (no %20 -> %2520).
+  let fileish: string | null = null;
+  if (/^\\\\/.test(v)) {
+    fileish = "file:" + v.replace(/\\/g, "/"); // \\server -> file://server
+  } else if (/^[a-zA-Z]:[\\/]/.test(v)) {
+    fileish = "file:///" + v.replace(/\\/g, "/"); // C:\ -> file:///C:/
+  } else if (/^file:/i.test(v)) {
+    fileish = v;
+  }
+  if (fileish) {
     try {
-      return encodeURI(decodeURI(v));
+      return encodeURI(decodeURI(fileish));
     } catch {
-      return encodeURI(v);
+      return encodeURI(fileish);
     }
   }
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) return v; // scheme://host

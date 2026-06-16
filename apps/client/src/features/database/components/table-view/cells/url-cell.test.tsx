@@ -100,6 +100,24 @@ describe("UrlCell", () => {
     ).toBe("file:///Users/me/My%20Docs/x.pdf");
   });
 
+  it("converts a Windows UNC share path to a file:// url", () => {
+    renderCell({ type: "url", value: "\\\\nas\\team docs\\report.xlsx" });
+    const link = screen.getByRole("link", {
+      name: "\\\\nas\\team docs\\report.xlsx",
+    });
+    expect(link.getAttribute("href")).toBe("file://nas/team%20docs/report.xlsx");
+  });
+
+  it("converts a Windows drive path (with spaces/unicode) to a file:// url", () => {
+    renderCell({ type: "url", value: "C:\\Users\\me\\My Documents\\리포트.pdf" });
+    const link = screen.getByRole("link", {
+      name: "C:\\Users\\me\\My Documents\\리포트.pdf",
+    });
+    expect(link.getAttribute("href")).toBe(
+      "file:///C:/Users/me/My%20Documents/%EB%A6%AC%ED%8F%AC%ED%8A%B8.pdf",
+    );
+  });
+
   it("does not swallow the link click into edit mode (navigation is preserved)", () => {
     renderCell({ type: "url", value: "https://example.com" });
     const link = screen.getByRole("link", { name: "https://example.com" });
