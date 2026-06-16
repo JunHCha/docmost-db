@@ -88,9 +88,6 @@ fi
 echo "=== dev up for QA → $(basename "$REPO_ROOT") ==="
 
 # --- 1. shared infra: reuse if healthy, else bring up ---
-if port_open "$SERVER_PORT" || port_open "$CLIENT_PORT"; then
-  : # checked below; switch first
-fi
 if port_open 5432 && port_open 6379; then
   ok "infra reachable (pg :5432, redis :6379) — reusing"
 else
