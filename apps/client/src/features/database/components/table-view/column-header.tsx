@@ -25,6 +25,7 @@ import {
 import { resolveReorderTarget } from "./reorder";
 import { ColumnResizeHandle } from "./column-resize-handle";
 import classes from "./column-header.module.css";
+import tableClasses from "./table-view.module.css";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
 
 // Isolate column DnD from the page tree's drag adapter.
@@ -117,8 +118,7 @@ export function ColumnHeader({
       dropTargetForElements({
         element: el,
         canDrop: ({ source }) =>
-          source.data.context === COLUMN_DRAG &&
-          source.data.id !== property.id,
+          source.data.context === COLUMN_DRAG && source.data.id !== property.id,
         getData: ({ input, element }) =>
           attachClosestEdge(
             { id: property.id, context: COLUMN_DRAG },
@@ -167,164 +167,175 @@ export function ColumnHeader({
   }
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
-      {renaming ? (
-        // Rendered outside the draggable wrapper so the drag adapter cannot
-        // intercept typing/caret placement. The menu is unmounted while editing,
-        // so there is no focus-return race against the autofocused input.
-        <TextInput
-          autoFocus
-          size="xs"
-          variant="unstyled"
-          value={nameDraft}
-          aria-label={t("Rename column")}
-          onChange={(e) => setNameDraft(e.currentTarget.value)}
-          onBlur={commitRename}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commitRename();
-            if (e.key === "Escape") setRenaming(false);
-          }}
-        />
-      ) : (
-        <div ref={dragRef} className={classes.headerInner}>
-          <Group gap={4} wrap="nowrap">
-            <ActionIcon
-              ref={gripRef}
-              size="xs"
-              variant="subtle"
-              color="gray"
-              className={`${classes.handle} ${classes.grip}`}
-              aria-label={t("Drag to reorder column")}
-            >
-              <IconGripVertical size={14} />
-            </ActionIcon>
-            <Text
-              size="sm"
-              fw={500}
-              truncate
-              style={{ flex: 1, cursor: "text" }}
-              onDoubleClick={startRename}
-            >
-              {property.name}
-            </Text>
-            <Menu
-              position="bottom-end"
-              shadow="md"
-              // Portal (Mantine default) so the dropdown escapes the grid's
-              // overflow-x scroll container — inline rendering got clipped and
-              // caused a scroll-snap glitch when the table was short.
-              returnFocus={false}
-              transitionProps={{ duration: 0 }}
-              onClose={() => setPickingRelation(false)}
-            >
-              <Menu.Target>
-                <ActionIcon
-                  size="xs"
-                  variant="subtle"
-                  color="gray"
-                  className={classes.handle}
-                  aria-label={t("Column options")}
-                >
-                  ⋯
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {pickingRelation ? (
-                  // Relation target picker: list the space's other databases.
-                  // Committing without a targetDatabaseId is rejected (400),
-                  // so the type change only fires once a target is chosen.
-                  <>
-                    <Menu.Label>{t("Relation to")}</Menu.Label>
-                    {(databases ?? [])
-                      .filter((db) => db.id !== databaseId)
-                      .map((db) => (
-                        <Menu.Item
-                          key={db.id}
-                          leftSection={
-                            <span
-                              style={{ display: "inline-block", width: 12 }}
-                            >
-                              {db.id === currentTargetId ? "✓" : ""}
-                            </span>
-                          }
-                          onClick={() => {
-                            setPickingRelation(false);
-                            if (db.id === currentTargetId) return;
-                            update.mutate({
-                              propertyId: property.id,
-                              type: "relation",
-                              config: { targetDatabaseId: db.id },
-                            });
-                          }}
-                        >
-                          {db.title || t("Untitled")}
-                        </Menu.Item>
-                      ))}
-                  </>
-                ) : (
-                  <>
-                    <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
-                    <Menu.Item onClick={onHide}>{t("Hide column")}</Menu.Item>
-                    <Menu.Label>{t("Type")}</Menu.Label>
-                    {/* Each type is a Menu.Item, not a nested <Select>: a Select
+    // No position:relative here: the handle and drop indicator anchor to the
+    // enclosing Table.Th (which is position:relative; padding:0), so they land
+    // on the cell's actual right border — the column divider — instead of being
+    // inset by the cell padding (issue #15). The cell padding lives on the inner
+    // content wrapper instead.
+    <>
+      <div className={tableClasses.headerCellContent}>
+        {renaming ? (
+          // Rendered outside the draggable wrapper so the drag adapter cannot
+          // intercept typing/caret placement. The menu is unmounted while editing,
+          // so there is no focus-return race against the autofocused input.
+          <TextInput
+            autoFocus
+            size="xs"
+            variant="unstyled"
+            value={nameDraft}
+            aria-label={t("Rename column")}
+            onChange={(e) => setNameDraft(e.currentTarget.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") setRenaming(false);
+            }}
+          />
+        ) : (
+          <div ref={dragRef} className={classes.headerInner}>
+            <Group gap={4} wrap="nowrap">
+              <ActionIcon
+                ref={gripRef}
+                size="xs"
+                variant="subtle"
+                color="gray"
+                className={`${classes.handle} ${classes.grip}`}
+                aria-label={t("Drag to reorder column")}
+              >
+                <IconGripVertical size={14} />
+              </ActionIcon>
+              <Text
+                size="sm"
+                fw={500}
+                truncate
+                style={{ flex: 1, cursor: "text" }}
+                onDoubleClick={startRename}
+              >
+                {property.name}
+              </Text>
+              <Menu
+                position="bottom-end"
+                shadow="md"
+                // Portal (Mantine default) so the dropdown escapes the grid's
+                // overflow-x scroll container — inline rendering got clipped and
+                // caused a scroll-snap glitch when the table was short.
+                returnFocus={false}
+                transitionProps={{ duration: 0 }}
+                onClose={() => setPickingRelation(false)}
+              >
+                <Menu.Target>
+                  <ActionIcon
+                    size="xs"
+                    variant="subtle"
+                    color="gray"
+                    className={classes.handle}
+                    aria-label={t("Column options")}
+                  >
+                    ⋯
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {pickingRelation ? (
+                    // Relation target picker: list the space's other databases.
+                    // Committing without a targetDatabaseId is rejected (400),
+                    // so the type change only fires once a target is chosen.
+                    <>
+                      <Menu.Label>{t("Relation to")}</Menu.Label>
+                      {(databases ?? [])
+                        .filter((db) => db.id !== databaseId)
+                        .map((db) => (
+                          <Menu.Item
+                            key={db.id}
+                            leftSection={
+                              <span
+                                style={{ display: "inline-block", width: 12 }}
+                              >
+                                {db.id === currentTargetId ? "✓" : ""}
+                              </span>
+                            }
+                            onClick={() => {
+                              setPickingRelation(false);
+                              if (db.id === currentTargetId) return;
+                              update.mutate({
+                                propertyId: property.id,
+                                type: "relation",
+                                config: { targetDatabaseId: db.id },
+                              });
+                            }}
+                          >
+                            {db.title || t("Untitled")}
+                          </Menu.Item>
+                        ))}
+                    </>
+                  ) : (
+                    <>
+                      <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
+                      <Menu.Item onClick={onHide}>{t("Hide column")}</Menu.Item>
+                      <Menu.Label>{t("Type")}</Menu.Label>
+                      {/* Each type is a Menu.Item, not a nested <Select>: a Select
                         renders its options in a portal, and clicking one counts
                         as an outside-click that closes this Menu and unmounts
                         the Select before its onChange commits — so the type
                         never actually changed. Menu.Item clicks commit. */}
-                    {TYPE_OPTIONS.map((opt) => (
-                      <Menu.Item
-                        key={opt.value}
-                        closeMenuOnClick={opt.value !== "relation"}
-                        leftSection={
-                          <span style={{ display: "inline-block", width: 12 }}>
-                            {opt.value === property.type ? "✓" : ""}
-                          </span>
-                        }
-                        onClick={() => {
-                          // Relation needs a target database, so open the
-                          // picker instead of committing here.
-                          if (opt.value === "relation") {
-                            setPickingRelation(true);
-                            return;
+                      {TYPE_OPTIONS.map((opt) => (
+                        <Menu.Item
+                          key={opt.value}
+                          closeMenuOnClick={opt.value !== "relation"}
+                          leftSection={
+                            <span
+                              style={{ display: "inline-block", width: 12 }}
+                            >
+                              {opt.value === property.type ? "✓" : ""}
+                            </span>
                           }
-                          if (opt.value === property.type) return;
-                          const needsOptions =
-                            opt.value === "select" ||
-                            opt.value === "multi_select";
-                          update.mutate({
-                            propertyId: property.id,
-                            type: opt.value,
-                            // select/multi_select require a config.options array
-                            // server-side (a missing array is rejected with 400).
-                            // Echo existing options — preserved when switching
-                            // select↔multi_select, empty otherwise.
-                            ...(needsOptions
-                              ? {
-                                  config: {
-                                    options: getOptions(property.config),
-                                  },
-                                }
-                              : {}),
-                          });
-                        }}
+                          onClick={() => {
+                            // Relation needs a target database, so open the
+                            // picker instead of committing here.
+                            if (opt.value === "relation") {
+                              setPickingRelation(true);
+                              return;
+                            }
+                            if (opt.value === property.type) return;
+                            const needsOptions =
+                              opt.value === "select" ||
+                              opt.value === "multi_select";
+                            update.mutate({
+                              propertyId: property.id,
+                              type: opt.value,
+                              // select/multi_select require a config.options array
+                              // server-side (a missing array is rejected with 400).
+                              // Echo existing options — preserved when switching
+                              // select↔multi_select, empty otherwise.
+                              ...(needsOptions
+                                ? {
+                                    config: {
+                                      options: getOptions(property.config),
+                                    },
+                                  }
+                                : {}),
+                            });
+                          }}
+                        >
+                          {t(opt.label)}
+                        </Menu.Item>
+                      ))}
+                      <Menu.Divider />
+                      <Menu.Item
+                        color="red"
+                        onClick={() =>
+                          remove.mutate({ propertyId: property.id })
+                        }
                       >
-                        {t(opt.label)}
+                        {t("Delete")}
                       </Menu.Item>
-                    ))}
-                    <Menu.Divider />
-                    <Menu.Item
-                      color="red"
-                      onClick={() => remove.mutate({ propertyId: property.id })}
-                    >
-                      {t("Delete")}
-                    </Menu.Item>
-                  </>
-                )}
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-        </div>
-      )}
+                    </>
+                  )}
+                </Menu.Dropdown>
+              </Menu>
+            </Group>
+          </div>
+        )}
+      </div>
       <ColumnResizeHandle width={width} onResize={onResize} />
       {closestEdge && (
         <div
@@ -339,7 +350,7 @@ export function ColumnHeader({
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
