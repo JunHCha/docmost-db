@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
+import { IconGripVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
 import { ColumnResizeHandle } from "./column-resize-handle";
+import classes from "./column-header.module.css";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
 
 // Isolate column DnD from the page tree's drag adapter.
@@ -63,6 +65,10 @@ export function ColumnHeader({
 }: ColumnHeaderProps) {
   const { t } = useTranslation();
   const dragRef = useRef<HTMLDivElement>(null);
+  // Drag is initiated only from this grip (not the whole header), so plain
+  // clicks on the name/options don't start a drag. The drop target stays the
+  // full header (see dropTargetForElements) so columns can be dropped anywhere.
+  const gripRef = useRef<HTMLButtonElement>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
@@ -103,6 +109,9 @@ export function ColumnHeader({
     return combine(
       draggable({
         element: el,
+        // Restrict drag initiation to the grip handle; the whole header stays a
+        // drop target. Falls back to the whole element if the grip isn't mounted.
+        dragHandle: gripRef.current ?? undefined,
         getInitialData: () => ({ id: property.id, context: COLUMN_DRAG }),
       }),
       dropTargetForElements({
@@ -177,8 +186,18 @@ export function ColumnHeader({
           }}
         />
       ) : (
-        <div ref={dragRef}>
-          <Group justify="space-between" gap={4} wrap="nowrap">
+        <div ref={dragRef} className={classes.headerInner}>
+          <Group gap={4} wrap="nowrap">
+            <ActionIcon
+              ref={gripRef}
+              size="xs"
+              variant="subtle"
+              color="gray"
+              className={`${classes.handle} ${classes.grip}`}
+              aria-label={t("Drag to reorder column")}
+            >
+              <IconGripVertical size={14} />
+            </ActionIcon>
             <Text
               size="sm"
               fw={500}
@@ -202,6 +221,8 @@ export function ColumnHeader({
                 <ActionIcon
                   size="xs"
                   variant="subtle"
+                  color="gray"
+                  className={classes.handle}
                   aria-label={t("Column options")}
                 >
                   ⋯

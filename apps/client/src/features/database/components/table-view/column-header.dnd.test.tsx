@@ -23,9 +23,12 @@ type DropCfg = {
 const dropTargets: DropCfg[] = [];
 let registerCount = 0;
 let cleanupCount = 0;
+let lastDraggableCfg: { element: HTMLElement; dragHandle?: HTMLElement } | null =
+  null;
 vi.mock("@atlaskit/pragmatic-drag-and-drop/element/adapter", () => ({
-  draggable: () => {
+  draggable: (cfg: { element: HTMLElement; dragHandle?: HTMLElement }) => {
     registerCount++;
+    lastDraggableCfg = cfg;
     return () => {
       cleanupCount++;
     };
@@ -113,6 +116,18 @@ describe("ColumnHeader column drag reorder", () => {
     reorderMutate.mockReset();
     registerCount = 0;
     cleanupCount = 0;
+    lastDraggableCfg = null;
+  });
+
+  it("initiates drag only from the grip handle, not the whole header", () => {
+    const { getByLabelText } = renderOneHeader();
+    // The grip + options controls are both rendered (revealed on hover via CSS).
+    const grip = getByLabelText("Drag to reorder column");
+    expect(grip).toBeTruthy();
+    expect(getByLabelText("Column options")).toBeTruthy();
+    // draggable() was given that grip as its dragHandle, so a plain click on the
+    // name/options never starts a drag — only the grip does.
+    expect(lastDraggableCfg?.dragHandle).toBe(grip);
   });
 
   it("does not tear down and re-register the drag adapter on an unrelated re-render", () => {
