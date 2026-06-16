@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
+import { IconGripVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
 import { ColumnResizeHandle } from "./column-resize-handle";
+import classes from "./column-header.module.css";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
 
 // Isolate column DnD from the page tree's drag adapter.
@@ -63,6 +65,10 @@ export function ColumnHeader({
 }: ColumnHeaderProps) {
   const { t } = useTranslation();
   const dragRef = useRef<HTMLDivElement>(null);
+  // Drag is initiated only from this grip (not the whole header), so plain
+  // clicks on the name/options don't start a drag. The drop target stays the
+  // full header (see dropTargetForElements) so columns can be dropped anywhere.
+  const gripRef = useRef<HTMLButtonElement>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(property.name);
@@ -72,6 +78,16 @@ export function ColumnHeader({
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
+  // The drag adapter must register ONCE and stay alive: react-query's mutation
+  // object and the orderedProperties array change identity on re-render, and
+  // Phase 3/4 realtime updates re-render the table constantly. If those were
+  // useEffect deps, a re-render landing mid-drag would tear down the adapter and
+  // abort the native drag, so the drop never fires (#85). We read the live values
+  // through refs instead and keep the effect deps to the stable property id.
+  const reorderRef = useRef(reorder);
+  reorderRef.current = reorder;
+  const orderedRef = useRef(orderedProperties);
+  orderedRef.current = orderedProperties;
   const remove = useDeletePropertyMutation(databaseId);
   const { data: databases } = useListDatabasesQuery(spaceId);
   const currentTargetId =
@@ -93,6 +109,9 @@ export function ColumnHeader({
     return combine(
       draggable({
         element: el,
+        // Restrict drag initiation to the grip handle; the whole header stays a
+        // drop target. Falls back to the whole element if the grip isn't mounted.
+        dragHandle: gripRef.current ?? undefined,
         getInitialData: () => ({ id: property.id, context: COLUMN_DRAG }),
       }),
       dropTargetForElements({
@@ -115,20 +134,24 @@ export function ColumnHeader({
           const target = resolveReorderTarget(
             property.id,
             edge,
-            orderedProperties,
+            orderedRef.current,
             sourceId,
           );
           // null means an unknown target or an in-place drop (the server
           // rejects afterPropertyId === propertyId), so skip the mutation.
           if (!target) return;
-          reorder.mutate({
+          reorderRef.current.mutate({
             propertyId: sourceId,
             afterPropertyId: target.afterPropertyId,
           });
         },
       }),
     );
-  }, [property.id, orderedProperties, reorder, renaming]);
+    // Deps are limited to values that change WHICH element/whether we register:
+    // the column id and the renaming toggle (the wrapper unmounts while editing).
+    // orderedProperties/reorder are read through refs so the adapter survives the
+    // frequent re-renders from realtime updates (#85).
+  }, [property.id, renaming]);
 
   function startRename() {
     setNameDraft(property.name);
@@ -163,8 +186,18 @@ export function ColumnHeader({
           }}
         />
       ) : (
-        <div ref={dragRef}>
-          <Group justify="space-between" gap={4} wrap="nowrap">
+        <div ref={dragRef} className={classes.headerInner}>
+          <Group gap={4} wrap="nowrap">
+            <ActionIcon
+              ref={gripRef}
+              size="xs"
+              variant="subtle"
+              color="gray"
+              className={`${classes.handle} ${classes.grip}`}
+              aria-label={t("Drag to reorder column")}
+            >
+              <IconGripVertical size={14} />
+            </ActionIcon>
             <Text
               size="sm"
               fw={500}
@@ -188,6 +221,8 @@ export function ColumnHeader({
                 <ActionIcon
                   size="xs"
                   variant="subtle"
+                  color="gray"
+                  className={classes.handle}
                   aria-label={t("Column options")}
                 >
                   ⋯

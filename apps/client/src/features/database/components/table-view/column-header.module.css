@@ -1,0 +1,31 @@
+/* Column header layout: a reserved slot for the drag handle on the left, the
+ * name in the middle, and the options (⋯) control on the right. The handle and
+ * options controls occupy their space permanently (so the name never shifts)
+ * but only become visible while the header is hovered. */
+.headerInner {
+  width: 100%;
+}
+
+/* Drag handle and ⋯ options: present for layout, revealed on header hover.
+ * Kept visible while a menu is open or the control is focused so it doesn't
+ * vanish from under the pointer. */
+.handle {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.headerInner:hover .handle,
+.handle:focus-visible,
+.handle[aria-expanded="true"],
+.handle[data-expanded="true"] {
+  opacity: 1;
+}
+
+/* The drag handle borrows the note block's grip affordance. */
+.grip {
+  cursor: grab;
+}
+
+.grip:active {
+  cursor: grabbing;
+}
