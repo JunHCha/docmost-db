@@ -72,6 +72,16 @@ export function ColumnHeader({
 
   const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
+  // The drag adapter must register ONCE and stay alive: react-query's mutation
+  // object and the orderedProperties array change identity on re-render, and
+  // Phase 3/4 realtime updates re-render the table constantly. If those were
+  // useEffect deps, a re-render landing mid-drag would tear down the adapter and
+  // abort the native drag, so the drop never fires (#85). We read the live values
+  // through refs instead and keep the effect deps to the stable property id.
+  const reorderRef = useRef(reorder);
+  reorderRef.current = reorder;
+  const orderedRef = useRef(orderedProperties);
+  orderedRef.current = orderedProperties;
   const remove = useDeletePropertyMutation(databaseId);
   const { data: databases } = useListDatabasesQuery(spaceId);
   const currentTargetId =
@@ -115,20 +125,24 @@ export function ColumnHeader({
           const target = resolveReorderTarget(
             property.id,
             edge,
-            orderedProperties,
+            orderedRef.current,
             sourceId,
           );
           // null means an unknown target or an in-place drop (the server
           // rejects afterPropertyId === propertyId), so skip the mutation.
           if (!target) return;
-          reorder.mutate({
+          reorderRef.current.mutate({
             propertyId: sourceId,
             afterPropertyId: target.afterPropertyId,
           });
         },
       }),
     );
-  }, [property.id, orderedProperties, reorder, renaming]);
+    // Deps are limited to values that change WHICH element/whether we register:
+    // the column id and the renaming toggle (the wrapper unmounts while editing).
+    // orderedProperties/reorder are read through refs so the adapter survives the
+    // frequent re-renders from realtime updates (#85).
+  }, [property.id, renaming]);
 
   function startRename() {
     setNameDraft(property.name);
