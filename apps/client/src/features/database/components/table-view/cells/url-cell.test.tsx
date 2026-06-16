@@ -51,6 +51,34 @@ describe("UrlCell", () => {
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
+  it("normalizes a scheme-less url to https so it does NOT resolve as a sub-route of the current site", () => {
+    renderCell({ type: "url", value: "google.com" });
+    // Display text stays exactly what the user typed...
+    const link = screen.getByRole("link", { name: "google.com" });
+    // ...but the href is absolute, so the browser leaves the app instead of
+    // navigating to <current-site>/google.com.
+    expect(link.getAttribute("href")).toBe("https://google.com");
+  });
+
+  it("leaves an explicit scheme untouched (http, mailto, host:port)", () => {
+    renderCell({ type: "url", value: "http://insecure.test" });
+    expect(
+      screen.getByRole("link", { name: "http://insecure.test" }).getAttribute("href"),
+    ).toBe("http://insecure.test");
+
+    renderCell({ type: "url", value: "mailto:a@b.com" });
+    expect(
+      screen.getByRole("link", { name: "mailto:a@b.com" }).getAttribute("href"),
+    ).toBe("mailto:a@b.com");
+
+    // A bare host:port has no scheme, so it must still get https:// (not be
+    // mistaken for a "host:" scheme).
+    renderCell({ type: "url", value: "localhost:3000" });
+    expect(
+      screen.getByRole("link", { name: "localhost:3000" }).getAttribute("href"),
+    ).toBe("https://localhost:3000");
+  });
+
   it("does not swallow the link click into edit mode (navigation is preserved)", () => {
     renderCell({ type: "url", value: "https://example.com" });
     const link = screen.getByRole("link", { name: "https://example.com" });

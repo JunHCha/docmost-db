@@ -12,6 +12,19 @@ import {
   inlineInputStyles,
 } from "./inline-text";
 
+// Turn a stored url into an absolute href. A scheme-less value like
+// "google.com" would otherwise be treated by the browser as a path relative to
+// the current site (→ <app-origin>/google.com), so we assume https. Values that
+// already carry a scheme (http://, https://, ftp://, mailto:, tel:, …) or are
+// protocol-relative (//host) are left as-is.
+function toHref(raw: string): string {
+  const v = raw.trim();
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) return v; // scheme://host
+  if (/^(mailto:|tel:)/i.test(v)) return v; // schemes without //
+  if (v.startsWith("//")) return `https:${v}`; // protocol-relative
+  return `https://${v}`; // bare host/path → assume https
+}
+
 export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
@@ -66,7 +79,7 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
     <Group gap={4} wrap="nowrap" className="db-url-cell">
       {stored ? (
         <Anchor
-          href={stored}
+          href={toHref(stored)}
           target="_blank"
           rel="noreferrer"
           size="sm"
