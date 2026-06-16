@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { TextInput, Anchor } from "@mantine/core";
+import { TextInput, Anchor, ActionIcon, Group } from "@mantine/core";
+import { IconPencil } from "@tabler/icons-react";
 import {
   useClearValueMutation,
   useSetValueMutation,
@@ -57,29 +58,44 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
     );
   }
 
-  if (!stored) {
-    return (
-      <div
-        onClick={startEdit}
-        style={{ ...inlineDisplayStyle, width: "100%" }}
-      />
-    );
-  }
-
+  // Display mode: the link itself navigates (issue #85 — clicking the link must
+  // open the URL, not enter edit mode). A separate hover-revealed pencil enters
+  // edit mode, mirroring the Title column's link/edit split, so the two actions
+  // are never conflated.
   return (
-    <Anchor
-      href={stored}
-      target="_blank"
-      rel="noreferrer"
-      size="sm"
-      onClick={(e) => {
-        e.preventDefault();
-        startEdit();
-      }}
-      style={{ display: "block", lineHeight: `${INLINE_ROW_HEIGHT}px` }}
-    >
-      {stored}
-    </Anchor>
+    <Group gap={4} wrap="nowrap" className="db-url-cell">
+      {stored ? (
+        <Anchor
+          href={stored}
+          target="_blank"
+          rel="noreferrer"
+          size="sm"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            lineHeight: `${INLINE_ROW_HEIGHT}px`,
+          }}
+        >
+          {stored}
+        </Anchor>
+      ) : (
+        <div
+          onClick={startEdit}
+          style={{ ...inlineDisplayStyle, flex: 1, minWidth: 0 }}
+        />
+      )}
+      <ActionIcon
+        variant="subtle"
+        size="sm"
+        aria-label={`Edit ${property.name}`}
+        onClick={startEdit}
+      >
+        <IconPencil size={14} />
+      </ActionIcon>
+    </Group>
   );
 }
 
