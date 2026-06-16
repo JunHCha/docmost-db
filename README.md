@@ -13,6 +13,25 @@
 > Built on top of [`docmost/docmost`](https://github.com/docmost/docmost), it aims to bring Notion-style database views (Table / Board) and row filtering, sorting, and bulk editing into wiki pages.
 > For original Docmost usage and self-hosting, see the [official docs](https://docmost.com/docs). The [upstream README](#upstream-docmost) below is preserved as-is.
 
+## Dev: QA quick start
+
+Lots of UI work happens across several git worktrees in parallel, so QA means
+constantly switching *which* worktree's dev web is live. The dev stack is
+single-port (client `:5173` → proxies `/api` to server `:3000`), so only one can
+run at a time. One command handles the switch:
+
+```bash
+./dev-up.sh            # make THIS worktree the live QA dev web → http://localhost:5173
+./dev-up.sh --migrate  # ...also apply new migrations
+./dev-up.sh --clean    # ...also wipe Vite cache (fixes stale-serving)
+./dev-up.sh --down     # stop the live dev (frees the ports)
+```
+
+Run it from whatever worktree you want to QA. It reuses the shared Postgres /
+Redis (`docker-compose.dev.yml`) if already healthy, tears down whatever dev was
+live, builds `@docmost/editor-ext`, starts `pnpm dev` detached, and waits until
+both client and server are actually up before returning. See `./dev-up.sh --help`.
+
 ## What this fork adds
 
 A lightweight database that can be embedded in wiki pages, built incrementally:
