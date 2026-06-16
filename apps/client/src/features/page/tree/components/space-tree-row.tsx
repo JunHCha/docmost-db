@@ -31,7 +31,10 @@ import type { SpaceTreeNode } from "@/features/page/tree/types.ts";
 import type { RenderRowProps } from "./doc-tree";
 import { NodeMenu } from "./space-tree-node-menu";
 import classes from "@/features/page/tree/styles/tree.module.css";
-import { updateTreeNodeIcon } from "@/features/page/tree/utils/utils.ts";
+import {
+  shouldShowDatabaseBadge,
+  updateTreeNodeIcon,
+} from "@/features/page/tree/utils/utils.ts";
 
 type SpaceTreeRowProps = RenderRowProps<SpaceTreeNode> & {
   readOnly: boolean;
@@ -80,9 +83,7 @@ export function SpaceTreeRow({
   };
 
   const handleUpdateNodeIcon = (nodeId: string, newIcon: string | null) => {
-    setTreeData((prev) =>
-      updateTreeNodeIcon(prev, nodeId, newIcon),
-    );
+    setTreeData((prev) => updateTreeNodeIcon(prev, nodeId, newIcon));
   };
 
   const handleEmojiIconClick = (e: React.MouseEvent) => {
@@ -158,7 +159,7 @@ export function SpaceTreeRow({
         onToggle={toggleOpen}
       />
 
-      <div onClick={handleEmojiIconClick} style={{ marginRight: "4px" }}>
+      <div onClick={handleEmojiIconClick} className={classes.iconWrap}>
         <EmojiPicker
           onEmojiSelect={handleEmojiSelect}
           icon={
@@ -174,6 +175,13 @@ export function SpaceTreeRow({
           removeEmojiAction={handleRemoveEmoji}
           actionIconProps={{ tabIndex: -1 }}
         />
+        {/* A custom icon hides the default IconDatabase, so overlay a small
+            database badge to keep the type identifiable (issue #7). */}
+        {shouldShowDatabaseBadge(node) && (
+          <span className={classes.dbBadge} aria-label={t("Database")}>
+            <IconDatabase size={11} stroke={2.5} />
+          </span>
+        )}
       </div>
 
       <span className={classes.text}>{node.name || t("untitled")}</span>
@@ -281,7 +289,9 @@ function CreateNode({
     <ActionIcon
       variant="transparent"
       c="gray"
-      aria-label={t("Create subpage of {{name}}", { name: node.name || t("untitled") })}
+      aria-label={t("Create subpage of {{name}}", {
+        name: node.name || t("untitled"),
+      })}
       tabIndex={-1}
       onClick={(e) => {
         e.preventDefault();
