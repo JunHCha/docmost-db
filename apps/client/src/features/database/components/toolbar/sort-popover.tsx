@@ -37,6 +37,9 @@ interface SortRowProps {
   index: number;
   properties: IDatabaseProperty[];
   sort: ISortCondition;
+  // Property ids already used by other sort rows; excluded here so the same
+  // column cannot be sorted on twice.
+  usedByOthers: Set<string>;
   onChange: (next: ISortCondition) => void;
   onRemove: () => void;
   onReorder: (from: number, to: number) => void;
@@ -46,6 +49,7 @@ function SortRow({
   index,
   properties,
   sort,
+  usedByOthers,
   onChange,
   onRemove,
   onReorder,
@@ -84,7 +88,9 @@ function SortRow({
       </ActionIcon>
       <Select
         aria-label={t("Sort property")}
-        data={properties.map((p) => ({ value: p.id, label: p.name }))}
+        data={properties
+          .filter((p) => !usedByOthers.has(p.id))
+          .map((p) => ({ value: p.id, label: p.name }))}
         value={sort.propertyId}
         onChange={(v) => v && onChange({ ...sort, propertyId: v })}
         comboboxProps={{ withinPortal: false }}
@@ -122,9 +128,13 @@ function SortRow({
 export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
   const { t } = useTranslation();
 
+  const used = new Set(sorts.map((s) => s.propertyId));
+  // Nothing left to add once every property is already a sort condition; a
+  // column may only appear once.
+  const hasUnusedProperty = properties.some((p) => !used.has(p.id));
+
   function addSort() {
-    const used = new Set(sorts.map((s) => s.propertyId));
-    const next = properties.find((p) => !used.has(p.id)) ?? properties[0];
+    const next = properties.find((p) => !used.has(p.id));
     if (!next) return;
     onChange([...sorts, { propertyId: next.id, direction: "asc" }]);
   }
@@ -148,19 +158,28 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
           index={index}
           properties={properties}
           sort={sort}
+          usedByOthers={
+            new Set(
+              sorts
+                .filter((_, i) => i !== index)
+                .map((s) => s.propertyId),
+            )
+          }
           onChange={(next) => patch(index, next)}
           onRemove={() => remove(index)}
           onReorder={(from, to) => onChange(moveSort(sorts, from, to))}
         />
       ))}
-      <Button
-        variant="subtle"
-        size="xs"
-        onClick={addSort}
-        style={{ alignSelf: "flex-start" }}
-      >
-        {t("Add sort")}
-      </Button>
+      {hasUnusedProperty && (
+        <Button
+          variant="subtle"
+          size="xs"
+          onClick={addSort}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {t("Add sort")}
+        </Button>
+      )}
     </Stack>
   );
 }

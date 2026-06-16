@@ -84,7 +84,12 @@ export default function DatabaseEmbedView(props: NodeViewProps) {
   );
 }
 
-function DatabaseEmbedBody({ editor, node, deleteNode }: NodeViewProps) {
+function DatabaseEmbedBody({
+  editor,
+  node,
+  deleteNode,
+  getPos,
+}: NodeViewProps) {
   const { t } = useTranslation();
   const { spaceSlug } = useParams();
   const databaseId: string | null = node.attrs.databaseId ?? null;
@@ -147,9 +152,29 @@ function DatabaseEmbedBody({ editor, node, deleteNode }: NodeViewProps) {
     ? buildPageUrl(spaceSlug, sourcePage.slugId, sourcePage.title)
     : null;
 
+  // The header doubles as the embed's selection handle. The atom body is fully
+  // interactive (grid cells, menus) so a click there must not steal a node
+  // selection; pressing the header instead puts a NodeSelection on the embed so
+  // it reliably selects/focuses like an ordinary block (issue #84). The
+  // data-drag-handle marks it as the node's handle for ProseMirror.
+  function selectNode(event: React.MouseEvent) {
+    if (!isEditable || typeof getPos !== "function") return;
+    // Ignore presses on interactive header controls (link, menu) so they keep
+    // their own behavior.
+    if ((event.target as HTMLElement).closest("a,button")) return;
+    const pos = getPos();
+    if (typeof pos !== "number") return;
+    editor.commands.setNodeSelection(pos);
+  }
+
   return (
     <>
-      <div className={classes.embedHeader} contentEditable={false}>
+      <div
+        className={classes.embedHeader}
+        contentEditable={false}
+        data-drag-handle
+        onMouseDown={selectNode}
+      >
         {sourceHref ? (
           <Tooltip label={t("Open source database")}>
             <ActionIcon

@@ -87,4 +87,36 @@ describe("SortPopover", () => {
     fireEvent.click(screen.getByLabelText("Remove sort"));
     expect(onChange).toHaveBeenCalledWith([]);
   });
+
+  it("excludes properties already used by other sort rows from the property select", () => {
+    // p1 is taken by the only row, so its property select offers only its own
+    // value (p1) and the unused p2 — never a duplicate of another row.
+    renderPopover([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByRole("textbox", { name: "Sort property" }));
+    expect(screen.getByRole("option", { name: "Status" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Price" })).toBeTruthy();
+  });
+
+  it("hides a property taken by another row from this row's property select", () => {
+    // Two rows: p1 and p2. The first row must not offer p2 (owned by row two).
+    renderPopover([
+      { propertyId: "p1", direction: "asc" },
+      { propertyId: "p2", direction: "asc" },
+    ]);
+    const propertySelects = screen.getAllByRole("textbox", {
+      name: "Sort property",
+    });
+    fireEvent.click(propertySelects[0]);
+    expect(screen.getByRole("option", { name: "Status" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Price" })).toBeNull();
+  });
+
+  it("hides the Add sort action once every property is used", () => {
+    // Both properties are sorted on, so there is nothing left to add.
+    renderPopover([
+      { propertyId: "p1", direction: "asc" },
+      { propertyId: "p2", direction: "asc" },
+    ]);
+    expect(screen.queryByText("Add sort")).toBeNull();
+  });
 });

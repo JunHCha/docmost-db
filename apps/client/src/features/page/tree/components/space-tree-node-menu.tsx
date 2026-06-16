@@ -91,7 +91,17 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
         spaceId: duplicatedPage.spaceId,
         parentPageId: duplicatedPage.parentPageId,
         icon: duplicatedPage.icon,
-        hasChildren: duplicatedPage.hasChildren,
+        // Preserve the page discriminator so a duplicated database renders as a
+        // database in the sidebar right away, instead of looking like a plain
+        // page until a refresh re-runs buildTree (which sets pageType).
+        pageType: duplicatedPage.pageType,
+        // Mirror buildTree: a database's row pages are not shown in the tree, so
+        // it must never get an expand chevron even though the server reports
+        // hasChildren=true for the copied rows.
+        hasChildren:
+          duplicatedPage.pageType === "database"
+            ? false
+            : duplicatedPage.hasChildren,
         canEdit: true,
         children: [],
       };

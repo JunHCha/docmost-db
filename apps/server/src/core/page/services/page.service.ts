@@ -55,6 +55,11 @@ import { markdownToHtml } from '@docmost/editor-ext';
 import { WatcherService } from '../../watcher/watcher.service';
 import { sql } from 'kysely';
 import { TransclusionService } from '../transclusion/transclusion.service';
+import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
+import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
+import { DatabaseViewRepo } from '@docmost/db/repos/database/database-view.repo';
+import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
+import { buildDatabaseCopyPlan } from './database-copy';
 
 @Injectable()
 export class PageService {
@@ -73,6 +78,10 @@ export class PageService {
     private collaborationGateway: CollaborationGateway,
     private readonly watcherService: WatcherService,
     private readonly transclusionService: TransclusionService,
+    private readonly databaseRepo: DatabaseRepo,
+    private readonly databasePropertyRepo: DatabasePropertyRepo,
+    private readonly databaseViewRepo: DatabaseViewRepo,
+    private readonly databasePropertyValueRepo: DatabasePropertyValueRepo,
   ) {}
 
   async findById(
@@ -683,6 +692,10 @@ export class PageService {
           slugId: pageFromMap.newSlugId,
           title: title,
           icon: page.icon,
+          // Preserve the page discriminator so a duplicated database page stays
+          // a database (and its row pages keep their type) instead of falling
+          // back to the 'doc' default (issue #84).
+          pageType: page.pageType,
           content: prosemirrorJson,
           textContent: jsonToText(prosemirrorJson),
           ydoc: createYdocFromJson(prosemirrorJson),
@@ -704,6 +717,22 @@ export class PageService {
     );
 
     await this.db.insertInto('pages').values(insertablePages).execute();
+
+    // If the duplicated root is a database, recreate its database structures
+    // (databases row, properties, shared views, property values) bound to the
+    // copied pages so the duplicate is a real database, not a plain page
+    // (issue #84). Failures here are logged, not fatal: the page tree is
+    // already copied.
+    if (rootPage.pageType === 'database') {
+      try {
+        await this.duplicateDatabase(rootPage, pageMap, spaceId, authUser);
+      } catch (err) {
+        this.logger.error(
+          'Failed to duplicate database structures for duplicated page',
+          err,
+        );
+      }
+    }
 
     // Extract transclusions from every duplicated page and persist them in
     // one statement. Duplication bypasses Yjs onStoreDocument; brand-new
@@ -817,6 +846,63 @@ export class PageService {
       hasChildren,
       childPageIds,
     };
+  }
+
+  // Recreate the source page's database (its databases row, properties, shared
+  // views and per-row property values) for a duplicated page tree (issue #84).
+  // pageMap is the old->new page id map built by duplicatePage, so row values
+  // land on the copied row pages.
+  private async duplicateDatabase(
+    rootPage: Page,
+    pageMap: Map<string, CopyPageMapEntry>,
+    targetSpaceId: string,
+    authUser: User,
+  ): Promise<void> {
+    const source = await this.databaseRepo.findByPageId(rootPage.id);
+    if (!source) return;
+
+    const [properties, views] = await Promise.all([
+      this.databasePropertyRepo.findByDatabaseId(source.id),
+      this.databaseViewRepo.findByDatabaseId(source.id),
+    ]);
+
+    // Row pages are the database page's copied descendants; pull their values.
+    const rowPageIds = Array.from(pageMap.keys()).filter(
+      (id) => id !== rootPage.id,
+    );
+    const propertyValues =
+      await this.databasePropertyValueRepo.findByPageIds(rowPageIds);
+
+    const pageIdMap = new Map<string, string>();
+    for (const [oldId, entry] of pageMap) {
+      pageIdMap.set(oldId, entry.newPageId);
+    }
+
+    const plan = buildDatabaseCopyPlan({
+      source,
+      properties,
+      views,
+      propertyValues,
+      newRootPageId: pageMap.get(rootPage.id).newPageId,
+      newDatabaseId: uuid7(),
+      targetSpaceId,
+      targetWorkspaceId: authUser.workspaceId,
+      pageIdMap,
+      newId: () => uuid7(),
+    });
+
+    await executeTx(this.db, async (trx) => {
+      await this.databaseRepo.insertDatabase(plan.database, trx);
+      for (const property of plan.properties) {
+        await this.databasePropertyRepo.insertProperty(property, trx);
+      }
+      for (const view of plan.views) {
+        await this.databaseViewRepo.insertView(view, trx);
+      }
+      for (const value of plan.propertyValues) {
+        await this.databasePropertyValueRepo.setValue(value, trx);
+      }
+    });
   }
 
   async movePage(dto: MovePageDto, movedPage: Page) {
