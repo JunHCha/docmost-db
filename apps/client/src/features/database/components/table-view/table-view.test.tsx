@@ -30,6 +30,11 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDeleteRowsMutation: () => ({ mutate: deleteRowsMutate }),
   useListDatabasesQuery: () => ({ data: [] }),
   useDatabaseRowsQuery: () => ({ data: [] }),
+  useDatabaseTemplatesQuery: () => ({ data: templatesHolder.value }),
+}));
+
+const templatesHolder = vi.hoisted(() => ({
+  value: [] as { id: string; name: string; icon: string | null }[],
 }));
 
 const openPeek = vi.fn();
@@ -162,6 +167,7 @@ describe("TableView", () => {
     onReorderColumns.mockReset();
     navigate.mockReset();
     openPeek.mockReset();
+    templatesHolder.value = [];
   });
 
   it("renders a header per property", () => {
@@ -269,6 +275,30 @@ describe("TableView", () => {
   });
 
   it("creates a row when the add-row button is clicked", () => {
+    renderGrid();
+    fireEvent.click(screen.getByText("+ Row"));
+    expect(createRowMutate).toHaveBeenCalledWith({ databaseId: "db1" });
+  });
+
+  it("hides the template dropdown when the database has no templates", () => {
+    templatesHolder.value = [];
+    renderGrid();
+    expect(screen.queryByLabelText("Create row from template")).toBeNull();
+  });
+
+  it("shows a template dropdown and creates a templated row when one is picked", () => {
+    templatesHolder.value = [{ id: "t1", name: "Bug", icon: null }];
+    renderGrid();
+    fireEvent.click(screen.getByLabelText("Create row from template"));
+    fireEvent.click(screen.getByText("Bug"));
+    expect(createRowMutate).toHaveBeenCalledWith({
+      databaseId: "db1",
+      templateId: "t1",
+    });
+  });
+
+  it("keeps the plain add-row body click templateId-free even with templates", () => {
+    templatesHolder.value = [{ id: "t1", name: "Bug", icon: null }];
     renderGrid();
     fireEvent.click(screen.getByText("+ Row"));
     expect(createRowMutate).toHaveBeenCalledWith({ databaseId: "db1" });

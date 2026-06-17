@@ -81,6 +81,10 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDeleteRowsMutation: () => ({ mutate: vi.fn() }),
   useUpdateRowTitleMutation: () => ({ mutate: vi.fn() }),
   useListDatabasesQuery: () => ({ data: [] }),
+  useDatabaseTemplatesQuery: () => ({ data: [] }),
+  useCreateTemplateMutation: () => ({ mutate: vi.fn() }),
+  useUpdateTemplateMutation: () => ({ mutate: vi.fn() }),
+  useDeleteTemplateMutation: () => ({ mutate: vi.fn() }),
 }));
 
 function makeView(id: string, name: string, isDefault = false, config: any = {}) {

@@ -223,6 +223,49 @@ export interface ICreateRowParams {
   databaseId: string;
   title?: string;
   icon?: string;
+  // When given, the server applies the template's propertyValues + content to
+  // the new row atomically (issue #91). Mutually independent of title/icon.
+  templateId?: string;
+}
+
+export interface IDatabaseTemplate {
+  id: string;
+  databaseId: string;
+  name: string;
+  icon: string | null;
+  // Preset property values keyed by propertyId, each a tagged IPropertyValue
+  // (same shape setValue stores).
+  propertyValues: Record<string, IPropertyValue> | null;
+  // Prosemirror document JSON applied as the new row's body.
+  content: Record<string, unknown> | null;
+  position: string;
+  workspaceId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IListTemplatesParams {
+  databaseId: string;
+}
+
+export interface ICreateTemplateParams {
+  databaseId: string;
+  name: string;
+  icon?: string;
+  propertyValues?: Record<string, IPropertyValue>;
+  content?: Record<string, unknown>;
+}
+
+export interface IUpdateTemplateParams {
+  templateId: string;
+  name?: string;
+  icon?: string;
+  propertyValues?: Record<string, IPropertyValue>;
+  content?: Record<string, unknown>;
+}
+
+export interface ITemplateIdParams {
+  templateId: string;
 }
 
 export interface ISetValueParams {

@@ -16,6 +16,7 @@ import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
 import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
+import { DatabaseTemplateRepo } from '@docmost/db/repos/database/database-template.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
   SpaceCaslAction,
@@ -49,6 +50,7 @@ describe('DatabaseRowService', () => {
     Pick<DatabasePropertyValueRepo, 'findByPageIds' | 'setValue' | 'clearValue'>
   >;
   let pageRepo: jest.Mocked<Pick<PageRepo, 'findById' | 'findManyByIds'>>;
+  let templateRepo: jest.Mocked<Pick<DatabaseTemplateRepo, 'findById'>>;
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
 
   beforeEach(async () => {
@@ -70,6 +72,7 @@ describe('DatabaseRowService', () => {
       findById: jest.fn(),
       findManyByIds: jest.fn().mockResolvedValue([]),
     } as any;
+    templateRepo = { findById: jest.fn() } as any;
     spaceAbility = {
       createForUser: jest.fn().mockResolvedValue(abilityMock(true)),
     } as any;
@@ -82,6 +85,7 @@ describe('DatabaseRowService', () => {
         { provide: DatabasePropertyRepo, useValue: propertyRepo },
         { provide: DatabasePropertyValueRepo, useValue: valueRepo },
         { provide: PageRepo, useValue: pageRepo },
+        { provide: DatabaseTemplateRepo, useValue: templateRepo },
         { provide: SpaceAbilityFactory, useValue: spaceAbility },
       ],
     }).compile();
@@ -124,6 +128,155 @@ describe('DatabaseRowService', () => {
         'doc',
       );
       expect(result).toBe(page);
+      expect(templateRepo.findById).not.toHaveBeenCalled();
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+    });
+
+    describe('with templateId', () => {
+      const template: any = {
+        id: 'tpl-1',
+        databaseId: 'db-1',
+        name: 'Bug report',
+        icon: '🐛',
+        content: { type: 'doc', content: [] },
+        propertyValues: {
+          'p-status': { type: 'select', value: 'opt-1' },
+        },
+      };
+
+      beforeEach(() => {
+        pageService.create.mockResolvedValue({ id: 'row-1' } as any);
+        propertyRepo.findByDatabaseId.mockResolvedValue([
+          { id: 'p-status', type: 'select', config: {} },
+        ] as any);
+      });
+
+      it('seeds template content and applies property values', async () => {
+        templateRepo.findById.mockResolvedValue(template);
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          title: 'Row',
+          templateId: 'tpl-1',
+        } as any);
+
+        expect(templateRepo.findById).toHaveBeenCalledWith('tpl-1');
+        expect(pageService.create).toHaveBeenCalledWith(
+          user.id,
+          workspace.id,
+          expect.objectContaining({
+            spaceId: 'space-1',
+            parentPageId: 'dbpage-1',
+            title: 'Row',
+            content: template.content,
+            format: 'json',
+          }),
+          'doc',
+        );
+        expect(valueRepo.setValue).toHaveBeenCalledWith({
+          pageId: 'row-1',
+          propertyId: 'p-status',
+          value: { type: 'select', value: 'opt-1' },
+        });
+      });
+
+      it('throws NotFound for a missing template', async () => {
+        templateRepo.findById.mockResolvedValue(undefined);
+        await expect(
+          service.createRow(user, workspace, {
+            databaseId: 'db-1',
+            templateId: 'tpl-x',
+          } as any),
+        ).rejects.toBeInstanceOf(NotFoundException);
+        expect(pageService.create).not.toHaveBeenCalled();
+      });
+
+      it('throws BadRequest for a template of another database', async () => {
+        templateRepo.findById.mockResolvedValue({
+          ...template,
+          databaseId: 'other-db',
+        });
+        await expect(
+          service.createRow(user, workspace, {
+            databaseId: 'db-1',
+            templateId: 'tpl-1',
+          } as any),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(pageService.create).not.toHaveBeenCalled();
+      });
+
+      it('skips property values for properties not in this database', async () => {
+        templateRepo.findById.mockResolvedValue({
+          ...template,
+          propertyValues: {
+            'p-status': { type: 'select', value: 'opt-1' },
+            'p-foreign': { type: 'text', value: 'x' },
+          },
+        });
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          templateId: 'tpl-1',
+        } as any);
+
+        expect(valueRepo.setValue).toHaveBeenCalledTimes(1);
+        expect(valueRepo.setValue).toHaveBeenCalledWith({
+          pageId: 'row-1',
+          propertyId: 'p-status',
+          value: { type: 'select', value: 'opt-1' },
+        });
+      });
+
+      it('falls back to template name/icon when dto omits them', async () => {
+        templateRepo.findById.mockResolvedValue(template);
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          templateId: 'tpl-1',
+        } as any);
+
+        expect(pageService.create).toHaveBeenCalledWith(
+          user.id,
+          workspace.id,
+          expect.objectContaining({
+            title: 'Bug report',
+            icon: '🐛',
+          }),
+          'doc',
+        );
+      });
+
+      it('does not seed content when template content is null', async () => {
+        templateRepo.findById.mockResolvedValue({
+          ...template,
+          content: null,
+        });
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          templateId: 'tpl-1',
+        } as any);
+
+        const arg = pageService.create.mock.calls[0][2] as any;
+        expect(arg.content).toBeUndefined();
+        expect(arg.format).toBeUndefined();
+      });
+
+      it('skips an invalid tagged value (type mismatch)', async () => {
+        templateRepo.findById.mockResolvedValue({
+          ...template,
+          propertyValues: {
+            'p-status': { type: 'text', value: 'wrong-type' },
+          },
+        });
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          templateId: 'tpl-1',
+        } as any);
+
+        expect(valueRepo.setValue).not.toHaveBeenCalled();
+      });
     });
   });
 
