@@ -32,7 +32,7 @@ function row(id: string, title: string) {
   return { row: { id, title }, values: [] };
 }
 
-function renderCell(value: any) {
+function renderCell(value: any, showEmptyPlaceholder = false) {
   return render(
     <MantineProvider>
       <RelationCell
@@ -40,6 +40,7 @@ function renderCell(value: any) {
         value={value}
         pageId="page1"
         databaseId="db1"
+        showEmptyPlaceholder={showEmptyPlaceholder}
       />
     </MantineProvider>,
   );
@@ -102,6 +103,20 @@ describe("RelationCell", () => {
       propertyId: "rel1",
     });
     expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("shows a dimmed Empty placeholder in the panel and opens on click", () => {
+    renderCell({ type: "relation", value: [] }, true);
+    expect(screen.getByText("Empty")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Projects"));
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
+  });
+
+  it("omits the Empty placeholder in the grid but stays clickable", () => {
+    renderCell({ type: "relation", value: [] }, false);
+    expect(screen.queryByText("Empty")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Projects"));
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
   });
 
   it("filters the row list by title", () => {

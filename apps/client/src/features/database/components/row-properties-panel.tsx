@@ -73,6 +73,7 @@ export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
               value={values.find((v) => v.propertyId === property.id)}
               pageId={page.id}
               databaseId={databaseId}
+              showEmptyPlaceholder
             />
           </div>
         </Group>

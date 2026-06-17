@@ -1,13 +1,26 @@
 import { useState } from "react";
 import { TextInput, Text } from "@mantine/core";
+import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
-import { inlineDisplayStyle, inlineInputStyles } from "./inline-text";
+import {
+  INLINE_EMPTY_PLACEHOLDER,
+  inlineDisplayStyle,
+  inlineInputStyles,
+  inlinePlaceholderStyle,
+} from "./inline-text";
 
-export function TextCell({ property, value, pageId, databaseId }: CellProps) {
+export function TextCell({
+  property,
+  value,
+  pageId,
+  databaseId,
+  showEmptyPlaceholder,
+}: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const stored = typeof value?.value === "string" ? value.value : "";
@@ -53,9 +66,15 @@ export function TextCell({ property, value, pageId, databaseId }: CellProps) {
     );
   }
 
+  const showPlaceholder = !stored && showEmptyPlaceholder;
   return (
-    <Text size="sm" onClick={startEdit} style={inlineDisplayStyle}>
-      {stored}
+    <Text
+      size="sm"
+      c={showPlaceholder ? "dimmed" : undefined}
+      onClick={startEdit}
+      style={showPlaceholder ? inlinePlaceholderStyle : inlineDisplayStyle}
+    >
+      {stored || (showPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : "")}
     </Text>
   );
 }

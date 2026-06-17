@@ -26,8 +26,15 @@ import {
 import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
 import { OptionEditPanel } from "@/features/database/components/property/option-edit-panel.tsx";
 import { CellProps } from "./cell-props";
+import { INLINE_EMPTY_PLACEHOLDER } from "./inline-text";
 
-export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
+export function SelectCell({
+  property,
+  value,
+  pageId,
+  databaseId,
+  showEmptyPlaceholder,
+}: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
@@ -126,7 +133,9 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
   return (
     <Combobox
       store={combobox}
-      withinPortal={false}
+      // Inline in the grid, portal in the row panel (whose overflow:hidden value
+      // wrapper would otherwise clip the dropdown to the row, #93 follow-up).
+      withinPortal={!!showEmptyPlaceholder}
       onOptionSubmit={(val) => {
         if (val === "$clear") return clear();
         if (val === "$create") return createAndSelect();
@@ -142,8 +151,12 @@ export function SelectCell({ property, value, pageId, databaseId }: CellProps) {
           {selected ? (
             <OptionPill color={selected.color} label={selected.label} />
           ) : (
-            <Text size="sm" c="dimmed">
-              {""}
+            <Text
+              size="sm"
+              c="dimmed"
+              style={showEmptyPlaceholder ? { fontStyle: "italic" } : undefined}
+            >
+              {showEmptyPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : ""}
             </Text>
           )}
         </UnstyledButton>
