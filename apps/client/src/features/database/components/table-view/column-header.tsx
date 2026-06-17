@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
-import { IconGripVertical } from "@tabler/icons-react";
+import { IconArrowsLeftRight, IconGripVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -203,6 +203,15 @@ export function ColumnHeader({
               >
                 <IconGripVertical size={14} />
               </ActionIcon>
+              {property.type === "relation" && (
+                <IconArrowsLeftRight
+                  size={13}
+                  stroke={1.8}
+                  color="var(--mantine-color-dimmed)"
+                  aria-label={t("Relation")}
+                  style={{ flexShrink: 0 }}
+                />
+              )}
               <Text
                 size="sm"
                 fw={500}
@@ -270,6 +279,15 @@ export function ColumnHeader({
                     <>
                       <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
                       <Menu.Item onClick={onHide}>{t("Hide column")}</Menu.Item>
+                      {property.type === "relation" && (
+                        <Menu.Item
+                          closeMenuOnClick={false}
+                          leftSection={<IconArrowsLeftRight size={14} />}
+                          onClick={() => setPickingRelation(true)}
+                        >
+                          {t("Change relation target")}
+                        </Menu.Item>
+                      )}
                       <Menu.Label>{t("Type")}</Menu.Label>
                       {/* Each type is a Menu.Item, not a nested <Select>: a Select
                         renders its options in a portal, and clicking one counts

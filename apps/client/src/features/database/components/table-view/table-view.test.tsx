@@ -32,6 +32,14 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
+const openPeek = vi.fn();
+vi.mock(
+  "@/features/database/components/relation-peek/use-page-peek.tsx",
+  () => ({
+    usePagePeek: () => ({ open: openPeek }),
+  }),
+);
+
 import { TableView } from "./table-view";
 import {
   IDatabaseProperty,
@@ -153,6 +161,7 @@ describe("TableView", () => {
     onResizeTitle.mockReset();
     onReorderColumns.mockReset();
     navigate.mockReset();
+    openPeek.mockReset();
   });
 
   it("renders a header per property", () => {
@@ -241,16 +250,16 @@ describe("TableView", () => {
     });
   });
 
-  it("navigates to the row page when the open trigger is clicked", () => {
+  it("opens the row peek in the side panel from the open icon", () => {
     renderGrid();
-    fireEvent.click(screen.getByLabelText("Open row"));
-    expect(navigate).toHaveBeenCalledWith("/s/my-space/p/first-slug1");
+    fireEvent.click(screen.getAllByLabelText("Open in side panel")[0]);
+    expect(openPeek).toHaveBeenCalledWith("row1", "aside");
   });
 
-  it("does not navigate when the title text is clicked (edits instead)", () => {
+  it("does not open the peek when the title text is clicked (edits instead)", () => {
     renderGrid();
     fireEvent.click(screen.getByText("First"));
-    expect(navigate).not.toHaveBeenCalled();
+    expect(openPeek).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Row title")).toBeTruthy();
   });
 

@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  Combobox,
-  Group,
-  Text,
-  UnstyledButton,
-  useCombobox,
-} from "@mantine/core";
+import { Combobox, Group, Text, useCombobox } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
@@ -13,7 +7,8 @@ import {
   useDefaultViewId,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
-import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
+import { IconCheck } from "@tabler/icons-react";
+import { PageRefChip, PageGlyph } from "./page-ref-chip";
 import { CellProps } from "./cell-props";
 import { INLINE_EMPTY_PLACEHOLDER } from "./inline-text";
 
@@ -47,9 +42,7 @@ export function RelationCell({
   const selectedIds: string[] = Array.isArray(value?.value)
     ? (value!.value as string[])
     : [];
-  const titleById = new Map(
-    (rows ?? []).map((r) => [r.row.id, r.row.title ?? ""]),
-  );
+  const rowById = new Map((rows ?? []).map((r) => [r.row.id, r.row]));
 
   function commit(ids: string[]) {
     const unique = [...new Set(ids)];
@@ -88,14 +81,26 @@ export function RelationCell({
       onOptionSubmit={(val) => toggle(val)}
     >
       <Combobox.Target>
-        <UnstyledButton
+        {/* A div (not a button) so the page chips can nest their own open-icon
+            buttons. Clicking anywhere here that isn't an open-icon (incl. a
+            chip title) opens the relation picker; the chip icons stop
+            propagation and open the peek instead. */}
+        <div
+          role="button"
+          tabIndex={0}
           aria-label={property.name}
           onClick={() => combobox.toggleDropdown()}
-          style={{ width: "100%", minHeight: 20, textAlign: "left" }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              combobox.toggleDropdown();
+            }
+          }}
+          style={{ width: "100%", minHeight: 20, textAlign: "left", cursor: "pointer" }}
         >
           <Group gap={4} wrap="wrap">
             {selectedIds.length === 0
-              ? // Empty relation: the button already spans the cell so it is
+              ? // Empty relation: the target already spans the cell so it is
                 // clickable, but the panel needs a visible hint to read as
                 // editable (#93 follow-up). Grid leaves it blank to avoid noise.
                 showEmptyPlaceholder && (
@@ -103,23 +108,29 @@ export function RelationCell({
                     {t(INLINE_EMPTY_PLACEHOLDER)}
                   </Text>
                 )
-              : selectedIds.map((id) =>
-                  titleById.has(id) ? (
-                    <OptionPill
-                      key={id}
-                      color="gray"
-                      label={titleById.get(id) || "Untitled"}
-                    />
-                  ) : (
+              : selectedIds.map((id) => {
+                  const row = rowById.get(id);
+                  if (!row) {
                     // The referenced row was deleted; show a placeholder instead
                     // of crashing. Dangling-reference cleanup is out of scope (#20).
-                    <Text key={id} size="xs" c="dimmed">
-                      (deleted)
-                    </Text>
-                  ),
-                )}
+                    return (
+                      <Text key={id} size="xs" c="dimmed">
+                        (deleted)
+                      </Text>
+                    );
+                  }
+                  return (
+                    <PageRefChip
+                      key={id}
+                      pageId={id}
+                      title={row.title || "Untitled"}
+                      icon={row.icon}
+                      pageType={(row as { pageType?: string }).pageType}
+                    />
+                  );
+                })}
           </Group>
-        </UnstyledButton>
+        </div>
       </Combobox.Target>
       <Combobox.Dropdown>
         <Combobox.Search
@@ -128,18 +139,24 @@ export function RelationCell({
           placeholder="Search..."
         />
         <Combobox.Options>
+          {opened && filtered.length === 0 && (
+            <Combobox.Empty>No pages found</Combobox.Empty>
+          )}
           {opened &&
             filtered.map((r) => (
               <Combobox.Option value={r.row.id} key={r.row.id}>
                 <Group gap="xs" justify="space-between" wrap="nowrap">
-                  <OptionPill
-                    color="gray"
-                    label={r.row.title || "Untitled"}
-                  />
-                  {selectedIds.includes(r.row.id) && (
-                    <Text size="xs" c="dimmed">
-                      ✓
+                  <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                    <PageGlyph
+                      icon={r.row.icon}
+                      pageType={(r.row as { pageType?: string }).pageType}
+                    />
+                    <Text size="sm" lineClamp={1}>
+                      {r.row.title || "Untitled"}
                     </Text>
+                  </Group>
+                  {selectedIds.includes(r.row.id) && (
+                    <IconCheck size={16} stroke={2} />
                   )}
                 </Group>
               </Combobox.Option>
