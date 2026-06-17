@@ -145,6 +145,7 @@ function renderContainer() {
 
 describe("DatabaseViewContainer", () => {
   beforeEach(() => {
+    localStorage.clear();
     databaseCollab.mockReset();
     rowsQuery.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });

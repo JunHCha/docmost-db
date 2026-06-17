@@ -140,6 +140,7 @@ vi.mock("./toolbar/view-toolbar", () => ({
 }));
 
 import { DatabaseView } from "./database-view";
+import { viewDraftStorageKey } from "./view-draft-storage";
 
 // Note: no MemoryRouter — DatabaseView must mount without any route context,
 // which is exactly what the inline embed (issue #24) needs.
@@ -167,6 +168,9 @@ function renderView(
 
 describe("DatabaseView", () => {
   beforeEach(() => {
+    // Deferred-save persists dirty drafts to localStorage (#92); clear it so a
+    // draft from one test can't restore into the next and skew dirty state.
+    localStorage.clear();
     sortClicks = 0;
     rowsQuery.mockReset();
     updateViewMutate.mockReset();
@@ -248,6 +252,45 @@ describe("DatabaseView", () => {
     fireEvent.click(screen.getByText("Discard"));
     expect(updateViewMutate).not.toHaveBeenCalled();
     expect(screen.queryByText("Save changes")).toBeNull();
+  });
+
+  it("silently restores a persisted dirty draft when its baseline still matches (#92)", () => {
+    // A draft stored before navigating away; baseline === the current saved
+    // config ({}), so on return it is restored and the actions reappear without
+    // any new edit.
+    localStorage.setItem(
+      viewDraftStorageKey("db1", undefined, "v1"),
+      JSON.stringify({
+        baseline: {},
+        draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
+      }),
+    );
+    renderView();
+    expect(screen.getByText("Save changes")).toBeTruthy();
+    expect(screen.getByText("Discard")).toBeTruthy();
+  });
+
+  it("drops a persisted draft whose baseline no longer matches the saved config (#92)", () => {
+    // Server config moved on (now carries a sort) since the draft was stored, so
+    // the stale draft is discarded — server-latest wins — and the slot cleared.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "asc" }],
+        }),
+      ],
+    });
+    const key = viewDraftStorageKey("db1", undefined, "v1");
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        baseline: {},
+        draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
+      }),
+    );
+    renderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(localStorage.getItem(key)).toBeNull();
   });
 
   it("keeps repeated sort edits consistent — no mid-sequence divergence (bug1)", () => {

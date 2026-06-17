@@ -18,6 +18,12 @@ import {
 } from "@/features/database/filters/sanitize.ts";
 import { echoColumns } from "./table-view/view-columns";
 import { isDraftDirty } from "./view-draft";
+import {
+  clearViewDraft,
+  readViewDraft,
+  viewDraftStorageKey,
+  writeViewDraft,
+} from "./view-draft-storage";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
 import { CalendarView } from "./calendar-view/calendar-view";
@@ -101,9 +107,32 @@ export function DatabaseView({
   savedConfigRef.current = activeView?.config;
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  // localStorage slot for this view scope; "" until a view is resolved. Read in
+  // the reseed effect through a ref so it stays current without being a dep.
+  const storageKey = activeViewId
+    ? viewDraftStorageKey(databaseId, embedId, activeViewId)
+    : "";
+  const storageKeyRef = useRef(storageKey);
+  storageKeyRef.current = storageKey;
   useEffect(() => {
-    if (!isDraftDirty(draftRef.current, savedConfigRef.current)) {
-      setDraft(savedConfigRef.current ?? {});
+    // Tab switch / mount. Never clobber an in-memory dirty draft mid-edit.
+    if (isDraftDirty(draftRef.current, savedConfigRef.current)) return;
+    const saved = savedConfigRef.current ?? {};
+    const key = storageKeyRef.current;
+    const stored = key ? readViewDraft(key) : null;
+    // Restore a persisted draft only if it is still based on the CURRENT saved
+    // config (baseline matches) and actually differs from it. A moved baseline
+    // means the server changed underneath, so drop the stale draft — the user
+    // chose server-latest-wins.
+    if (
+      stored &&
+      !isDraftDirty(stored.baseline, saved) &&
+      isDraftDirty(stored.draft, saved)
+    ) {
+      setDraft(stored.draft);
+    } else {
+      if (stored && key) clearViewDraft(key);
+      setDraft(saved);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeViewId]);
@@ -111,6 +140,15 @@ export function DatabaseView({
   const filters = useMemo(() => draft.filters ?? [], [draft.filters]);
   const sorts = useMemo(() => draft.sorts ?? [], [draft.sorts]);
   const dirty = isDraftDirty(draft, activeView?.config);
+
+  // Mirror a dirty draft to localStorage so navigating away and back restores
+  // the unsaved edits; clear the slot once the draft is saved or reverted
+  // (dirty=false), which also covers the post-save server echo (#92 follow-up).
+  useEffect(() => {
+    if (!storageKey) return;
+    if (dirty) writeViewDraft(storageKey, activeView?.config ?? {}, draft);
+    else clearViewDraft(storageKey);
+  }, [storageKey, dirty, draft, activeView?.config]);
 
   // The rows query gets a sanitized copy of the DRAFT: in-progress rows (an
   // added filter without a value yet) are dropped so they don't blank the grid.
