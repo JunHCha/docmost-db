@@ -53,6 +53,7 @@ const service = {
   deleteProperty: vi.fn(),
   reorderProperty: vi.fn(),
   listDatabases: vi.fn(),
+  createDatabase: vi.fn(),
   createView: vi.fn(),
   updateView: vi.fn(),
   setDefaultView: vi.fn(),
@@ -69,7 +70,7 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   updateProperty: (...a: unknown[]) => service.updateProperty(...a),
   deleteProperty: (...a: unknown[]) => service.deleteProperty(...a),
   reorderProperty: (...a: unknown[]) => service.reorderProperty(...a),
-  createDatabase: vi.fn(),
+  createDatabase: (...a: unknown[]) => service.createDatabase(...a),
   getDatabaseInfo: (...a: unknown[]) => service.getDatabaseInfo(...a),
   listProperties: vi.fn(),
   listRows: (...a: unknown[]) => service.listRows(...a),
@@ -84,6 +85,7 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
 
 import {
   useClearValueMutation,
+  useCreateDatabaseMutation,
   useCreatePropertyMutation,
   useCreateRowMutation,
   useCreateViewMutation,
@@ -221,6 +223,37 @@ describe("useCreateRowMutation success path", () => {
     // Rows are not surfaced as sidebar child pages (Notion-like), so the
     // sidebar create cache must not be touched.
     expect(invalidateOnCreatePage).not.toHaveBeenCalled();
+  });
+});
+
+describe("useCreateDatabaseMutation success path", () => {
+  let invalidateSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    invalidateOnCreatePage.mockReset();
+    invalidateSpy = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+  });
+  afterEach(() => invalidateSpy.mockRestore());
+
+  it("invalidates the space's databases list so new DB shows in pickers without a refresh", async () => {
+    // Regression: the embed/relation database picker reads ["databases", spaceId];
+    // creating a DB must invalidate that key, otherwise the new database stays
+    // hidden behind the 5-min staleTime until a manual page refresh.
+    service.createDatabase.mockResolvedValue({
+      page: { id: "page1", spaceId: "space-1" },
+    });
+    const { result } = renderHook(() => useCreateDatabaseMutation(), {
+      wrapper,
+    });
+    result.current.mutate({ spaceId: "space-1" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databasesKey("space-1"),
+    });
+    // Still patches the sidebar caches like the regular page-create path.
+    expect(invalidateOnCreatePage).toHaveBeenCalled();
   });
 });
 
