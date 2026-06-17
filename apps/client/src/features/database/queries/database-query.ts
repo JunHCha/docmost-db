@@ -25,6 +25,10 @@ import {
   setValue,
   updateProperty,
   updateView,
+  listTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
 } from "@/features/database/services/database-service.ts";
 import {
   IClearValueParams,
@@ -47,6 +51,10 @@ import {
   IUpdatePropertyParams,
   IUpdateViewParams,
   IViewIdParams,
+  IDatabaseTemplate,
+  ICreateTemplateParams,
+  IUpdateTemplateParams,
+  ITemplateIdParams,
 } from "@/features/database/types/database.types.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
 import {
@@ -65,6 +73,7 @@ import {
   removeProperty,
   removeRows,
   removeRowValue,
+  templatesKey,
 } from "@/features/database/queries/database-cache.ts";
 import {
   invalidateOnCreatePage,
@@ -452,6 +461,65 @@ export function useDeleteViewMutation(databaseId: string, embedId?: string) {
     onError: () => {
       invalidateViews(databaseId, embedId);
       notifications.show({ message: t("Failed to delete view"), color: "red" });
+    },
+  });
+}
+
+// Row-creation templates (issue #91). Templates are database-scoped (not embed-
+// scoped), so every mutation invalidates the single ["database-templates", id]
+// slot. Mirrors the view CRUD hooks above.
+function invalidateTemplates(databaseId: string) {
+  queryClient.invalidateQueries({ queryKey: templatesKey(databaseId) });
+}
+
+export function useDatabaseTemplatesQuery(
+  databaseId: string,
+): UseQueryResult<IDatabaseTemplate[], Error> {
+  return useQuery({
+    queryKey: templatesKey(databaseId),
+    queryFn: () => listTemplates({ databaseId }),
+    enabled: !!databaseId,
+  });
+}
+
+export function useCreateTemplateMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<IDatabaseTemplate, Error, ICreateTemplateParams>({
+    mutationFn: (data) => createTemplate(data),
+    onSuccess: () => invalidateTemplates(databaseId),
+    onError: () => {
+      notifications.show({
+        message: t("Failed to create template"),
+        color: "red",
+      });
+    },
+  });
+}
+
+export function useUpdateTemplateMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<IDatabaseTemplate, Error, IUpdateTemplateParams>({
+    mutationFn: (data) => updateTemplate(data),
+    onSuccess: () => invalidateTemplates(databaseId),
+    onError: () => {
+      notifications.show({
+        message: t("Failed to update template"),
+        color: "red",
+      });
+    },
+  });
+}
+
+export function useDeleteTemplateMutation(databaseId: string) {
+  const { t } = useTranslation();
+  return useMutation<void, Error, ITemplateIdParams>({
+    mutationFn: (data) => deleteTemplate(data),
+    onSuccess: () => invalidateTemplates(databaseId),
+    onError: () => {
+      notifications.show({
+        message: t("Failed to delete template"),
+        color: "red",
+      });
     },
   });
 }
