@@ -2,11 +2,17 @@ import { useRef, useState } from "react";
 import { Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
+import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
+import {
+  INLINE_EMPTY_PLACEHOLDER,
+  inlineDisplayStyle,
+  inlinePlaceholderStyle,
+} from "./inline-text";
 
 const ISO = "YYYY-MM-DD";
 
@@ -18,7 +24,14 @@ function toIso(value: string | Date | null): string {
   return d.isValid() ? d.format(ISO) : "";
 }
 
-export function DateCell({ property, value, pageId, databaseId }: CellProps) {
+export function DateCell({
+  property,
+  value,
+  pageId,
+  databaseId,
+  showEmptyPlaceholder,
+}: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const stored = typeof value?.value === "string" ? value.value : "";
@@ -62,13 +75,15 @@ export function DateCell({ property, value, pageId, databaseId }: CellProps) {
     );
   }
 
+  const showPlaceholder = !stored && showEmptyPlaceholder;
   return (
     <Text
       size="sm"
+      c={showPlaceholder ? "dimmed" : undefined}
       onClick={() => setEditing(true)}
-      style={{ cursor: "text", minHeight: 20 }}
+      style={showPlaceholder ? inlinePlaceholderStyle : inlineDisplayStyle}
     >
-      {stored}
+      {stored || (showPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : "")}
     </Text>
   );
 }

@@ -26,12 +26,14 @@ import {
 import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
 import { OptionEditPanel } from "@/features/database/components/property/option-edit-panel.tsx";
 import { CellProps } from "./cell-props";
+import { INLINE_EMPTY_PLACEHOLDER } from "./inline-text";
 
 export function MultiSelectCell({
   property,
   value,
   pageId,
   databaseId,
+  showEmptyPlaceholder,
 }: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
@@ -140,7 +142,9 @@ export function MultiSelectCell({
   return (
     <Combobox
       store={combobox}
-      withinPortal={false}
+      // Inline in the grid, portal in the row panel (whose overflow:hidden value
+      // wrapper would otherwise clip the dropdown to the row, #93 follow-up).
+      withinPortal={!!showEmptyPlaceholder}
       onOptionSubmit={(val) => {
         if (val === "$create") return createAndAdd();
         toggle(val);
@@ -153,9 +157,15 @@ export function MultiSelectCell({
           style={{ width: "100%", minHeight: 20, textAlign: "left" }}
         >
           <Group gap={4}>
-            {selectedOptions.map((o) => (
-              <OptionPill key={o.id} color={o.color} label={o.label} />
-            ))}
+            {selectedOptions.length === 0
+              ? showEmptyPlaceholder && (
+                  <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
+                    {t(INLINE_EMPTY_PLACEHOLDER)}
+                  </Text>
+                )
+              : selectedOptions.map((o) => (
+                  <OptionPill key={o.id} color={o.color} label={o.label} />
+                ))}
           </Group>
         </UnstyledButton>
       </Combobox.Target>

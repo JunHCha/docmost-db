@@ -6,6 +6,7 @@ import {
   UnstyledButton,
   useCombobox,
 } from "@mantine/core";
+import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
   useDatabaseRowsQuery,
@@ -14,13 +15,16 @@ import {
 } from "@/features/database/queries/database-query.ts";
 import { OptionPill } from "@/features/database/components/property/option-pill.tsx";
 import { CellProps } from "./cell-props";
+import { INLINE_EMPTY_PLACEHOLDER } from "./inline-text";
 
 export function RelationCell({
   property,
   value,
   pageId,
   databaseId,
+  showEmptyPlaceholder,
 }: CellProps) {
+  const { t } = useTranslation();
   const targetDatabaseId =
     typeof property.config?.targetDatabaseId === "string"
       ? property.config.targetDatabaseId
@@ -77,7 +81,10 @@ export function RelationCell({
   return (
     <Combobox
       store={combobox}
-      withinPortal={false}
+      // Inline in the grid, but portal in the row panel: the panel's value
+      // wrapper is overflow:hidden and would clip an inline dropdown to the
+      // ~30px row, so it never appears (#93 follow-up).
+      withinPortal={!!showEmptyPlaceholder}
       onOptionSubmit={(val) => toggle(val)}
     >
       <Combobox.Target>
@@ -87,21 +94,30 @@ export function RelationCell({
           style={{ width: "100%", minHeight: 20, textAlign: "left" }}
         >
           <Group gap={4} wrap="wrap">
-            {selectedIds.map((id) =>
-              titleById.has(id) ? (
-                <OptionPill
-                  key={id}
-                  color="gray"
-                  label={titleById.get(id) || "Untitled"}
-                />
-              ) : (
-                // The referenced row was deleted; show a placeholder instead of
-                // crashing. Dangling-reference cleanup is out of scope (#20).
-                <Text key={id} size="xs" c="dimmed">
-                  (deleted)
-                </Text>
-              ),
-            )}
+            {selectedIds.length === 0
+              ? // Empty relation: the button already spans the cell so it is
+                // clickable, but the panel needs a visible hint to read as
+                // editable (#93 follow-up). Grid leaves it blank to avoid noise.
+                showEmptyPlaceholder && (
+                  <Text size="xs" c="dimmed" style={{ fontStyle: "italic" }}>
+                    {t(INLINE_EMPTY_PLACEHOLDER)}
+                  </Text>
+                )
+              : selectedIds.map((id) =>
+                  titleById.has(id) ? (
+                    <OptionPill
+                      key={id}
+                      color="gray"
+                      label={titleById.get(id) || "Untitled"}
+                    />
+                  ) : (
+                    // The referenced row was deleted; show a placeholder instead
+                    // of crashing. Dangling-reference cleanup is out of scope (#20).
+                    <Text key={id} size="xs" c="dimmed">
+                      (deleted)
+                    </Text>
+                  ),
+                )}
           </Group>
         </UnstyledButton>
       </Combobox.Target>
