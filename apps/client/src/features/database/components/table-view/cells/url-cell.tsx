@@ -12,6 +12,7 @@ import {
   INLINE_ROW_HEIGHT,
   inlineDisplayStyle,
   inlineInputStyles,
+  inlinePlaceholderStyle,
 } from "./inline-text";
 
 // Turn a stored url into an absolute href. A scheme-less value like
@@ -124,7 +125,7 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
           size="sm"
           c="dimmed"
           onClick={startEdit}
-          style={{ ...inlineDisplayStyle, flex: 1, minWidth: 0 }}
+          style={{ ...inlinePlaceholderStyle, flex: 1, minWidth: 0 }}
         >
           {t(INLINE_EMPTY_PLACEHOLDER)}
         </Text>

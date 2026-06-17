@@ -8,7 +8,11 @@ import {
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
-import { INLINE_EMPTY_PLACEHOLDER, inlineDisplayStyle } from "./inline-text";
+import {
+  INLINE_EMPTY_PLACEHOLDER,
+  inlineDisplayStyle,
+  inlinePlaceholderStyle,
+} from "./inline-text";
 
 const ISO = "YYYY-MM-DD";
 
@@ -70,7 +74,7 @@ export function DateCell({ property, value, pageId, databaseId }: CellProps) {
       size="sm"
       c={stored ? undefined : "dimmed"}
       onClick={() => setEditing(true)}
-      style={inlineDisplayStyle}
+      style={stored ? inlineDisplayStyle : inlinePlaceholderStyle}
     >
       {stored || t(INLINE_EMPTY_PLACEHOLDER)}
     </Text>

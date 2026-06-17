@@ -34,3 +34,12 @@ export const inlineDisplayStyle = {
 // Placeholder text shown in an empty inline cell. Kept dimmed so it reads as a
 // hint, not a value, and gives the otherwise-blank box a visible click target.
 export const INLINE_EMPTY_PLACEHOLDER = "Empty";
+
+// Display style for the empty-value placeholder: same click box as a value, but
+// rendered slightly smaller and italic (paired with c="dimmed") so it reads as a
+// faint hint rather than real content.
+export const inlinePlaceholderStyle = {
+  ...inlineDisplayStyle,
+  fontStyle: "italic",
+  fontSize: "var(--mantine-font-size-xs)",
+} as const;

@@ -10,6 +10,7 @@ import {
   INLINE_EMPTY_PLACEHOLDER,
   inlineDisplayStyle,
   inlineInputStyles,
+  inlinePlaceholderStyle,
 } from "./inline-text";
 
 export function NumberCell({ property, value, pageId, databaseId }: CellProps) {
@@ -67,7 +68,7 @@ export function NumberCell({ property, value, pageId, databaseId }: CellProps) {
       size="sm"
       c={stored ? undefined : "dimmed"}
       onClick={startEdit}
-      style={inlineDisplayStyle}
+      style={stored ? inlineDisplayStyle : inlinePlaceholderStyle}
     >
       {stored || t(INLINE_EMPTY_PLACEHOLDER)}
     </Text>
