@@ -13,6 +13,14 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDefaultViewId: () => "v1",
 }));
 
+const openPeek = vi.fn();
+vi.mock(
+  "@/features/database/components/relation-peek/use-page-peek.tsx",
+  () => ({
+    usePagePeek: () => ({ open: openPeek }),
+  }),
+);
+
 import { RelationCell } from "./relation-cell";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
@@ -28,8 +36,8 @@ const property: IDatabaseProperty = {
   deletedAt: null,
 };
 
-function row(id: string, title: string) {
-  return { row: { id, title }, values: [] };
+function row(id: string, title: string, icon?: string) {
+  return { row: { id, title, icon }, values: [] };
 }
 
 function renderCell(value: any, showEmptyPlaceholder = false) {
@@ -50,6 +58,7 @@ describe("RelationCell", () => {
   beforeEach(() => {
     setMutate.mockReset();
     clearMutate.mockReset();
+    openPeek.mockReset();
     rowsData = [row("r1", "Alpha"), row("r2", "Beta")];
   });
 
@@ -127,5 +136,38 @@ describe("RelationCell", () => {
     const options = screen.getAllByRole("option");
     expect(options.some((o) => o.textContent?.includes("Alpha"))).toBe(true);
     expect(options.some((o) => o.textContent?.includes("Beta"))).toBe(false);
+  });
+
+  it("renders each selected value as a page block with its icon", () => {
+    rowsData = [row("r1", "Alpha", "🚀")];
+    renderCell({ type: "relation", value: ["r1"] });
+    expect(screen.getByText("Alpha")).toBeTruthy();
+    expect(screen.getByText("🚀")).toBeTruthy();
+  });
+
+  it("opens the peek in the aside / modal host from the chip icons", () => {
+    renderCell({ type: "relation", value: ["r1"] });
+    fireEvent.click(screen.getByLabelText("Open in side panel"));
+    expect(openPeek).toHaveBeenCalledWith("r1", "aside");
+    fireEvent.click(screen.getByLabelText("Open in modal"));
+    expect(openPeek).toHaveBeenCalledWith("r1", "modal");
+  });
+
+  it("opens the relation picker when the chip title is clicked", () => {
+    renderCell({ type: "relation", value: ["r1"] });
+    fireEvent.click(screen.getByText("Alpha"));
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
+  });
+
+  it("does not open the picker when a chip open-icon is clicked", () => {
+    renderCell({ type: "relation", value: ["r1"] });
+    fireEvent.click(screen.getByLabelText("Open in side panel"));
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("does not render the deleted placeholder as a clickable chip", () => {
+    renderCell({ type: "relation", value: ["gone"] });
+    expect(screen.queryByLabelText("Open in side panel")).toBeNull();
+    expect(screen.getByText("(deleted)")).toBeTruthy();
   });
 });

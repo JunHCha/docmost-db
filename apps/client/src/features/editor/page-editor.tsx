@@ -83,6 +83,16 @@ interface PageEditorProps {
   editable: boolean;
   content: any;
   canComment?: boolean;
+  // Peek mode: the editor is mounted for a page OTHER than the current route
+  // (e.g. a relation target previewed in an aside/modal, #94). In this mode the
+  // editor must not couple to the route or hijack global single-editor state:
+  // it reads slugId from props instead of useParams, skips setting the global
+  // pageEditorAtom / asideState, and stays editable regardless of the global
+  // page edit-mode toggle. Collab still syncs to the real doc (page.${pageId}).
+  embedded?: boolean;
+  // The page's own slugId. Required in embedded mode since useParams() would
+  // resolve to the host route's page, not this one. Ignored when not embedded.
+  slugId?: string;
 }
 
 export default function PageEditor({
@@ -90,6 +100,8 @@ export default function PageEditor({
   editable,
   content,
   canComment,
+  embedded = false,
+  slugId: slugIdProp,
 }: PageEditorProps) {
   const { t } = useTranslation();
   const collaborationURL = useCollaborationUrl();
@@ -116,7 +128,9 @@ export default function PageEditor({
   const { isIdle, resetIdle } = useIdle(FIVE_MINUTES, { initialState: false });
   const documentState = useDocumentVisibility();
   const { pageSlug } = useParams();
-  const slugId = extractPageSlugId(pageSlug);
+  // In embedded (peek) mode the route points at the HOST page, not this one, so
+  // the page's slugId is passed in explicitly.
+  const slugId = embedded ? slugIdProp : extractPageSlugId(pageSlug);
   // Host space of the current page, used to scope the database picker list.
   const { data: page } = usePageQuery({ pageId: slugId });
   const [dbPickerOpened, setDbPickerOpened] = useState(false);
@@ -311,8 +325,12 @@ export default function PageEditor({
       },
       onCreate({ editor }) {
         if (editor) {
-          // @ts-ignore
-          setEditor(editor);
+          // Don't claim the global single-editor slot in peek mode — the host
+          // page's editor owns it (TOC / details / comments read from it).
+          if (!embedded) {
+            // @ts-ignore
+            setEditor(editor);
+          }
           // @ts-ignore
           editor.storage.pageId = pageId;
           handleScrollTo(editor);
@@ -384,6 +402,9 @@ export default function PageEditor({
   };
 
   useEffect(() => {
+    // Comments are driven through the global aside, which the peek must not
+    // touch — a peek reacting to comment events would fight the host editor.
+    if (embedded) return;
     document.addEventListener("ACTIVE_COMMENT_EVENT", handleActiveCommentEvent);
     return () => {
       document.removeEventListener(
@@ -391,13 +412,16 @@ export default function PageEditor({
         handleActiveCommentEvent,
       );
     };
-  }, []);
+  }, [embedded]);
 
   useEffect(() => {
+    // In peek mode this would close the very aside hosting the peek and reset
+    // the host page's comment state, so skip it.
+    if (embedded) return;
     setActiveCommentId(null);
     setShowCommentPopup(false);
     setAsideState({ tab: "", isAsideOpen: false });
-  }, [pageId]);
+  }, [pageId, embedded]);
 
   const isSynced = isLocalSynced && isRemoteSynced;
 
@@ -412,8 +436,12 @@ export default function PageEditor({
   }, [yjsConnectionStatus, isSynced]);
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(editable && currentPageEditMode === PageEditMode.Edit);
-  }, [currentPageEditMode, editor, editable]);
+    // Peek follows its own page-permission `editable` and ignores the global
+    // read/edit toggle (which belongs to the host page).
+    editor.setEditable(
+      editable && (embedded || currentPageEditMode === PageEditMode.Edit),
+    );
+  }, [currentPageEditMode, editor, editable, embedded]);
 
   const hasConnectedOnceRef = useRef(false);
   const [showStatic, setShowStatic] = useState(true);
@@ -452,7 +480,7 @@ export default function PageEditor({
               <SearchAndReplaceDialog editor={editor} editable={editable} />
             )}
 
-            {editor && editorIsEditable && page?.spaceId && (
+            {!embedded && editor && editorIsEditable && page?.spaceId && (
               <DatabasePickerModal
                 opened={dbPickerOpened}
                 spaceId={page.spaceId}
