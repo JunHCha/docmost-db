@@ -37,6 +37,20 @@ export interface GlobalDragHandleOptions {
 
   atomNodes: string[];
 }
+// Database embeds run their own drag-and-drop (column reorder, board cards)
+// through pragmatic-drag-and-drop. When the embed sits inside a page, those
+// drags fire inside the ProseMirror editor, and PM's built-in `dragstart`
+// handler bubbles first (it is bound on view.dom; pragmatic binds on document):
+// it calls `dataTransfer.clearData()` and sets `view.dragging`, which strips the
+// media type pragmatic uses to recognize its own drag. The result is that the
+// drop indicator never shows and column reorder silently fails — but only inside
+// embeds (standalone database pages have no editor). The grid marks its root with
+// `data-database-grid`; we detect drags originating there and bow out so PM never
+// runs its built-in handler and pragmatic drives the drag unimpeded.
+function isWithinDatabaseGrid(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest("[data-database-grid]");
+}
+
 function absoluteRect(node: Element) {
   const data = node.getBoundingClientRect();
   const modal = node.closest('[role="dialog"]');
@@ -472,10 +486,20 @@ export function DragHandlePlugin(
           hideDragHandle();
         },
         // dragging class is used for CSS
-        dragstart: (view) => {
+        dragstart: (view, event) => {
+          // Returning true makes ProseMirror skip its built-in dragstart handler
+          // (it does NOT preventDefault), so the native drag proceeds and
+          // pragmatic-drag-and-drop drives the embedded grid's own drag — see
+          // isWithinDatabaseGrid. Without this PM hijacks the drag and the column
+          // reorder drop indicator never appears inside page embeds.
+          if (isWithinDatabaseGrid(event.target)) return true;
           view.dom.classList.add("dragging");
         },
         drop: (view, event) => {
+          // The grid already handled its own drop via pragmatic; skip PM's drop
+          // handling so it doesn't try to move editor content for a drag it never
+          // started (view.dragging is null here).
+          if (isWithinDatabaseGrid(event.target)) return true;
           view.dom.classList.remove("dragging");
           hideDragHandle();
           let droppedNode: Node | null = null;
