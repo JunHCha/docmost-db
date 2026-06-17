@@ -92,6 +92,13 @@ export function useCreateDatabaseMutation() {
       // page creation does — keeps the new node (and its parent's hasChildren)
       // consistent with the regular create path.
       invalidateOnCreatePage(data.page);
+      // The embed/relation database pickers read the space-scoped ["databases",
+      // spaceId] list; invalidate it so a freshly created database appears there
+      // immediately instead of staying hidden behind the 5-min staleTime until a
+      // manual page refresh.
+      queryClient.invalidateQueries({
+        queryKey: databasesKey(data.page.spaceId),
+      });
     },
     onError: () => {
       notifications.show({
