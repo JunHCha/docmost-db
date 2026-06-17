@@ -1,0 +1,53 @@
+/* Right-side overlay host for the page peek (#94): floats over the page,
+   distinguished by a left border + shadow rather than a dimmed backdrop, so the
+   table underneath stays visible and interactive. */
+/* Transparent click-catcher behind the overlay: clicking the page closes the
+   peek. Sits just under the panel and above page content. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 189;
+  background: transparent;
+}
+
+.panel {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  /* below the modal (z 200), above page content + backdrop */
+  z-index: 190;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--mantine-color-body);
+  border-left: 1px solid var(--mantine-color-default-border);
+  border-top-left-radius: var(--mantine-radius-lg);
+  box-shadow: var(--mantine-shadow-xl);
+  overflow: hidden;
+}
+
+.grip {
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  z-index: 2;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-2));
+}
+
+.grip:hover,
+.grip:active {
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-gray-4));
+}
+
+.header {
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+}

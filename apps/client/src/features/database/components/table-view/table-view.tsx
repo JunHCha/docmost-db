@@ -7,8 +7,6 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconArrowsDiagonal } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -21,7 +19,8 @@ import {
   useUpdateRowTitleMutation,
 } from "@/features/database/queries/database-query.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
-import { buildPageUrl } from "@/features/page/page.utils.ts";
+import { PageGlyph } from "./cells/page-ref-chip";
+import { PageOpenControls } from "@/features/database/components/relation-peek/page-open-controls.tsx";
 import { ColumnHeader } from "./column-header";
 import { ColumnResizeHandle } from "./column-resize-handle";
 import { GridCell } from "./grid-cell";
@@ -40,17 +39,14 @@ const DEFAULT_TITLE_WIDTH = 220;
 interface RowTitleCellProps {
   row: IPage;
   databaseId: string;
-  // Slug of the database's space — taken from the current route, since list
-  // rows don't carry their space (a row lives in the same space as its DB).
-  spaceSlug?: string;
 }
 
-// The leading "Title" column shows the row's page title with inline editing.
-// Clicking the title text edits it; the separate hover trigger opens the row as
-// a full page (#9) — the two actions must never be conflated.
-function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
+// The leading "Title" column shows the row as a page block (#94): the page icon
+// + title with inline editing, and side-panel / modal open icons revealed on
+// hover. Clicking the title text edits it; the open icons open the row's page
+// as a peek — the two actions must never be conflated.
+function RowTitleCell({ row, databaseId }: RowTitleCellProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const update = useUpdateRowTitleMutation(databaseId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(row.title ?? "");
@@ -84,6 +80,7 @@ function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
 
   return (
     <Group gap={4} wrap="nowrap" className="db-row-title">
+      <PageGlyph icon={row.icon} pageType={row.pageType} />
       <Text
         size="sm"
         c={row.title ? undefined : "dimmed"}
@@ -95,15 +92,7 @@ function RowTitleCell({ row, databaseId, spaceSlug }: RowTitleCellProps) {
       >
         {row.title || t("Untitled")}
       </Text>
-      <ActionIcon
-        className={classes.openRow}
-        variant="subtle"
-        size="sm"
-        aria-label={t("Open row")}
-        onClick={() => navigate(buildPageUrl(spaceSlug, row.slugId, row.title))}
-      >
-        <IconArrowsDiagonal size={16} />
-      </ActionIcon>
+      <PageOpenControls pageId={row.id} className={classes.openRow} />
     </Group>
   );
 }
@@ -129,7 +118,6 @@ export function TableView({
   properties,
   rows,
   activeView,
-  spaceSlug,
   onHideColumn,
   onResizeColumn,
   onResizeTitle,
@@ -286,11 +274,7 @@ export function TableView({
                   />
                 </Table.Td>
                 <Table.Td>
-                  <RowTitleCell
-                    row={row}
-                    databaseId={databaseId}
-                    spaceSlug={spaceSlug}
-                  />
+                  <RowTitleCell row={row} databaseId={databaseId} />
                 </Table.Td>
                 {columns.map(({ property, width }) => (
                   <Table.Td key={property.id} style={{ width }}>

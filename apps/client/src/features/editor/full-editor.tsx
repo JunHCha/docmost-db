@@ -56,6 +56,11 @@ export interface FullEditorProps {
   // Rendered between the title/byline and the document body — used by database
   // rows (#9) to show their properties Notion-style under the page title.
   belowTitle?: React.ReactNode;
+  // Peek mode: this editor previews a page other than the current route inside
+  // an aside/modal (#94). Forwarded to PageEditor so it doesn't hijack the
+  // global single-editor state; also makes the container full-width (the aside
+  // is far narrower than the default 900px reading column) and forces edit mode.
+  embedded?: boolean;
 }
 
 export function FullEditor({
@@ -69,6 +74,7 @@ export function FullEditor({
   contributors,
   canComment,
   belowTitle,
+  embedded = false,
 }: FullEditorProps) {
   const [user] = useAtom(userAtom);
   const fullPageWidth = user.settings?.preferences?.fullPageWidth;
@@ -84,16 +90,20 @@ export function FullEditor({
   // Apply the user's saved preference only once on initial load, not on every
   // page navigation — so the mode sticks across navigations within a session.
   useEffect(() => {
+    // The peek must not mutate the host page's global edit-mode toggle.
+    if (embedded) return;
     if (!defaultEditModeApplied) {
       setCurrentPageEditMode(userPageEditMode as PageEditMode);
       defaultEditModeApplied = true;
     }
-  }, [userPageEditMode, setCurrentPageEditMode]);
+  }, [userPageEditMode, setCurrentPageEditMode, embedded]);
 
   return (
     <Container
-      fluid={fullPageWidth}
-      size={!fullPageWidth && 900}
+      // The aside host is far narrower than the 900px reading column, so peek
+      // always uses full width.
+      fluid={fullPageWidth || embedded}
+      size={!fullPageWidth && !embedded && 900}
       className={classes.editor}
       style={{ display: "flex", flexDirection: "column" }}
     >
@@ -107,6 +117,7 @@ export function FullEditor({
         title={title}
         spaceSlug={spaceSlug}
         editable={editable}
+        embedded={embedded}
       />
       <PageByline
         creator={creator}
@@ -119,6 +130,8 @@ export function FullEditor({
         editable={editable}
         content={content}
         canComment={canComment}
+        embedded={embedded}
+        slugId={slugId}
       />
       <EmptyPageGetStarted pageId={pageId} editable={editable} />
     </Container>

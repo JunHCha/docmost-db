@@ -36,6 +36,11 @@ export interface TitleEditorProps {
   spaceSlug: string;
   editable: boolean;
   isBase?: boolean;
+  // Peek mode (#94): this title belongs to a page previewed in an aside/modal,
+  // not the current route. It must not navigate the route on edit, claim the
+  // global titleEditor slot, or run the Enter→body split (which targets the
+  // host page's global editor). Title text still saves via the REST mutation.
+  embedded?: boolean;
 }
 
 export function TitleEditor({
@@ -45,6 +50,7 @@ export function TitleEditor({
   spaceSlug,
   editable,
   isBase,
+  embedded = false,
 }: TitleEditorProps) {
   const { t } = useTranslation();
   const { mutateAsync: updateTitlePageMutationAsync } =
@@ -76,8 +82,11 @@ export function TitleEditor({
     ],
     onCreate({ editor }) {
       if (editor) {
-        // @ts-ignore
-        setTitleEditor(editor);
+        // Peek must not claim the global titleEditor slot (the host page owns it).
+        if (!embedded) {
+          // @ts-ignore
+          setTitleEditor(editor);
+        }
         setActivePageId(pageId);
       }
     },
@@ -108,6 +117,9 @@ export function TitleEditor({
   });
 
   useEffect(() => {
+    // The peek is not the routed page — syncing the URL here would navigate the
+    // host away to the previewed page.
+    if (embedded) return;
     // Canonicalize only the path slug; keep query params (?row=, ?view=
     // deep links) and the hash anchor intact.
     const pageSlug = buildPageUrl(spaceSlug, slugId, title);
@@ -186,8 +198,12 @@ export function TitleEditor({
 
   useEffect(() => {
     if (!titleEditor) return;
-    titleEditor.setEditable(editable && currentPageEditMode === PageEditMode.Edit);
-  }, [currentPageEditMode, titleEditor, editable]);
+    // Peek follows its page-permission `editable` and ignores the host's
+    // global read/edit toggle.
+    titleEditor.setEditable(
+      editable && (embedded || currentPageEditMode === PageEditMode.Edit),
+    );
+  }, [currentPageEditMode, titleEditor, editable, embedded]);
 
   const openSearchDialog = () => {
     const event = new CustomEvent("openFindDialogFromEditor", {});
@@ -195,6 +211,9 @@ export function TitleEditor({
   };
 
   function handleTitleKeyDown(event: any) {
+    // In peek mode the global `pageEditor` is the HOST page's body, not this
+    // preview's — running the Enter→body split would type into the wrong page.
+    if (embedded) return;
     if (!titleEditor || !pageEditor || event.shiftKey) return;
 
     // Prevent focus shift when IME composition is active
