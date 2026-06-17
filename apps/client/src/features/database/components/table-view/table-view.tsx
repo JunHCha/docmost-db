@@ -6,7 +6,9 @@ import {
   Group,
   Text,
   TextInput,
+  Menu,
 } from "@mantine/core";
+import { IconChevronDown } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -17,6 +19,7 @@ import {
   useCreatePropertyMutation,
   useCreateRowMutation,
   useUpdateRowTitleMutation,
+  useDatabaseTemplatesQuery,
 } from "@/features/database/queries/database-query.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
 import { PageGlyph } from "./cells/page-ref-chip";
@@ -126,6 +129,7 @@ export function TableView({
   const { t } = useTranslation();
   const createRow = useCreateRowMutation(databaseId);
   const createProperty = useCreatePropertyMutation(databaseId);
+  const templates = useDatabaseTemplatesQuery(databaseId).data ?? [];
 
   const configColumns = activeView.config.columns;
   const columns = useMemo(
@@ -292,13 +296,52 @@ export function TableView({
           })}
           <Table.Tr>
             <Table.Td colSpan={columns.length + 3}>
-              <Button
-                variant="subtle"
-                size="xs"
-                onClick={() => createRow.mutate({ databaseId })}
-              >
-                {t("+ Row")}
-              </Button>
+              {/* Split button: the body always creates a plain (template-free)
+                  row — unchanged from before. The chevron only appears when the
+                  database has templates, so a template-less DB keeps the exact
+                  single-button behaviour (regression guard, #91). */}
+              <Group gap={0} wrap="nowrap" style={{ width: "fit-content" }}>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  onClick={() => createRow.mutate({ databaseId })}
+                >
+                  {t("+ Row")}
+                </Button>
+                {templates.length > 0 && (
+                  <Menu
+                    position="bottom-start"
+                    shadow="md"
+                    transitionProps={{ duration: 0 }}
+                  >
+                    <Menu.Target>
+                      <ActionIcon
+                        variant="subtle"
+                        size="sm"
+                        aria-label={t("Create row from template")}
+                      >
+                        <IconChevronDown size={14} />
+                      </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      {templates.map((template) => (
+                        <Menu.Item
+                          key={template.id}
+                          leftSection={template.icon ?? undefined}
+                          onClick={() =>
+                            createRow.mutate({
+                              databaseId,
+                              templateId: template.id,
+                            })
+                          }
+                        >
+                          {template.name}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Dropdown>
+                  </Menu>
+                )}
+              </Group>
             </Table.Td>
           </Table.Tr>
         </Table.Tbody>
