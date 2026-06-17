@@ -3,12 +3,12 @@ import { render } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { attachClosestEdge } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
 
-const reorderMutate = vi.fn();
+// Column reorder is now a view-scoped callback (#92), not a global property
+// mutation. A fresh closure each render emulates the parent re-render that the
+// regression test below exercises.
+const onReorder = vi.fn();
 
-// React Query's useMutation returns a NEW object every render. Emulate that so
-// the regression test below exercises an unstable `reorder` dependency.
 vi.mock("@/features/database/queries/database-query.ts", () => ({
-  useReorderPropertyMutation: () => ({ mutate: reorderMutate }),
   useUpdatePropertyMutation: () => ({ mutate: vi.fn() }),
   useDeletePropertyMutation: () => ({ mutate: vi.fn() }),
   useListDatabasesQuery: () => ({ data: [] }),
@@ -76,6 +76,7 @@ function renderHeaders() {
           width={180}
           onHide={vi.fn()}
           onResize={vi.fn()}
+          onReorder={onReorder}
         />
       ))}
     </MantineProvider>,
@@ -105,6 +106,7 @@ function renderOneHeader(extraProps: Partial<{ width: number }> = {}) {
         width={extraProps.width ?? 180}
         onHide={vi.fn()}
         onResize={vi.fn()}
+        onReorder={onReorder}
       />
     </MantineProvider>,
   );
@@ -113,7 +115,7 @@ function renderOneHeader(extraProps: Partial<{ width: number }> = {}) {
 describe("ColumnHeader column drag reorder", () => {
   beforeEach(() => {
     dropTargets.length = 0;
-    reorderMutate.mockReset();
+    onReorder.mockReset();
     registerCount = 0;
     cleanupCount = 0;
     lastDraggableCfg = null;
@@ -147,6 +149,7 @@ describe("ColumnHeader column drag reorder", () => {
           width={200}
           onHide={vi.fn()}
           onResize={vi.fn()}
+          onReorder={onReorder}
         />
       </MantineProvider>,
     );
@@ -156,17 +159,15 @@ describe("ColumnHeader column drag reorder", () => {
     expect(registerCount).toBe(1);
   });
 
-  it("calls reorder when column 'a' is dropped on the right edge of 'b'", () => {
+  it("calls onReorder when column 'a' is dropped on the right edge of 'b'", () => {
     renderHeaders();
     // Drop targets register in render order: a, b.
     const dropOnB = dropTargets[1];
     expect(dropOnB).toBeTruthy();
     const selfData = selfDataForEdge(dropOnB, "right");
     dropOnB.onDrop({ self: { data: selfData }, source: { data: { id: "a" } } });
-    expect(reorderMutate).toHaveBeenCalledWith({
-      propertyId: "a",
-      afterPropertyId: "b",
-    });
+    // View-scoped reorder (#92): move 'a' to just after 'b'.
+    expect(onReorder).toHaveBeenCalledWith("a", "b");
   });
 });
 

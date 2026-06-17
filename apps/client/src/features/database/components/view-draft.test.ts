@@ -3,13 +3,17 @@ import { isDraftDirty } from "./view-draft";
 
 describe("isDraftDirty", () => {
   it("is not dirty when draft equals saved", () => {
-    const saved = { filters: [{ propertyId: "p1", op: "eq", value: "x" }] };
+    const saved = {
+      filters: [{ propertyId: "p1", op: "eq" as const, value: "x" }],
+    };
     expect(isDraftDirty({ ...saved }, saved)).toBe(false);
   });
 
   it("is dirty when a filter changes", () => {
     const saved = { filters: [] };
-    const draft = { filters: [{ propertyId: "p1", op: "eq", value: "x" }] };
+    const draft = {
+      filters: [{ propertyId: "p1", op: "eq" as const, value: "x" }],
+    };
     expect(isDraftDirty(draft, saved)).toBe(true);
   });
 

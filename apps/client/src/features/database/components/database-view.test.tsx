@@ -76,10 +76,12 @@ vi.mock("./table-view/table-view", () => ({
     properties,
     spaceId,
     spaceSlug,
+    onReorderColumns,
   }: {
-    properties: { name: string }[];
+    properties: { id: string; name: string }[];
     spaceId: string;
     spaceSlug?: string;
+    onReorderColumns?: (ids: string[]) => void;
   }) => (
     <div
       data-testid="table-view"
@@ -87,6 +89,12 @@ vi.mock("./table-view/table-view", () => ({
       data-space-slug={spaceSlug}
     >
       {properties.map((p) => p.name).join(",")}
+      <button
+        data-testid="reorder-columns"
+        onClick={() =>
+          onReorderColumns?.([...properties].reverse().map((p) => p.id))
+        }
+      />
     </div>
   ),
 }));
@@ -196,10 +204,63 @@ describe("DatabaseView", () => {
     expect(rowsQuery).toHaveBeenLastCalledWith("db1", "v2", expect.anything());
   });
 
-  it("persists filter/sort changes by default", () => {
+  it("defers a filter/sort change: nothing persists until Save is clicked (#92)", () => {
     renderView();
     fireEvent.click(screen.getByTestId("change-filters"));
-    expect(updateViewMutate).toHaveBeenCalled();
+    // The edit lives only in the draft — no server write yet.
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    // The Save action appears once the draft is dirty.
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    );
+  });
+
+  it("hides Save/Discard until an edit makes the draft dirty (#92)", () => {
+    renderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(screen.queryByText("Discard")).toBeNull();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    expect(screen.getByText("Save changes")).toBeTruthy();
+    expect(screen.getByText("Discard")).toBeTruthy();
+  });
+
+  it("discards the draft and hides the actions on Discard (#92)", () => {
+    renderView();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    fireEvent.click(screen.getByText("Discard"));
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    expect(screen.queryByText("Save changes")).toBeNull();
+  });
+
+  it("reorders columns into the draft and persists the view-scoped order on Save (#92)", () => {
+    const twoProps = [
+      { ...oneProperty[0], id: "p1", position: "a0" },
+      { ...oneProperty[0], id: "p2", position: "a1" },
+    ];
+    propertiesQuery.mockReturnValue({ data: twoProps, isLoading: false });
+    renderView();
+    // The mocked TableView reverses the property order on this click.
+    fireEvent.click(screen.getByTestId("reorder-columns"));
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Save changes"));
+    // Column order is now captured in the view config (not a global position).
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({
+          columns: [
+            expect.objectContaining({ propertyId: "p2" }),
+            expect.objectContaining({ propertyId: "p1" }),
+          ],
+        }),
+      }),
+    );
   });
 
   it("activates initialViewId rather than the default when given", () => {
@@ -222,11 +283,12 @@ describe("DatabaseView", () => {
     expect(viewsQuery).toHaveBeenCalledWith("db1", undefined);
   });
 
-  it("persists filter/sort changes for an embed too (embedId-scoped, not session-local)", () => {
+  it("defers then persists filter/sort changes for an embed too on Save (#92)", () => {
     renderView({ embedId: "embed-1" });
     fireEvent.click(screen.getByTestId("change-filters"));
-    // The embed now owns its views, so its edits persist to its own scope
-    // (persistViewConfig session-local special case removed in issue #39).
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    // The embed owns its views, so saving persists to its own scope (issue #39).
+    fireEvent.click(screen.getByText("Save changes"));
     expect(updateViewMutate).toHaveBeenCalled();
   });
 

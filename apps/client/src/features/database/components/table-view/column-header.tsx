@@ -19,7 +19,6 @@ import {
 import {
   useDeletePropertyMutation,
   useListDatabasesQuery,
-  useReorderPropertyMutation,
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
 import { resolveReorderTarget } from "./reorder";
@@ -53,6 +52,10 @@ interface ColumnHeaderProps {
   width: number;
   onHide: () => void;
   onResize: (width: number) => void;
+  // Reorder this view's columns (#92): move `propertyId` to just after
+  // `afterPropertyId` (undefined => front). The order is view-scoped via the
+  // view config draft, no longer a global property.position mutation.
+  onReorder: (propertyId: string, afterPropertyId: string | undefined) => void;
 }
 
 export function ColumnHeader({
@@ -63,6 +66,7 @@ export function ColumnHeader({
   width,
   onHide,
   onResize,
+  onReorder,
 }: ColumnHeaderProps) {
   const { t } = useTranslation();
   const dragRef = useRef<HTMLDivElement>(null);
@@ -77,16 +81,15 @@ export function ColumnHeader({
   // targetDatabaseId, otherwise the server rejects the update with 400).
   const [pickingRelation, setPickingRelation] = useState(false);
 
-  const reorder = useReorderPropertyMutation(databaseId);
   const update = useUpdatePropertyMutation(databaseId);
-  // The drag adapter must register ONCE and stay alive: react-query's mutation
-  // object and the orderedProperties array change identity on re-render, and
-  // Phase 3/4 realtime updates re-render the table constantly. If those were
-  // useEffect deps, a re-render landing mid-drag would tear down the adapter and
-  // abort the native drag, so the drop never fires (#85). We read the live values
-  // through refs instead and keep the effect deps to the stable property id.
-  const reorderRef = useRef(reorder);
-  reorderRef.current = reorder;
+  // The drag adapter must register ONCE and stay alive: the onReorder callback
+  // and the orderedProperties array change identity on re-render, and Phase 3/4
+  // realtime updates re-render the table constantly. If those were useEffect
+  // deps, a re-render landing mid-drag would tear down the adapter and abort the
+  // native drag, so the drop never fires (#85). We read the live values through
+  // refs instead and keep the effect deps to the stable property id.
+  const onReorderRef = useRef(onReorder);
+  onReorderRef.current = onReorder;
   const orderedRef = useRef(orderedProperties);
   orderedRef.current = orderedProperties;
   const remove = useDeletePropertyMutation(databaseId);
@@ -137,13 +140,9 @@ export function ColumnHeader({
             orderedRef.current,
             sourceId,
           );
-          // null means an unknown target or an in-place drop (the server
-          // rejects afterPropertyId === propertyId), so skip the mutation.
+          // null means an unknown target or an in-place drop, so skip.
           if (!target) return;
-          reorderRef.current.mutate({
-            propertyId: sourceId,
-            afterPropertyId: target.afterPropertyId,
-          });
+          onReorderRef.current(sourceId, target.afterPropertyId);
         },
       }),
     );

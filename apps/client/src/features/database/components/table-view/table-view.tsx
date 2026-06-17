@@ -19,7 +19,6 @@ import {
   useCreatePropertyMutation,
   useCreateRowMutation,
   useUpdateRowTitleMutation,
-  useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
@@ -27,7 +26,7 @@ import { ColumnHeader } from "./column-header";
 import { ColumnResizeHandle } from "./column-resize-handle";
 import { GridCell } from "./grid-cell";
 import { inlineDisplayStyle, inlineInputStyles } from "./cells/inline-text";
-import { echoColumns, resolveColumns } from "./view-columns";
+import { resolveColumns } from "./view-columns";
 import { useRowSelection } from "./row-selection";
 import { GutterHeaderCheckbox, GutterRowCheckbox } from "./grid-row-gutter";
 import { SelectionActionBar } from "./selection-action-bar";
@@ -116,6 +115,12 @@ interface TableViewProps {
   rows: IDatabaseRow[];
   activeView: IDatabaseView;
   spaceSlug?: string;
+  // Deferred-save column edits (#92): these bubble to DatabaseView's draft
+  // instead of persisting immediately. Optional so other callers can omit them.
+  onHideColumn?: (propertyId: string) => void;
+  onResizeColumn?: (propertyId: string, width: number) => void;
+  onResizeTitle?: (width: number) => void;
+  onReorderColumns?: (orderedPropertyIds: string[]) => void;
 }
 
 export function TableView({
@@ -125,11 +130,14 @@ export function TableView({
   rows,
   activeView,
   spaceSlug,
+  onHideColumn,
+  onResizeColumn,
+  onResizeTitle,
+  onReorderColumns,
 }: TableViewProps) {
   const { t } = useTranslation();
   const createRow = useCreateRowMutation(databaseId);
   const createProperty = useCreatePropertyMutation(databaseId);
-  const updateView = useUpdateViewMutation(databaseId);
 
   const configColumns = activeView.config.columns;
   const columns = useMemo(
@@ -154,31 +162,17 @@ export function TableView({
     else selection.toggle(id);
   }
 
-  // Persist a single column's config change as a full echoed columns array —
-  // the view config is replaced wholesale on update (see echoColumns).
-  function commitColumn(
+  // Reorder a column to land immediately after `afterPropertyId` (null => front)
+  // in the current display order, then hand the new property-id order up to the
+  // draft (#92: column order is view-scoped now, not a global property.position).
+  function reorderColumn(
     propertyId: string,
-    patch: { visible?: boolean; width?: number },
+    afterPropertyId: string | undefined,
   ) {
-    updateView.mutate({
-      viewId: activeView.id,
-      config: {
-        ...activeView.config,
-        columns: echoColumns(properties, configColumns, {
-          propertyId,
-          ...patch,
-        }),
-      },
-    });
-  }
-
-  // Persist the resized Title column width. Spreads the existing config so the
-  // columns array (and everything else) is preserved alongside the new width.
-  function commitTitleWidth(next: number) {
-    updateView.mutate({
-      viewId: activeView.id,
-      config: { ...activeView.config, titleWidth: next },
-    });
+    const ids = ordered.map((p) => p.id).filter((id) => id !== propertyId);
+    const at = afterPropertyId ? ids.indexOf(afterPropertyId) + 1 : 0;
+    ids.splice(at, 0, propertyId);
+    onReorderColumns?.(ids);
   }
 
   return (
@@ -230,7 +224,7 @@ export function TableView({
               </div>
               <ColumnResizeHandle
                 width={titleWidth}
-                onResize={commitTitleWidth}
+                onResize={(next) => onResizeTitle?.(next)}
               />
             </Table.Th>
             {columns.map(({ property, width }) => (
@@ -245,10 +239,9 @@ export function TableView({
                   spaceId={spaceId}
                   orderedProperties={ordered}
                   width={width}
-                  onHide={() => commitColumn(property.id, { visible: false })}
-                  onResize={(next) =>
-                    commitColumn(property.id, { width: next })
-                  }
+                  onHide={() => onHideColumn?.(property.id)}
+                  onResize={(next) => onResizeColumn?.(property.id, next)}
+                  onReorder={reorderColumn}
                 />
               </Table.Th>
             ))}
