@@ -145,6 +145,7 @@ function renderContainer() {
 
 describe("DatabaseViewContainer", () => {
   beforeEach(() => {
+    localStorage.clear();
     databaseCollab.mockReset();
     rowsQuery.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
@@ -381,7 +382,7 @@ describe("DatabaseViewContainer", () => {
     );
   });
 
-  it("persists a filter change to the view config via updateView", async () => {
+  it("defers a filter change and persists it on Save (#92)", async () => {
     updateViewMutate.mockReset();
     infoQuery.mockReturnValue({
       data: { database: { id: "db1" }, page },
@@ -392,6 +393,9 @@ describe("DatabaseViewContainer", () => {
     renderContainer();
     fireEvent.click(screen.getByRole("button", { name: /filter/i }));
     fireEvent.click(await screen.findByText("Add filter"));
+    // Deferred save: the edit lives in the draft, nothing persists yet.
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Save changes"));
     expect(updateViewMutate).toHaveBeenCalledWith(
       expect.objectContaining({
         viewId: "v1",

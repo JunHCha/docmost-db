@@ -41,6 +41,7 @@ function renderHeader() {
         width={180}
         onHide={vi.fn()}
         onResize={vi.fn()}
+        onReorder={vi.fn()}
       />
     </MantineProvider>,
   );
@@ -71,6 +72,7 @@ describe("ColumnHeader", () => {
           width={180}
           onHide={onHide}
           onResize={vi.fn()}
+          onReorder={vi.fn()}
         />
       </MantineProvider>,
     );
@@ -91,6 +93,7 @@ describe("ColumnHeader", () => {
           width={180}
           onHide={vi.fn()}
           onResize={onResize}
+          onReorder={vi.fn()}
         />
       </MantineProvider>,
     );
@@ -223,6 +226,7 @@ describe("ColumnHeader", () => {
           width={180}
           onHide={vi.fn()}
           onResize={vi.fn()}
+          onReorder={vi.fn()}
         />
       </MantineProvider>,
     );
