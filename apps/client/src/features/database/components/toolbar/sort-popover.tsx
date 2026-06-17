@@ -57,6 +57,13 @@ function SortRow({
   const { t } = useTranslation();
   const handleRef = useRef<HTMLButtonElement | null>(null);
   const rowRef = useRef<HTMLDivElement | null>(null);
+  // onReorder is a fresh closure every render (the parent rebuilds it from the
+  // current sorts). Embed views re-render frequently, so if it were an effect
+  // dep the adapter would tear down and re-register every render and a re-render
+  // landing mid-drag would abort the drop (#85 pattern). Read it through a ref
+  // so the adapter registers once per index and always calls the latest.
+  const onReorderRef = useRef(onReorder);
+  onReorderRef.current = onReorder;
 
   useEffect(() => {
     const handle = handleRef.current;
@@ -69,11 +76,13 @@ function SortRow({
         getData: () => ({ index }),
         onDrop: ({ source }) => {
           const from = source.data.index as number;
-          if (typeof from === "number") onReorder(from, index);
+          if (typeof from === "number") onReorderRef.current(from, index);
         },
       }),
     );
-  }, [index, onReorder]);
+    // Deps limited to `index` — the only value that changes WHICH row this is.
+    // onReorder is read through a ref so the adapter survives re-renders (#85).
+  }, [index]);
 
   return (
     <Group ref={rowRef} gap="xs" wrap="nowrap" align="center">
