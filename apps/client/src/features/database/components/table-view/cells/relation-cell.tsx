@@ -81,7 +81,10 @@ export function RelationCell({
   return (
     <Combobox
       store={combobox}
-      withinPortal={false}
+      // Inline in the grid, but portal in the row panel: the panel's value
+      // wrapper is overflow:hidden and would clip an inline dropdown to the
+      // ~30px row, so it never appears (#93 follow-up).
+      withinPortal={!!showEmptyPlaceholder}
       onOptionSubmit={(val) => toggle(val)}
     >
       <Combobox.Target>
