@@ -2,11 +2,13 @@ import { useRef, useState } from "react";
 import { Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
+import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
+import { INLINE_EMPTY_PLACEHOLDER, inlineDisplayStyle } from "./inline-text";
 
 const ISO = "YYYY-MM-DD";
 
@@ -19,6 +21,7 @@ function toIso(value: string | Date | null): string {
 }
 
 export function DateCell({ property, value, pageId, databaseId }: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const stored = typeof value?.value === "string" ? value.value : "";
@@ -65,10 +68,11 @@ export function DateCell({ property, value, pageId, databaseId }: CellProps) {
   return (
     <Text
       size="sm"
+      c={stored ? undefined : "dimmed"}
       onClick={() => setEditing(true)}
-      style={{ cursor: "text", minHeight: 20 }}
+      style={inlineDisplayStyle}
     >
-      {stored}
+      {stored || t(INLINE_EMPTY_PLACEHOLDER)}
     </Text>
   );
 }

@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { TextInput, Text } from "@mantine/core";
+import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
-import { inlineDisplayStyle, inlineInputStyles } from "./inline-text";
+import {
+  INLINE_EMPTY_PLACEHOLDER,
+  inlineDisplayStyle,
+  inlineInputStyles,
+} from "./inline-text";
 
 export function NumberCell({ property, value, pageId, databaseId }: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const stored = typeof value?.value === "number" ? String(value.value) : "";
@@ -57,8 +63,13 @@ export function NumberCell({ property, value, pageId, databaseId }: CellProps) {
   }
 
   return (
-    <Text size="sm" onClick={startEdit} style={inlineDisplayStyle}>
-      {stored}
+    <Text
+      size="sm"
+      c={stored ? undefined : "dimmed"}
+      onClick={startEdit}
+      style={inlineDisplayStyle}
+    >
+      {stored || t(INLINE_EMPTY_PLACEHOLDER)}
     </Text>
   );
 }

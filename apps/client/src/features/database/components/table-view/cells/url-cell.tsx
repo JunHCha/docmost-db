@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { TextInput, Anchor, ActionIcon, Group } from "@mantine/core";
+import { TextInput, Anchor, ActionIcon, Group, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
+import { useTranslation } from "react-i18next";
 import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { CellProps } from "./cell-props";
 import {
+  INLINE_EMPTY_PLACEHOLDER,
   INLINE_ROW_HEIGHT,
   inlineDisplayStyle,
   inlineInputStyles,
@@ -48,6 +50,7 @@ function toHref(raw: string): string {
 }
 
 export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
+  const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const stored = typeof value?.value === "string" ? value.value : "";
@@ -117,10 +120,14 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
           {stored}
         </Anchor>
       ) : (
-        <div
+        <Text
+          size="sm"
+          c="dimmed"
           onClick={startEdit}
           style={{ ...inlineDisplayStyle, flex: 1, minWidth: 0 }}
-        />
+        >
+          {t(INLINE_EMPTY_PLACEHOLDER)}
+        </Text>
       )}
       <ActionIcon
         variant="subtle"

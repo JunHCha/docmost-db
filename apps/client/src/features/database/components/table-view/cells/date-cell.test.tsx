@@ -44,9 +44,18 @@ describe("DateCell", () => {
     expect(screen.getByText("2026-06-01")).toBeTruthy();
   });
 
+  it("renders an empty value as a full-width clickable box", () => {
+    renderCell(undefined);
+    const display = screen.getByText("Empty");
+    expect(display.style.display).toBe("block");
+    expect(display.style.width).toBe("100%");
+    fireEvent.click(display);
+    expect(screen.getByLabelText("Due")).toBeTruthy();
+  });
+
   it("commits an ISO date string on selection", () => {
     renderCell(undefined);
-    fireEvent.click(screen.getByText("", { selector: "p" }));
+    fireEvent.click(screen.getByText("Empty"));
     const input = screen.getByLabelText("Due");
     fireEvent.change(input, { target: { value: "June 1, 2026" } });
     fireEvent.blur(input);
@@ -60,7 +69,7 @@ describe("DateCell", () => {
 
   it("commits on change and does not re-commit on the trailing blur", () => {
     renderCell(undefined);
-    fireEvent.click(screen.getByText("", { selector: "p" }));
+    fireEvent.click(screen.getByText("Empty"));
     const input = screen.getByLabelText("Due");
     // onChange owns the commit; the input stays open so the user can adjust.
     fireEvent.change(input, { target: { value: "June 1, 2026" } });
@@ -79,7 +88,7 @@ describe("DateCell", () => {
 
   it("does not re-fire the mutation when the same date is committed twice", () => {
     renderCell(undefined);
-    fireEvent.click(screen.getByText("", { selector: "p" }));
+    fireEvent.click(screen.getByText("Empty"));
     const input = screen.getByLabelText("Due");
     fireEvent.change(input, { target: { value: "June 1, 2026" } });
     fireEvent.change(input, { target: { value: "June 1, 2026" } });

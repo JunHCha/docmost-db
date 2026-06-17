@@ -18,8 +18,19 @@ export const inlineInputStyles = {
 } as const;
 
 // Spread onto the display <Text size="sm" /> (or Anchor wrapper).
+//
+// display:block + width:100% make the element fill the cell so an EMPTY value
+// still has a full-width click target. In the table the fixed-width <td> hid
+// this gap, but the row detail panel's flex/overflow column collapses an empty
+// inline <Text> to zero width, leaving nothing to click (issue #93).
 export const inlineDisplayStyle = {
   cursor: "text",
+  display: "block",
+  width: "100%",
   minHeight: INLINE_ROW_HEIGHT,
   lineHeight: `${INLINE_ROW_HEIGHT}px`,
 } as const;
+
+// Placeholder text shown in an empty inline cell. Kept dimmed so it reads as a
+// hint, not a value, and gives the otherwise-blank box a visible click target.
+export const INLINE_EMPTY_PLACEHOLDER = "Empty";
