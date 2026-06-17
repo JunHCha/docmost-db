@@ -74,10 +74,13 @@ export function RelationCell({
   return (
     <Combobox
       store={combobox}
-      // Inline in the grid, but portal in the row panel: the panel's value
-      // wrapper is overflow:hidden and would clip an inline dropdown to the
-      // ~30px row, so it never appears (#93 follow-up).
-      withinPortal={!!showEmptyPlaceholder}
+      // Always portal: inline, the dropdown is clipped by the grid's vertical
+      // overflow (table height) and by the row panel's overflow:hidden value
+      // wrapper. A fixed width keeps page titles readable even when the cell /
+      // column is narrow (the default "target" width would clip them) (#94).
+      withinPortal
+      width={280}
+      position="bottom-start"
       onOptionSubmit={(val) => toggle(val)}
     >
       <Combobox.Target>
