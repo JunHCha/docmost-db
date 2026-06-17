@@ -8,6 +8,7 @@ import { PageService } from '../../page/services/page.service';
 import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
 import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
+import { DatabaseTemplateRepo } from '@docmost/db/repos/database/database-template.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
@@ -36,6 +37,7 @@ export class DatabaseRowService {
     private readonly databaseRepo: DatabaseRepo,
     private readonly propertyRepo: DatabasePropertyRepo,
     private readonly valueRepo: DatabasePropertyValueRepo,
+    private readonly templateRepo: DatabaseTemplateRepo,
     private readonly pageRepo: PageRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
   ) {}
@@ -47,18 +49,93 @@ export class DatabaseRowService {
       SpaceCaslAction.Edit,
     );
 
+    // Optional row-creation template: presets the new page's body (content)
+    // and property values atomically on the server. See conventions.md.
+    const template = dto.templateId
+      ? await this.resolveTemplate(dto.templateId, database)
+      : undefined;
+
     // A row is a document page parented to the database page (page=row).
-    return this.pageService.create(
+    const page = await this.pageService.create(
       user.id,
       workspace.id,
       {
         spaceId: database.spaceId,
-        title: dto.title,
-        icon: dto.icon,
+        title: dto.title ?? template?.name ?? undefined,
+        icon: dto.icon ?? template?.icon ?? undefined,
         parentPageId: database.pageId,
+        // PageService parses prosemirror JSON when both content+format are set;
+        // template.content is jsonb prosemirror JSON (page.service.ts:125).
+        ...(template?.content
+          ? { content: template.content as object, format: 'json' as const }
+          : {}),
       },
       'doc',
     );
+
+    if (template) {
+      await this.applyTemplateValues(page.id, template, database);
+    }
+
+    return page;
+  }
+
+  // Load the template and verify it belongs to this database. Edit permission
+  // on the database page is already enforced by the caller's authorize().
+  private async resolveTemplate(templateId: string, database: Database) {
+    const template = await this.templateRepo.findById(templateId);
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+    if (template.databaseId !== database.id) {
+      throw new BadRequestException(
+        'Template does not belong to this database',
+      );
+    }
+    return template;
+  }
+
+  // Apply a template's property_values onto the new row. Each entry is a tagged
+  // { type, value } keyed by propertyId. Defensively skip propertyIds that are
+  // not properties of this database, and skip values that fail type validation.
+  private async applyTemplateValues(
+    pageId: string,
+    template: { propertyValues: unknown },
+    database: Database,
+  ): Promise<void> {
+    const presets = template.propertyValues;
+    if (!presets || typeof presets !== 'object' || Array.isArray(presets)) {
+      return;
+    }
+
+    const properties = await this.propertyRepo.findByDatabaseId(database.id);
+    const byId = new Map(properties.map((p) => [p.id, p]));
+
+    for (const [propertyId, raw] of Object.entries(
+      presets as Record<string, unknown>,
+    )) {
+      const property = byId.get(propertyId);
+      if (!property) continue;
+
+      let value;
+      try {
+        assertPropertyType(property.type);
+        value = validateValueForType(
+          property.type,
+          raw,
+          property.config as { options?: any[] },
+        );
+      } catch {
+        // Malformed/incompatible preset — skip rather than fail the whole row.
+        continue;
+      }
+
+      await this.valueRepo.setValue({
+        pageId,
+        propertyId,
+        value: value as any,
+      });
+    }
   }
 
   async listRows(user: User, dto: ListRowsDto) {
