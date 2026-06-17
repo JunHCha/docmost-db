@@ -31,6 +31,12 @@ export function databasePropertiesKey(databaseId: string): QueryKey {
   return ["database-properties", databaseId];
 }
 
+// Row-creation templates (issue #91) are scoped to a database, mirroring the
+// properties key. Not embed-scoped — templates are shared across every scope.
+export function templatesKey(databaseId: string): QueryKey {
+  return ["database-templates", databaseId];
+}
+
 // Views are scoped per embed (issue #39): the original database and each inline
 // embed own a distinct set of views. embedId rides as a trailing slot so the
 // original scope (embedId omitted) keys ["database-views", databaseId, null].

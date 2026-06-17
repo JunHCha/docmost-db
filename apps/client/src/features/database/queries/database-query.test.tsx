@@ -8,6 +8,7 @@ import {
 import {
   databasePropertiesKey,
   databaseViewsKey,
+  templatesKey,
 } from "./database-cache.ts";
 
 const { queryClient } = await vi.hoisted(async () => {
@@ -60,6 +61,10 @@ const service = {
   deleteView: vi.fn(),
   getDatabaseInfo: vi.fn(),
   listViews: vi.fn(),
+  listTemplates: vi.fn(),
+  createTemplate: vi.fn(),
+  updateTemplate: vi.fn(),
+  deleteTemplate: vi.fn(),
 };
 
 vi.mock("@/features/database/services/database-service.ts", () => ({
@@ -81,6 +86,10 @@ vi.mock("@/features/database/services/database-service.ts", () => ({
   updateView: (...a: unknown[]) => service.updateView(...a),
   setDefaultView: (...a: unknown[]) => service.setDefaultView(...a),
   deleteView: (...a: unknown[]) => service.deleteView(...a),
+  listTemplates: (...a: unknown[]) => service.listTemplates(...a),
+  createTemplate: (...a: unknown[]) => service.createTemplate(...a),
+  updateTemplate: (...a: unknown[]) => service.updateTemplate(...a),
+  deleteTemplate: (...a: unknown[]) => service.deleteTemplate(...a),
 }));
 
 import {
@@ -100,6 +109,10 @@ import {
   useSetValueMutation,
   useUpdatePropertyMutation,
   useUpdateViewMutation,
+  useDatabaseTemplatesQuery,
+  useCreateTemplateMutation,
+  useUpdateTemplateMutation,
+  useDeleteTemplateMutation,
 } from "./database-query.ts";
 import {
   databaseInfoByIdKey,
@@ -744,5 +757,74 @@ describe("row mutations broadcast the change to collaborators (#55 Phase 3)", ()
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(broadcastChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("template hooks (issue #91)", () => {
+  let invalidateSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+    invalidateSpy = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+  });
+  afterEach(() => invalidateSpy.mockRestore());
+
+  it("useDatabaseTemplatesQuery lists templates under the templates key", async () => {
+    const list = [{ id: "t1", name: "Bug" }];
+    service.listTemplates.mockResolvedValue(list);
+
+    const { result } = renderHook(() => useDatabaseTemplatesQuery(dbId), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(service.listTemplates).toHaveBeenCalledWith({ databaseId: dbId });
+    expect(queryClient.getQueryData(templatesKey(dbId))).toBe(list);
+  });
+
+  it("useDatabaseTemplatesQuery is disabled without a databaseId", () => {
+    const { result } = renderHook(() => useDatabaseTemplatesQuery(""), {
+      wrapper,
+    });
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(service.listTemplates).not.toHaveBeenCalled();
+  });
+
+  it("createTemplate invalidates the templates query on success", async () => {
+    service.createTemplate.mockResolvedValue({ id: "t1" });
+    const { result } = renderHook(() => useCreateTemplateMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ databaseId: dbId, name: "Bug" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: templatesKey(dbId),
+    });
+  });
+
+  it("updateTemplate invalidates the templates query on success", async () => {
+    service.updateTemplate.mockResolvedValue({ id: "t1" });
+    const { result } = renderHook(() => useUpdateTemplateMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ templateId: "t1", name: "Task" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: templatesKey(dbId),
+    });
+  });
+
+  it("deleteTemplate invalidates the templates query on success", async () => {
+    service.deleteTemplate.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDeleteTemplateMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({ templateId: "t1" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: templatesKey(dbId),
+    });
   });
 });

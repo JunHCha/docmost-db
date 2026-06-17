@@ -23,6 +23,10 @@ import {
   updateView,
   deleteView,
   setDefaultView,
+  listTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
 } from "./database-service";
 
 describe("database-service", () => {
@@ -150,6 +154,65 @@ describe("database-service", () => {
       title: "Row",
     });
     expect(result).toBe(data);
+  });
+
+  it("createRow forwards templateId when given", async () => {
+    post.mockResolvedValue({ data: { id: "p3" } });
+
+    await createRow({ databaseId: "db1", templateId: "t1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/rows/create", {
+      databaseId: "db1",
+      templateId: "t1",
+    });
+  });
+
+  it("listTemplates posts to /databases/templates/list and returns data", async () => {
+    const data = [{ id: "t1" }];
+    post.mockResolvedValue({ data });
+
+    const result = await listTemplates({ databaseId: "db1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/templates/list", {
+      databaseId: "db1",
+    });
+    expect(result).toBe(data);
+  });
+
+  it("createTemplate posts to /databases/templates/create and returns data", async () => {
+    const data = { id: "t1" };
+    post.mockResolvedValue({ data });
+
+    const result = await createTemplate({ databaseId: "db1", name: "Bug" });
+
+    expect(post).toHaveBeenCalledWith("/databases/templates/create", {
+      databaseId: "db1",
+      name: "Bug",
+    });
+    expect(result).toBe(data);
+  });
+
+  it("updateTemplate posts to /databases/templates/update and returns data", async () => {
+    const data = { id: "t1" };
+    post.mockResolvedValue({ data });
+
+    const result = await updateTemplate({ templateId: "t1", name: "Task" });
+
+    expect(post).toHaveBeenCalledWith("/databases/templates/update", {
+      templateId: "t1",
+      name: "Task",
+    });
+    expect(result).toBe(data);
+  });
+
+  it("deleteTemplate posts to /databases/templates/delete", async () => {
+    post.mockResolvedValue({ data: undefined });
+
+    await deleteTemplate({ templateId: "t1" });
+
+    expect(post).toHaveBeenCalledWith("/databases/templates/delete", {
+      templateId: "t1",
+    });
   });
 
   it("setValue posts to /databases/values/set and returns data", async () => {

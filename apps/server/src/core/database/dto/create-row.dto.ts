@@ -11,4 +11,8 @@ export class CreateRowDto {
   @IsOptional()
   @IsString()
   icon?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
 }

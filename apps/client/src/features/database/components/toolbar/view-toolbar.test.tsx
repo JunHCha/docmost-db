@@ -7,6 +7,14 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
+const templateModalSpy = vi.fn();
+vi.mock("../template-manager-modal", () => ({
+  TemplateManagerModal: (props: { opened: boolean }) => {
+    templateModalSpy(props.opened);
+    return props.opened ? <div>Templates Modal</div> : null;
+  },
+}));
+
 import { ViewToolbar } from "./view-toolbar";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
@@ -34,6 +42,7 @@ function renderToolbar(
   render(
     <MantineProvider>
       <ViewToolbar
+        databaseId={over.databaseId ?? "db1"}
         viewType={over.viewType ?? "table"}
         properties={properties}
         filters={over.filters ?? []}
@@ -108,5 +117,12 @@ describe("ViewToolbar", () => {
     renderToolbar({ viewType: "board", groupByPropertyId: "p1" });
     const btn = screen.getByRole("button", { name: /view settings/i });
     expect(btn.style.getPropertyValue("--ai-color")).toContain("blue");
+  });
+
+  it("opens the template manager modal from the Templates button", () => {
+    templateModalSpy.mockReset();
+    renderToolbar();
+    fireEvent.click(screen.getByRole("button", { name: /templates/i }));
+    expect(screen.getByText("Templates Modal")).toBeTruthy();
   });
 });

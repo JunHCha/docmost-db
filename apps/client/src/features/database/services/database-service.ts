@@ -25,6 +25,11 @@ import {
   IListViewsParams,
   IUpdateViewParams,
   IViewIdParams,
+  IDatabaseTemplate,
+  IListTemplatesParams,
+  ICreateTemplateParams,
+  IUpdateTemplateParams,
+  ITemplateIdParams,
 } from "@/features/database/types/database.types.ts";
 
 export async function createDatabase(
@@ -147,4 +152,38 @@ export async function setDefaultView(data: IViewIdParams): Promise<void> {
 
 export async function deleteView(data: IViewIdParams): Promise<void> {
   await api.post<void>("/databases/views/delete", data);
+}
+
+export async function listTemplates(
+  data: IListTemplatesParams,
+): Promise<IDatabaseTemplate[]> {
+  const req = await api.post<IDatabaseTemplate[]>(
+    "/databases/templates/list",
+    data,
+  );
+  return req.data;
+}
+
+export async function createTemplate(
+  data: ICreateTemplateParams,
+): Promise<IDatabaseTemplate> {
+  const req = await api.post<IDatabaseTemplate>(
+    "/databases/templates/create",
+    data,
+  );
+  return req.data;
+}
+
+export async function updateTemplate(
+  data: IUpdateTemplateParams,
+): Promise<IDatabaseTemplate> {
+  const req = await api.post<IDatabaseTemplate>(
+    "/databases/templates/update",
+    data,
+  );
+  return req.data;
+}
+
+export async function deleteTemplate(data: ITemplateIdParams): Promise<void> {
+  await api.post<void>("/databases/templates/delete", data);
 }

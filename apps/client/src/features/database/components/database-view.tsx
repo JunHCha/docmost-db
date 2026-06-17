@@ -294,6 +294,7 @@ export function DatabaseView({
           )}
           <DatabasePresenceAvatars />
           <ViewToolbar
+            databaseId={databaseId}
             viewType={activeView.type}
             properties={propertiesQuery.data ?? []}
             filters={filters}
