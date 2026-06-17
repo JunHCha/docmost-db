@@ -103,15 +103,19 @@ vi.mock("./board-view/board-view", () => ({
 }));
 // Expose the toolbar's filter/sort change callbacks as buttons so a test can
 // trigger a config change and assert on the persist behaviour.
+let sortClicks = 0;
 vi.mock("./toolbar/view-toolbar", () => ({
   ViewToolbar: ({
+    sorts,
     onFiltersChange,
     onSortsChange,
   }: {
+    sorts: any[];
     onFiltersChange: (f: any) => void;
     onSortsChange: (s: any) => void;
   }) => (
-    <div>
+    <div data-testid="toolbar-sorts">
+      {JSON.stringify(sorts)}
       <button
         data-testid="change-filters"
         onClick={() =>
@@ -120,8 +124,15 @@ vi.mock("./toolbar/view-toolbar", () => ({
       />
       <button
         data-testid="change-sorts"
+        // Toggle the direction each click so repeated sort edits are distinct;
+        // the draft must always reflect the LATEST click (bug1 regression).
         onClick={() =>
-          onSortsChange([{ propertyId: "p1", direction: "asc" }])
+          onSortsChange([
+            {
+              propertyId: "p1",
+              direction: sortClicks++ % 2 === 0 ? "asc" : "desc",
+            },
+          ])
         }
       />
     </div>
@@ -156,6 +167,7 @@ function renderView(
 
 describe("DatabaseView", () => {
   beforeEach(() => {
+    sortClicks = 0;
     rowsQuery.mockReset();
     updateViewMutate.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
@@ -236,6 +248,31 @@ describe("DatabaseView", () => {
     fireEvent.click(screen.getByText("Discard"));
     expect(updateViewMutate).not.toHaveBeenCalled();
     expect(screen.queryByText("Save changes")).toBeNull();
+  });
+
+  it("keeps repeated sort edits consistent — no mid-sequence divergence (bug1)", () => {
+    renderView();
+    const lastSortsToRows = () => {
+      const calls = rowsQuery.mock.calls;
+      return calls[calls.length - 1]?.[2]?.sorts;
+    };
+    // Click the sort toggle several times; each click flips the direction. With
+    // the draft model (no debounce/reseed/echo divergence) the rows query and
+    // the toolbar must always reflect the LATEST click, never a stale snapshot.
+    fireEvent.click(screen.getByTestId("change-sorts")); // asc
+    expect(lastSortsToRows()).toEqual([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByTestId("change-sorts")); // desc
+    expect(lastSortsToRows()).toEqual([
+      { propertyId: "p1", direction: "desc" },
+    ]);
+    fireEvent.click(screen.getByTestId("change-sorts")); // asc
+    expect(lastSortsToRows()).toEqual([{ propertyId: "p1", direction: "asc" }]);
+    // The toolbar (which renders from the draft) agrees with the rows query.
+    expect(screen.getByTestId("toolbar-sorts").textContent).toContain(
+      '"direction":"asc"',
+    );
+    // Nothing was auto-persisted along the way (deferred save).
+    expect(updateViewMutate).not.toHaveBeenCalled();
   });
 
   it("reorders columns into the draft and persists the view-scoped order on Save (#92)", () => {
