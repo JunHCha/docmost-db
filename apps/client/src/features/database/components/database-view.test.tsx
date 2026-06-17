@@ -76,10 +76,12 @@ vi.mock("./table-view/table-view", () => ({
     properties,
     spaceId,
     spaceSlug,
+    onReorderColumns,
   }: {
-    properties: { name: string }[];
+    properties: { id: string; name: string }[];
     spaceId: string;
     spaceSlug?: string;
+    onReorderColumns?: (ids: string[]) => void;
   }) => (
     <div
       data-testid="table-view"
@@ -87,6 +89,12 @@ vi.mock("./table-view/table-view", () => ({
       data-space-slug={spaceSlug}
     >
       {properties.map((p) => p.name).join(",")}
+      <button
+        data-testid="reorder-columns"
+        onClick={() =>
+          onReorderColumns?.([...properties].reverse().map((p) => p.id))
+        }
+      />
     </div>
   ),
 }));
@@ -95,15 +103,19 @@ vi.mock("./board-view/board-view", () => ({
 }));
 // Expose the toolbar's filter/sort change callbacks as buttons so a test can
 // trigger a config change and assert on the persist behaviour.
+let sortClicks = 0;
 vi.mock("./toolbar/view-toolbar", () => ({
   ViewToolbar: ({
+    sorts,
     onFiltersChange,
     onSortsChange,
   }: {
+    sorts: any[];
     onFiltersChange: (f: any) => void;
     onSortsChange: (s: any) => void;
   }) => (
-    <div>
+    <div data-testid="toolbar-sorts">
+      {JSON.stringify(sorts)}
       <button
         data-testid="change-filters"
         onClick={() =>
@@ -112,8 +124,15 @@ vi.mock("./toolbar/view-toolbar", () => ({
       />
       <button
         data-testid="change-sorts"
+        // Toggle the direction each click so repeated sort edits are distinct;
+        // the draft must always reflect the LATEST click (bug1 regression).
         onClick={() =>
-          onSortsChange([{ propertyId: "p1", direction: "asc" }])
+          onSortsChange([
+            {
+              propertyId: "p1",
+              direction: sortClicks++ % 2 === 0 ? "asc" : "desc",
+            },
+          ])
         }
       />
     </div>
@@ -121,6 +140,7 @@ vi.mock("./toolbar/view-toolbar", () => ({
 }));
 
 import { DatabaseView } from "./database-view";
+import { viewDraftStorageKey } from "./view-draft-storage";
 
 // Note: no MemoryRouter — DatabaseView must mount without any route context,
 // which is exactly what the inline embed (issue #24) needs.
@@ -148,6 +168,10 @@ function renderView(
 
 describe("DatabaseView", () => {
   beforeEach(() => {
+    // Deferred-save persists dirty drafts to localStorage (#92); clear it so a
+    // draft from one test can't restore into the next and skew dirty state.
+    localStorage.clear();
+    sortClicks = 0;
     rowsQuery.mockReset();
     updateViewMutate.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
@@ -196,10 +220,127 @@ describe("DatabaseView", () => {
     expect(rowsQuery).toHaveBeenLastCalledWith("db1", "v2", expect.anything());
   });
 
-  it("persists filter/sort changes by default", () => {
+  it("defers a filter/sort change: nothing persists until Save is clicked (#92)", () => {
     renderView();
     fireEvent.click(screen.getByTestId("change-filters"));
-    expect(updateViewMutate).toHaveBeenCalled();
+    // The edit lives only in the draft — no server write yet.
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    // The Save action appears once the draft is dirty.
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    );
+  });
+
+  it("hides Save/Discard until an edit makes the draft dirty (#92)", () => {
+    renderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(screen.queryByText("Discard")).toBeNull();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    expect(screen.getByText("Save changes")).toBeTruthy();
+    expect(screen.getByText("Discard")).toBeTruthy();
+  });
+
+  it("discards the draft and hides the actions on Discard (#92)", () => {
+    renderView();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    fireEvent.click(screen.getByText("Discard"));
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    expect(screen.queryByText("Save changes")).toBeNull();
+  });
+
+  it("silently restores a persisted dirty draft when its baseline still matches (#92)", () => {
+    // A draft stored before navigating away; baseline === the current saved
+    // config ({}), so on return it is restored and the actions reappear without
+    // any new edit.
+    localStorage.setItem(
+      viewDraftStorageKey("db1", undefined, "v1"),
+      JSON.stringify({
+        baseline: {},
+        draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
+      }),
+    );
+    renderView();
+    expect(screen.getByText("Save changes")).toBeTruthy();
+    expect(screen.getByText("Discard")).toBeTruthy();
+  });
+
+  it("drops a persisted draft whose baseline no longer matches the saved config (#92)", () => {
+    // Server config moved on (now carries a sort) since the draft was stored, so
+    // the stale draft is discarded — server-latest wins — and the slot cleared.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "asc" }],
+        }),
+      ],
+    });
+    const key = viewDraftStorageKey("db1", undefined, "v1");
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        baseline: {},
+        draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
+      }),
+    );
+    renderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(localStorage.getItem(key)).toBeNull();
+  });
+
+  it("keeps repeated sort edits consistent — no mid-sequence divergence (bug1)", () => {
+    renderView();
+    const lastSortsToRows = () => {
+      const calls = rowsQuery.mock.calls;
+      return calls[calls.length - 1]?.[2]?.sorts;
+    };
+    // Click the sort toggle several times; each click flips the direction. With
+    // the draft model (no debounce/reseed/echo divergence) the rows query and
+    // the toolbar must always reflect the LATEST click, never a stale snapshot.
+    fireEvent.click(screen.getByTestId("change-sorts")); // asc
+    expect(lastSortsToRows()).toEqual([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByTestId("change-sorts")); // desc
+    expect(lastSortsToRows()).toEqual([
+      { propertyId: "p1", direction: "desc" },
+    ]);
+    fireEvent.click(screen.getByTestId("change-sorts")); // asc
+    expect(lastSortsToRows()).toEqual([{ propertyId: "p1", direction: "asc" }]);
+    // The toolbar (which renders from the draft) agrees with the rows query.
+    expect(screen.getByTestId("toolbar-sorts").textContent).toContain(
+      '"direction":"asc"',
+    );
+    // Nothing was auto-persisted along the way (deferred save).
+    expect(updateViewMutate).not.toHaveBeenCalled();
+  });
+
+  it("reorders columns into the draft and persists the view-scoped order on Save (#92)", () => {
+    const twoProps = [
+      { ...oneProperty[0], id: "p1", position: "a0" },
+      { ...oneProperty[0], id: "p2", position: "a1" },
+    ];
+    propertiesQuery.mockReturnValue({ data: twoProps, isLoading: false });
+    renderView();
+    // The mocked TableView reverses the property order on this click.
+    fireEvent.click(screen.getByTestId("reorder-columns"));
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Save changes"));
+    // Column order is now captured in the view config (not a global position).
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({
+          columns: [
+            expect.objectContaining({ propertyId: "p2" }),
+            expect.objectContaining({ propertyId: "p1" }),
+          ],
+        }),
+      }),
+    );
   });
 
   it("activates initialViewId rather than the default when given", () => {
@@ -222,11 +363,12 @@ describe("DatabaseView", () => {
     expect(viewsQuery).toHaveBeenCalledWith("db1", undefined);
   });
 
-  it("persists filter/sort changes for an embed too (embedId-scoped, not session-local)", () => {
+  it("defers then persists filter/sort changes for an embed too on Save (#92)", () => {
     renderView({ embedId: "embed-1" });
     fireEvent.click(screen.getByTestId("change-filters"));
-    // The embed now owns its views, so its edits persist to its own scope
-    // (persistViewConfig session-local special case removed in issue #39).
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    // The embed owns its views, so saving persists to its own scope (issue #39).
+    fireEvent.click(screen.getByText("Save changes"));
     expect(updateViewMutate).toHaveBeenCalled();
   });
 

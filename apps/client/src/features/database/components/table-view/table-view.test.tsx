@@ -96,11 +96,23 @@ function view(config: IDatabaseView["config"]): IDatabaseView {
   };
 }
 
+// Deferred-save column callbacks (#92): TableView bubbles column edits up to
+// DatabaseView's draft instead of persisting them itself. Default to spies so
+// individual tests can override and assert on them.
+const onHideColumn = vi.fn();
+const onResizeColumn = vi.fn();
+const onResizeTitle = vi.fn();
+const onReorderColumns = vi.fn();
+
 function renderGrid(
   opts: {
     spaceSlug?: string;
     activeView?: IDatabaseView;
     rows?: IDatabaseRow[];
+    onHideColumn?: (id: string) => void;
+    onResizeColumn?: (id: string, w: number) => void;
+    onResizeTitle?: (w: number) => void;
+    onReorderColumns?: (ids: string[]) => void;
   } = {},
 ) {
   return render(
@@ -113,6 +125,10 @@ function renderGrid(
           rows={opts.rows ?? rows}
           spaceSlug={opts.spaceSlug ?? "my-space"}
           activeView={opts.activeView ?? view({})}
+          onHideColumn={opts.onHideColumn ?? onHideColumn}
+          onResizeColumn={opts.onResizeColumn ?? onResizeColumn}
+          onResizeTitle={opts.onResizeTitle ?? onResizeTitle}
+          onReorderColumns={opts.onReorderColumns ?? onReorderColumns}
         />
       </MemoryRouter>
     </MantineProvider>,
@@ -132,6 +148,10 @@ describe("TableView", () => {
     createPropertyMutate.mockReset();
     updateRowTitleMutate.mockReset();
     updateViewMutate.mockReset();
+    onHideColumn.mockReset();
+    onResizeColumn.mockReset();
+    onResizeTitle.mockReset();
+    onReorderColumns.mockReset();
     navigate.mockReset();
   });
 
@@ -141,7 +161,7 @@ describe("TableView", () => {
     expect(screen.getByText("Done")).toBeTruthy();
   });
 
-  it("persists a resized Title column width on the view config", () => {
+  it("bubbles a resized Title column width to onResizeTitle (deferred save)", () => {
     renderGrid();
     const titleTh = screen.getByText("Title").closest("th") as HTMLElement;
     const handle = within(titleTh).getByLabelText("Resize column");
@@ -154,13 +174,12 @@ describe("TableView", () => {
       fireEvent(handle, new MouseEvent(type, { bubbles: true, clientX }));
     pointer("pointerdown", 100);
     pointer("pointermove", 180);
-    expect(updateViewMutate).not.toHaveBeenCalled();
+    expect(onResizeTitle).not.toHaveBeenCalled();
     pointer("pointerup", 180);
-    // Default title width 220 + (180 - 100) = 300.
-    expect(updateViewMutate).toHaveBeenCalledWith({
-      viewId: "v1",
-      config: expect.objectContaining({ titleWidth: 300 }),
-    });
+    // Default title width 220 + (180 - 100) = 300. Nothing persists here now —
+    // the draft owns it until the user saves.
+    expect(onResizeTitle).toHaveBeenCalledWith(300);
+    expect(updateViewMutate).not.toHaveBeenCalled();
   });
 
   it("applies the configured Title width to the Title header", () => {
@@ -316,7 +335,7 @@ describe("TableView active-view column config", () => {
     expect(after).toBe("240px");
   });
 
-  it("commits a hide toggle as a full echoed columns array via updateView", () => {
+  it("bubbles a hide toggle to onHideColumn (deferred save)", () => {
     renderGrid();
     // The hide action lives in the Status column's options menu.
     const statusHeader = screen
@@ -324,15 +343,10 @@ describe("TableView active-view column config", () => {
       .find((h) => h.textContent?.includes("Status")) as HTMLElement;
     fireEvent.click(within(statusHeader).getByLabelText("Column options"));
     fireEvent.click(screen.getByText("Hide column"));
-    expect(updateViewMutate).toHaveBeenCalledWith({
-      viewId: "v1",
-      config: {
-        columns: [
-          { propertyId: "p1", visible: false },
-          { propertyId: "p2", visible: true },
-        ],
-      },
-    });
+    // The draft (DatabaseView) echoes the full columns array; TableView only
+    // reports which property to hide. Nothing persists until save.
+    expect(onHideColumn).toHaveBeenCalledWith("p1");
+    expect(updateViewMutate).not.toHaveBeenCalled();
   });
 });
 
