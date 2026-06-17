@@ -259,7 +259,12 @@ export function DatabaseView({
   }
 
   return (
-    <Stack gap="xs" ref={rootRef}>
+    // data-database-grid marks the whole grid as owning its own drag-and-drop
+    // (column reorder, board cards) via pragmatic-drag-and-drop. When this view
+    // is embedded in a page, it lives inside the ProseMirror editor whose
+    // built-in dragstart handler would otherwise hijack those drags; the global
+    // drag-handle plugin reads this attribute to bow out (see drag-handle.ts).
+    <Stack gap="xs" ref={rootRef} data-database-grid>
       <Group justify="space-between" align="center">
         <ViewSwitcher
           databaseId={databaseId}
