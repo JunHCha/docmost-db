@@ -25,7 +25,7 @@ const property: IDatabaseProperty = {
   deletedAt: null,
 };
 
-function renderCell(value: any) {
+function renderCell(value: any, showEmptyPlaceholder = true) {
   return render(
     <MantineProvider>
       <TextCell
@@ -33,6 +33,7 @@ function renderCell(value: any) {
         value={value}
         pageId="page1"
         databaseId="db1"
+        showEmptyPlaceholder={showEmptyPlaceholder}
       />
     </MantineProvider>,
   );
@@ -65,6 +66,18 @@ describe("TextCell", () => {
     // and show a dimmed placeholder, then enter edit mode on click.
     const display = screen.getByText("Empty");
     expect(display.style.display).toBe("block");
+    expect(display.style.width).toBe("100%");
+    fireEvent.click(display);
+    expect(screen.getByRole("textbox", { name: "Name" })).toBeTruthy();
+  });
+
+  it("omits the Empty placeholder in the grid (showEmptyPlaceholder off) but stays clickable", () => {
+    const { container } = renderCell(undefined, false);
+    // The grid leaves blank cells blank — no "Empty" noise in every row — while
+    // the cell still spans the column so clicking it enters edit mode (#93 follow-up).
+    expect(screen.queryByText("Empty")).toBeNull();
+    const display = container.querySelector("p") as HTMLElement;
+    expect(display.textContent).toBe("");
     expect(display.style.width).toBe("100%");
     fireEvent.click(display);
     expect(screen.getByRole("textbox", { name: "Name" })).toBeTruthy();

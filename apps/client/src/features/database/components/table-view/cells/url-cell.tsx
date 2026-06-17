@@ -50,7 +50,13 @@ function toHref(raw: string): string {
   return `https://${v}`; // bare host/path → assume https
 }
 
-export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
+export function UrlCell({
+  property,
+  value,
+  pageId,
+  databaseId,
+  showEmptyPlaceholder,
+}: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
@@ -123,11 +129,15 @@ export function UrlCell({ property, value, pageId, databaseId }: CellProps) {
       ) : (
         <Text
           size="sm"
-          c="dimmed"
+          c={showEmptyPlaceholder ? "dimmed" : undefined}
           onClick={startEdit}
-          style={{ ...inlinePlaceholderStyle, flex: 1, minWidth: 0 }}
+          style={{
+            ...(showEmptyPlaceholder ? inlinePlaceholderStyle : inlineDisplayStyle),
+            flex: 1,
+            minWidth: 0,
+          }}
         >
-          {t(INLINE_EMPTY_PLACEHOLDER)}
+          {showEmptyPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : ""}
         </Text>
       )}
       <ActionIcon

@@ -24,7 +24,13 @@ function toIso(value: string | Date | null): string {
   return d.isValid() ? d.format(ISO) : "";
 }
 
-export function DateCell({ property, value, pageId, databaseId }: CellProps) {
+export function DateCell({
+  property,
+  value,
+  pageId,
+  databaseId,
+  showEmptyPlaceholder,
+}: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
@@ -69,14 +75,15 @@ export function DateCell({ property, value, pageId, databaseId }: CellProps) {
     );
   }
 
+  const showPlaceholder = !stored && showEmptyPlaceholder;
   return (
     <Text
       size="sm"
-      c={stored ? undefined : "dimmed"}
+      c={showPlaceholder ? "dimmed" : undefined}
       onClick={() => setEditing(true)}
-      style={stored ? inlineDisplayStyle : inlinePlaceholderStyle}
+      style={showPlaceholder ? inlinePlaceholderStyle : inlineDisplayStyle}
     >
-      {stored || t(INLINE_EMPTY_PLACEHOLDER)}
+      {stored || (showPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : "")}
     </Text>
   );
 }

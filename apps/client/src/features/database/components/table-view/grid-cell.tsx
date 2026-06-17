@@ -13,6 +13,9 @@ interface GridCellProps {
   value: IDatabasePropertyValue | undefined;
   pageId: string;
   databaseId: string;
+  // Forwarded to the cell: show a dimmed "Empty" placeholder in empty cells.
+  // The row detail panel sets this; the grid leaves it off (issue #93 follow-up).
+  showEmptyPlaceholder?: boolean;
 }
 
 export function GridCell({
@@ -20,6 +23,7 @@ export function GridCell({
   value,
   pageId,
   databaseId,
+  showEmptyPlaceholder,
 }: GridCellProps) {
   const Cell = getCellComponent(property.type);
   const { editingByCell } = useDatabaseCollabPresence();
@@ -49,6 +53,7 @@ export function GridCell({
         value={value?.value}
         pageId={pageId}
         databaseId={databaseId}
+        showEmptyPlaceholder={showEmptyPlaceholder}
       />
       {isRemoteEditing && (
         <Tooltip label={editors.map((u) => u.name).join(", ")} withArrow>

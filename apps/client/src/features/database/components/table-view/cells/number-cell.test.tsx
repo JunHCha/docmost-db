@@ -25,7 +25,7 @@ const property: IDatabaseProperty = {
   deletedAt: null,
 };
 
-function renderCell(value: any) {
+function renderCell(value: any, showEmptyPlaceholder = true) {
   return render(
     <MantineProvider>
       <NumberCell
@@ -33,6 +33,7 @@ function renderCell(value: any) {
         value={value}
         pageId="page1"
         databaseId="db1"
+        showEmptyPlaceholder={showEmptyPlaceholder}
       />
     </MantineProvider>,
   );
@@ -48,6 +49,16 @@ describe("NumberCell", () => {
     renderCell(undefined);
     const display = screen.getByText("Empty");
     expect(display.style.display).toBe("block");
+    expect(display.style.width).toBe("100%");
+    fireEvent.click(display);
+    expect(screen.getByLabelText("Count")).toBeTruthy();
+  });
+
+  it("omits the Empty placeholder in the grid but stays clickable", () => {
+    const { container } = renderCell(undefined, false);
+    expect(screen.queryByText("Empty")).toBeNull();
+    const display = container.querySelector("p") as HTMLElement;
+    expect(display.textContent).toBe("");
     expect(display.style.width).toBe("100%");
     fireEvent.click(display);
     expect(screen.getByLabelText("Count")).toBeTruthy();

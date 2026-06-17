@@ -13,7 +13,13 @@ import {
   inlinePlaceholderStyle,
 } from "./inline-text";
 
-export function TextCell({ property, value, pageId, databaseId }: CellProps) {
+export function TextCell({
+  property,
+  value,
+  pageId,
+  databaseId,
+  showEmptyPlaceholder,
+}: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
@@ -60,14 +66,15 @@ export function TextCell({ property, value, pageId, databaseId }: CellProps) {
     );
   }
 
+  const showPlaceholder = !stored && showEmptyPlaceholder;
   return (
     <Text
       size="sm"
-      c={stored ? undefined : "dimmed"}
+      c={showPlaceholder ? "dimmed" : undefined}
       onClick={startEdit}
-      style={stored ? inlineDisplayStyle : inlinePlaceholderStyle}
+      style={showPlaceholder ? inlinePlaceholderStyle : inlineDisplayStyle}
     >
-      {stored || t(INLINE_EMPTY_PLACEHOLDER)}
+      {stored || (showPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : "")}
     </Text>
   );
 }
