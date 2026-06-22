@@ -21,9 +21,16 @@
   opacity: 1;
 }
 
-/* The drag handle borrows the note block's grip affordance. */
+/* The drag handle borrows the note block's grip affordance. It's reserved for
+ * layout (so the name never shifts on hover) but tucked back into the cell's
+ * left padding via a negative margin, so the always-present grip slot doesn't
+ * push the column name away from the cell edge / out of line with the data
+ * cells below it. */
 .grip {
   cursor: grab;
+  margin-inline-start: calc(
+    -1 * var(--table-horizontal-spacing, var(--mantine-spacing-xs)) + 0.125rem
+  );
 }
 
 .grip:active {
