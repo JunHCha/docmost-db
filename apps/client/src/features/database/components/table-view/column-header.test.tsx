@@ -60,6 +60,14 @@ describe("ColumnHeader", () => {
     expect(screen.getByText("Status")).toBeTruthy();
   });
 
+  it("shows the data type icon beside the column name", () => {
+    // text property → letter-case glyph from the shared type-icon mapping.
+    const { container } = renderHeader();
+    expect(
+      container.querySelector("svg.tabler-icon-letter-case"),
+    ).toBeTruthy();
+  });
+
   it("hides the column from the menu", () => {
     const onHide = vi.fn();
     render(

@@ -26,6 +26,7 @@ import { ColumnResizeHandle } from "./column-resize-handle";
 import classes from "./column-header.module.css";
 import tableClasses from "./table-view.module.css";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
+import { PropertyTypeIcon } from "@/features/database/components/property/property-type-icon";
 
 // Isolate column DnD from the page tree's drag adapter.
 const COLUMN_DRAG = Symbol("database-column");
@@ -198,20 +199,12 @@ export function ColumnHeader({
                 size="xs"
                 variant="subtle"
                 color="gray"
-                className={`${classes.handle} ${classes.grip}`}
+                className={classes.grip}
                 aria-label={t("Drag to reorder column")}
               >
                 <IconGripVertical size={14} />
               </ActionIcon>
-              {property.type === "relation" && (
-                <IconArrowsLeftRight
-                  size={13}
-                  stroke={1.8}
-                  color="var(--mantine-color-dimmed)"
-                  aria-label={t("Relation")}
-                  style={{ flexShrink: 0 }}
-                />
-              )}
+              <PropertyTypeIcon type={property.type} size={13} />
               <Text
                 size="sm"
                 fw={500}
