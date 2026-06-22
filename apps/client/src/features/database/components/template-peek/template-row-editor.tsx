@@ -1,5 +1,5 @@
 import "@/features/editor/styles/index.css";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import {
   ActionIcon,
   Button,
@@ -36,6 +36,9 @@ interface TemplateRowEditorProps {
   template: IDatabaseTemplate | null;
   // Called after a successful save or when the user dismisses the editor.
   onClose: () => void;
+  // Host-supplied header controls (host switch / close). Falls back to a plain
+  // close button when omitted.
+  headerControls?: ReactNode;
 }
 
 // A collab-free editor for a database row template that mirrors the page edit
@@ -49,6 +52,7 @@ export function TemplateRowEditor({
   properties,
   template,
   onClose,
+  headerControls,
 }: TemplateRowEditorProps) {
   const { t } = useTranslation();
   const createTemplate = useCreateTemplateMutation(databaseId);
@@ -112,15 +116,17 @@ export function TemplateRowEditor({
             {t("Editing template")}
           </Text>
         </Group>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          size="sm"
-          aria-label={t("Close")}
-          onClick={onClose}
-        >
-          <IconX size={16} />
-        </ActionIcon>
+        {headerControls ?? (
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label={t("Close")}
+            onClick={onClose}
+          >
+            <IconX size={16} />
+          </ActionIcon>
+        )}
       </Group>
 
       <div className={classes.body}>
