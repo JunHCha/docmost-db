@@ -62,6 +62,10 @@ export function TemplateManagerModal({
       title={editing ? null : t("Templates")}
       size={editing ? 760 : "lg"}
       padding={editing ? 0 : undefined}
+      // While editing the editor's accent border (radius-lg) sits flush at the
+      // modal edge (padding 0), so match the modal corner radius to it — else
+      // the two nested rounded rectangles' corners disagree.
+      radius={editing ? "lg" : undefined}
       withCloseButton={!editing}
     >
       {editing ? (
