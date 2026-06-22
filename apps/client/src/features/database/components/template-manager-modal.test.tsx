@@ -31,6 +31,26 @@ vi.mock("@/components/ui/emoji-picker", () => ({
   ),
 }));
 
+// The editor is lazy-loaded and pulls the full tiptap graph; stub it so these
+// tests cover the modal's list/CRUD orchestration. The editor's own save
+// contract is verified in template-row-editor.test.
+vi.mock("./template-peek/template-row-editor", () => ({
+  default: ({
+    template,
+    onClose,
+  }: {
+    template: { id: string } | null;
+    onClose: () => void;
+  }) => (
+    <div>
+      <span>Editing template {template?.id ?? "new"}</span>
+      <button type="button" onClick={onClose}>
+        Close editor
+      </button>
+    </div>
+  ),
+}));
+
 import { TemplateManagerModal } from "./template-manager-modal";
 
 function renderModal() {
@@ -65,15 +85,11 @@ describe("TemplateManagerModal", () => {
     expect(screen.getByText("Feature")).toBeTruthy();
   });
 
-  it("creates a template via the new-template form's save", () => {
+  it("opens the rich editor for a new template", async () => {
     renderModal();
     fireEvent.click(screen.getByText("New template"));
-    const nameInput = screen.getByLabelText("Template name") as HTMLInputElement;
-    fireEvent.change(nameInput, { target: { value: "Bug" } });
-    fireEvent.click(screen.getByText("Save"));
-    expect(createMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ databaseId: "db1", name: "Bug" }),
-    );
+    // Lazy-loaded editor host resolves asynchronously.
+    expect(await screen.findByText("Editing template new")).toBeTruthy();
   });
 
   it("deletes a template when its delete control is clicked", () => {
@@ -83,15 +99,13 @@ describe("TemplateManagerModal", () => {
     expect(deleteMutate).toHaveBeenCalledWith({ templateId: "t1" });
   });
 
-  it("opens a template for editing and saves name changes via update", () => {
+  it("opens an existing template in the editor and returns to the list on close", async () => {
     templatesHolder.value = [{ id: "t1", name: "Bug", icon: null }];
     renderModal();
     fireEvent.click(screen.getByLabelText("Edit template Bug"));
-    const nameInput = screen.getByLabelText("Template name") as HTMLInputElement;
-    fireEvent.change(nameInput, { target: { value: "Defect" } });
-    fireEvent.click(screen.getByText("Save"));
-    expect(updateMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ templateId: "t1", name: "Defect" }),
-    );
+    expect(await screen.findByText("Editing template t1")).toBeTruthy();
+    // Closing the editor returns to the template list.
+    fireEvent.click(screen.getByText("Close editor"));
+    expect(screen.getByText("New template")).toBeTruthy();
   });
 });

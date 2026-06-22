@@ -1,0 +1,78 @@
+/* Accent that marks the editor as a template (not a real page), shown in every
+   host (modal / aside / full page). A distinct amber border + badge. */
+.accent {
+    --template-accent: light-dark(
+        var(--mantine-color-yellow-6),
+        var(--mantine-color-yellow-4)
+    );
+    border: 2px solid var(--template-accent);
+    border-radius: var(--mantine-radius-lg);
+    overflow: hidden;
+    background: var(--mantine-color-body);
+}
+
+.badgeBar {
+    padding: 6px 12px;
+    background: light-dark(
+        var(--mantine-color-yellow-0),
+        var(--mantine-color-dark-6)
+    );
+    border-bottom: 1px solid var(--template-accent);
+}
+
+.badgeText {
+    color: light-dark(
+        var(--mantine-color-yellow-8),
+        var(--mantine-color-yellow-3)
+    );
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.body {
+    padding: 1.25rem 1.5rem 1rem;
+}
+
+.titleArea {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.emojiIcon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.titleInput {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    border: none;
+    outline: none;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+}
+
+.titleInput::placeholder {
+    color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+}
+
+.presets {
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    border-top: 0.5px solid var(--mantine-color-default-border);
+    border-bottom: 0.5px solid var(--mantine-color-default-border);
+}
+
+.editorBody {
+    position: relative;
+    min-height: 160px;
+}
+
+.footer {
+    margin-top: 1rem;
+}
