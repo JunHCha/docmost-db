@@ -26,6 +26,7 @@ import { ColumnResizeHandle } from "./column-resize-handle";
 import classes from "./column-header.module.css";
 import tableClasses from "./table-view.module.css";
 import { getOptions } from "@/features/database/components/property/option-config.ts";
+import { PropertyTypeIcon } from "@/features/database/components/property/property-type-icon";
 
 // Isolate column DnD from the page tree's drag adapter.
 const COLUMN_DRAG = Symbol("database-column");
@@ -203,15 +204,7 @@ export function ColumnHeader({
               >
                 <IconGripVertical size={14} />
               </ActionIcon>
-              {property.type === "relation" && (
-                <IconArrowsLeftRight
-                  size={13}
-                  stroke={1.8}
-                  color="var(--mantine-color-dimmed)"
-                  aria-label={t("Relation")}
-                  style={{ flexShrink: 0 }}
-                />
-              )}
+              <PropertyTypeIcon type={property.type} size={13} />
               <Text
                 size="sm"
                 fw={500}

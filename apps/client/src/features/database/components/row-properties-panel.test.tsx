@@ -116,6 +116,14 @@ describe("RowPropertiesPanel", () => {
     expect(screen.getByText("Hello")).toBeTruthy();
   });
 
+  it("shows the data type icon beside each property label", () => {
+    // text property → letter-case glyph from the shared type-icon mapping.
+    const { container } = renderPanel();
+    expect(
+      container.querySelector("svg.tabler-icon-letter-case"),
+    ).toBeTruthy();
+  });
+
   it("constrains the panel within the page gutter without overflowing", () => {
     // The panel renders directly inside the editor Container (no horizontal
     // padding), so it must reproduce the same 3rem page gutter the title and
