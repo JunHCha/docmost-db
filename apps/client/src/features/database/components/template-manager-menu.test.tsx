@@ -13,24 +13,12 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDeleteTemplateMutation: () => ({ mutate: deleteMutate }),
 }));
 
-// The editor is lazy-loaded and pulls the full tiptap graph; stub it so these
-// tests cover the dropdown's list/CRUD orchestration. The editor's own save
-// contract is verified in template-row-editor.test.
-vi.mock("./template-peek/template-row-editor", () => ({
-  default: ({
-    template,
-    onClose,
-  }: {
-    template: { id: string } | null;
-    onClose: () => void;
-  }) => (
-    <div>
-      <span>Editing template {template?.id ?? "new"}</span>
-      <button type="button" onClick={onClose}>
-        Close editor
-      </button>
-    </div>
-  ),
+// Editing is driven through the template peek (rendered by global hosts), so the
+// menu only needs to request the peek to open. The editor's save contract is
+// verified in template-row-editor.test.
+const openPeek = vi.fn();
+vi.mock("./template-peek/use-template-peek", () => ({
+  useTemplatePeek: () => ({ open: openPeek }),
 }));
 
 import { TemplateManagerMenu } from "./template-manager-menu";
@@ -51,6 +39,7 @@ describe("TemplateManagerMenu", () => {
   beforeEach(() => {
     templatesHolder.value = [];
     deleteMutate.mockReset();
+    openPeek.mockReset();
   });
 
   it("shows an empty state in the dropdown when there are no templates", async () => {
@@ -79,21 +68,18 @@ describe("TemplateManagerMenu", () => {
     expect(deleteMutate).toHaveBeenCalledWith({ templateId: "t1" });
   });
 
-  it("opens the editor for a new template", async () => {
+  it("opens the peek for a new template (modal host)", async () => {
     renderMenu();
     openList();
     fireEvent.click(await screen.findByText("New template"));
-    expect(await screen.findByText("Editing template new")).toBeTruthy();
+    expect(openPeek).toHaveBeenCalledWith("db1", null, "modal");
   });
 
-  it("opens an existing template in the editor and returns on close", async () => {
+  it("opens an existing template in the peek (modal host)", async () => {
     templatesHolder.value = [{ id: "t1", name: "Bug", icon: null }];
     renderMenu();
     openList();
     fireEvent.click(await screen.findByLabelText("Edit template Bug"));
-    expect(await screen.findByText("Editing template t1")).toBeTruthy();
-    fireEvent.click(screen.getByText("Close editor"));
-    // Editor dismissed.
-    expect(screen.queryByText("Editing template t1")).toBeNull();
+    expect(openPeek).toHaveBeenCalledWith("db1", "t1", "modal");
   });
 });

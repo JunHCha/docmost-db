@@ -16,6 +16,8 @@ import { AppHeader } from "@/components/layouts/global/app-header.tsx";
 import Aside from "@/components/layouts/global/aside.tsx";
 import { RelationPeekModalHost } from "@/features/database/components/relation-peek/relation-peek-host.tsx";
 import { RelationPeekAsidePanel } from "@/features/database/components/relation-peek/relation-peek-aside-panel.tsx";
+import { TemplatePeekModalHost } from "@/features/database/components/template-peek/template-peek-modal-host.tsx";
+import { TemplatePeekAsidePanel } from "@/features/database/components/template-peek/template-peek-aside-panel.tsx";
 import classes from "./app-shell.module.css";
 import { useTrialEndAction } from "@/ee/hooks/use-trial-end-action.tsx";
 import { useToggleSidebar } from "@/components/layouts/global/hooks/hooks/use-toggle-sidebar.ts";
@@ -165,6 +167,8 @@ export default function GlobalAppShell({
       )}
       {isPageRoute && <RelationPeekAsidePanel />}
       {isPageRoute && <RelationPeekModalHost />}
+      {isPageRoute && <TemplatePeekAsidePanel />}
+      {isPageRoute && <TemplatePeekModalHost />}
     </AppShell>
     </>
   );

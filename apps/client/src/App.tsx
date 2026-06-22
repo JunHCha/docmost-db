@@ -47,6 +47,7 @@ import FavoritesPage from "@/pages/favorites/favorites-page";
 import AiChat from "@/ee/ai-chat/pages/ai-chat.tsx";
 import VerifyEmail from "@/ee/pages/verify-email.tsx";
 import LabelPage from "@/pages/label/label-page";
+import DatabaseTemplatePage from "@/features/database/pages/database-template-page";
 
 export default function App() {
   const { t } = useTranslation();
@@ -99,6 +100,10 @@ export default function App() {
           <Route
             path={"/templates/:templateId"}
             element={<TemplateEditor />}
+          />
+          <Route
+            path={"/databases/:databaseId/templates/:templateId"}
+            element={<DatabaseTemplatePage />}
           />
           <Route path={"/s/:spaceSlug"} element={<SpaceHome />} />
           <Route path={"/s/:spaceSlug/trash"} element={<SpaceTrash />} />
