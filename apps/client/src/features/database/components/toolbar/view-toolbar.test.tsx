@@ -7,12 +7,14 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
-const templateModalSpy = vi.fn();
-vi.mock("../template-manager-modal", () => ({
-  TemplateManagerModal: (props: { opened: boolean }) => {
-    templateModalSpy(props.opened);
-    return props.opened ? <div>Templates Modal</div> : null;
-  },
+// The menu owns its own trigger/dropdown/editor; stub it to a button so the
+// toolbar's own wiring is what's exercised here.
+vi.mock("../template-manager-menu", () => ({
+  TemplateManagerMenu: () => (
+    <button type="button" aria-label="Templates">
+      Templates
+    </button>
+  ),
 }));
 
 import { ViewToolbar } from "./view-toolbar";
@@ -119,10 +121,8 @@ describe("ViewToolbar", () => {
     expect(btn.style.getPropertyValue("--ai-color")).toContain("blue");
   });
 
-  it("opens the template manager modal from the Templates button", () => {
-    templateModalSpy.mockReset();
+  it("renders the template manager entry point", () => {
     renderToolbar();
-    fireEvent.click(screen.getByRole("button", { name: /templates/i }));
-    expect(screen.getByText("Templates Modal")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /templates/i })).toBeTruthy();
   });
 });
