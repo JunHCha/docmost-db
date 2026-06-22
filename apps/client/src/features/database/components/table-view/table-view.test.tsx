@@ -277,7 +277,10 @@ describe("TableView", () => {
   it("creates a row when the add-row button is clicked", () => {
     renderGrid();
     fireEvent.click(screen.getByText("+ Row"));
-    expect(createRowMutate).toHaveBeenCalledWith({ databaseId: "db1" });
+    expect(createRowMutate).toHaveBeenCalledWith({
+      databaseId: "db1",
+      initialValues: {},
+    });
   });
 
   it("hides the template dropdown when the database has no templates", () => {
@@ -301,7 +304,23 @@ describe("TableView", () => {
     templatesHolder.value = [{ id: "t1", name: "Bug", icon: null }];
     renderGrid();
     fireEvent.click(screen.getByText("+ Row"));
-    expect(createRowMutate).toHaveBeenCalledWith({ databaseId: "db1" });
+    expect(createRowMutate).toHaveBeenCalledWith({
+      databaseId: "db1",
+      initialValues: {},
+    });
+  });
+
+  it("seeds the new row with the active filter's value so it survives the filter", () => {
+    renderGrid({
+      activeView: view({
+        filters: [{ propertyId: "p2", op: "eq", value: true }],
+      }),
+    });
+    fireEvent.click(screen.getByText("+ Row"));
+    expect(createRowMutate).toHaveBeenCalledWith({
+      databaseId: "db1",
+      initialValues: { p2: { type: "checkbox", value: true } },
+    });
   });
 
   it("creates a text column when the add-column button is clicked", () => {

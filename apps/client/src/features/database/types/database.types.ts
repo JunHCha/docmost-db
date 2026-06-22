@@ -226,6 +226,11 @@ export interface ICreateRowParams {
   // When given, the server applies the template's propertyValues + content to
   // the new row atomically (issue #91). Mutually independent of title/icon.
   templateId?: string;
+  // Tagged seed values keyed by propertyId, derived from the active view's
+  // filters so a new row survives the filter (issue #103). Template values win
+  // on conflict; the server only applies these to properties the template left
+  // untouched.
+  initialValues?: Record<string, IPropertyValue>;
 }
 
 export interface IDatabaseTemplate {

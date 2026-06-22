@@ -17,6 +17,8 @@ import {
   patchRowValue,
   removeRowValue,
 } from "@/features/database/queries/database-cache.ts";
+import { sanitizeFilters } from "@/features/database/filters/sanitize.ts";
+import { deriveInitialValuesFromFilters } from "@/features/database/filters/initial-values.ts";
 import { resolveColumns } from "../table-view/view-columns";
 import { groupRows } from "./group-rows";
 import { BoardColumn } from "./board-column";
@@ -95,6 +97,18 @@ export function BoardView({
     [groupBy, rows],
   );
 
+  // Seed new cards with the active filters' values so they survive this view
+  // (issue #103). The group-by property is excluded — createInColumn's onSuccess
+  // setValue path owns that one, and the column the card lands in pins it.
+  const filterInitialValues = useMemo(() => {
+    const derived = deriveInitialValuesFromFilters(
+      sanitizeFilters(activeView.config.filters ?? []),
+      properties,
+    );
+    if (groupByPropertyId) delete derived[groupByPropertyId];
+    return derived;
+  }, [activeView.config.filters, properties, groupByPropertyId]);
+
   // Optimistically patch the rows cache so the card shows in the target column
   // immediately, then fire the real set-value mutation; its onError invalidates
   // the rows prefix and rolls the optimistic patch back. Shared by card drops
@@ -132,7 +146,7 @@ export function BoardView({
   function createInColumn(optionId: string | null) {
     if (!groupBy) return;
     createRow.mutate(
-      { databaseId },
+      { databaseId, initialValues: filterInitialValues },
       {
         onSuccess: (page) => {
           // Unassigned column: leave the group value unset (existing behavior).
