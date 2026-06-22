@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActionIcon, Group, Popover, Tooltip } from "@mantine/core";
-import { IconArrowsSort, IconFilter, IconTemplate } from "@tabler/icons-react";
+import { IconArrowsSort, IconFilter } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -11,7 +11,7 @@ import {
 import { FilterPopover } from "./filter-popover";
 import { SortPopover } from "./sort-popover";
 import { ViewSettingsMenu } from "./view-settings-menu";
-import { TemplateManagerModal } from "../template-manager-modal";
+import { TemplateManagerMenu } from "../template-manager-menu";
 
 interface ViewToolbarProps {
   // Owning database — needed by the template manager entry point (#91).
@@ -52,7 +52,6 @@ export function ViewToolbar({
   const { t } = useTranslation();
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const filterActive = filters.length > 0;
   const sortActive = sorts.length > 0;
@@ -134,21 +133,7 @@ export function ViewToolbar({
         datePropertyId={datePropertyId}
         onChangeDateProperty={onChangeDateProperty}
       />
-      <Tooltip label={t("Templates")}>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          aria-label={t("Templates")}
-          onClick={() => setTemplatesOpen(true)}
-        >
-          <IconTemplate size={16} />
-        </ActionIcon>
-      </Tooltip>
-      <TemplateManagerModal
-        opened={templatesOpen}
-        databaseId={databaseId}
-        onClose={() => setTemplatesOpen(false)}
-      />
+      <TemplateManagerMenu databaseId={databaseId} />
     </Group>
   );
 }
