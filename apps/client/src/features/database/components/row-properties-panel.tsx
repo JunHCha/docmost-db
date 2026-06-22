@@ -8,6 +8,7 @@ import {
   useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
 import { GridCell } from "./table-view/grid-cell";
+import { PropertyTypeIcon } from "./property/property-type-icon";
 import classes from "./row-properties-panel.module.css";
 
 interface RowPropertiesPanelProps {
@@ -58,15 +59,18 @@ export function RowPropertiesPanel({ page }: RowPropertiesPanelProps) {
           gap="md"
           className={classes.row}
         >
-          <Text
-            size="sm"
-            c="dimmed"
+          <Group
+            gap={6}
+            wrap="nowrap"
             w={140}
             className={classes.label}
             style={{ flexShrink: 0 }}
           >
-            {property.name}
-          </Text>
+            <PropertyTypeIcon type={property.type} />
+            <Text size="sm" c="dimmed" truncate>
+              {property.name}
+            </Text>
+          </Group>
           <div className={classes.value} style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
             <GridCell
               property={property}
