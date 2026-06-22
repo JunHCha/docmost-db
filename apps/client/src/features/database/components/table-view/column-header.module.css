@@ -21,13 +21,15 @@
   opacity: 1;
 }
 
-/* The drag handle borrows the note block's grip affordance. It's reserved for
- * layout (so the name never shifts on hover) but tucked back into the cell's
- * left padding via a negative margin, so the always-present grip slot doesn't
- * push the column name away from the cell edge / out of line with the data
- * cells below it. */
+/* The drag handle borrows the note block's grip affordance. Unlike the ⋯
+ * options (which reserve their slot), the grip takes NO space until the header
+ * is hovered: while idle the column name sits flush at the cell's left edge
+ * (in line with the data cells below); on hover the grip appears and pushes the
+ * name right by its width. The negative margin tucks the revealed grip back
+ * into the cell's left padding so it hugs the edge. */
 .grip {
   cursor: grab;
+  display: none;
   margin-inline-start: calc(
     -1 * var(--table-horizontal-spacing, var(--mantine-spacing-xs)) + 0.125rem
   );
@@ -35,4 +37,11 @@
 
 .grip:active {
   cursor: grabbing;
+}
+
+.headerInner:hover .grip,
+.grip:focus-visible,
+.grip[aria-expanded="true"],
+.grip[data-expanded="true"] {
+  display: inline-flex;
 }

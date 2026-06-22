@@ -199,7 +199,7 @@ export function ColumnHeader({
                 size="xs"
                 variant="subtle"
                 color="gray"
-                className={`${classes.handle} ${classes.grip}`}
+                className={classes.grip}
                 aria-label={t("Drag to reorder column")}
               >
                 <IconGripVertical size={14} />
