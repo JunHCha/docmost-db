@@ -237,6 +237,36 @@ describe("useCreateRowMutation success path", () => {
     // sidebar create cache must not be touched.
     expect(invalidateOnCreatePage).not.toHaveBeenCalled();
   });
+
+  it("seeds the appended row with the sent initialValues so it survives the filter", async () => {
+    const page = { id: "row1", title: "" };
+    service.createRow.mockResolvedValue(page);
+    const { result } = renderHook(() => useCreateRowMutation(dbId), { wrapper });
+    result.current.mutate({
+      databaseId: dbId,
+      initialValues: {
+        prop1: { type: "select", value: "opt1" },
+        prop2: { type: "relation", value: ["pg1"] },
+      },
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const values = appendRow.mock.calls[0][3];
+    expect(values).toHaveLength(2);
+    expect(values).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pageId: "row1",
+          propertyId: "prop1",
+          value: { type: "select", value: "opt1" },
+        }),
+        expect.objectContaining({
+          pageId: "row1",
+          propertyId: "prop2",
+          value: { type: "relation", value: ["pg1"] },
+        }),
+      ]),
+    );
+  });
 });
 
 describe("useCreateDatabaseMutation success path", () => {

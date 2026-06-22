@@ -177,6 +177,23 @@ describe("database-cache", () => {
     expect(rows![1]).toEqual({ row: { id: "p2" }, values: [] });
   });
 
+  it("appendRow seeds the new row with the given values", () => {
+    qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1")]);
+
+    const value = {
+      id: "v",
+      pageId: "p2",
+      propertyId: "prop1",
+      value: { type: "select", value: "opt1" },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    appendRow(qc, dbId, { id: "p2" } as any, [value]);
+
+    const rows = qc.getQueryData<IDatabaseRow[]>(databaseRowsKey(dbId, "v1"));
+    expect(rows![1]).toEqual({ row: { id: "p2" }, values: [value] });
+  });
+
   it("appendRowIfAbsent appends a row that is not yet present", () => {
     qc.setQueryData(databaseRowsKey(dbId, "v1"), [makeRow("p1")]);
 

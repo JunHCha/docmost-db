@@ -278,6 +278,130 @@ describe('DatabaseRowService', () => {
         expect(valueRepo.setValue).not.toHaveBeenCalled();
       });
     });
+
+    describe('with initialValues', () => {
+      beforeEach(() => {
+        pageService.create.mockResolvedValue({ id: 'row-1' } as any);
+        propertyRepo.findByDatabaseId.mockResolvedValue([
+          { id: 'p-status', type: 'select', config: {} },
+          { id: 'p-rel', type: 'relation', config: { targetDatabaseId: 'target-db' } },
+        ] as any);
+      });
+
+      it('applies initialValues to the new row', async () => {
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          initialValues: {
+            'p-status': { type: 'select', value: 'opt-1' },
+          },
+        } as any);
+
+        expect(valueRepo.setValue).toHaveBeenCalledWith({
+          pageId: 'row-1',
+          propertyId: 'p-status',
+          value: { type: 'select', value: 'opt-1' },
+        });
+      });
+
+      it('does not call setValue when initialValues is absent', async () => {
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+        } as any);
+        expect(valueRepo.setValue).not.toHaveBeenCalled();
+      });
+
+      it('lets template values win over initialValues for the same property', async () => {
+        templateRepo.findById.mockResolvedValue({
+          id: 'tpl-1',
+          databaseId: 'db-1',
+          name: 'T',
+          icon: null,
+          content: null,
+          propertyValues: { 'p-status': { type: 'select', value: 'tpl-opt' } },
+        } as any);
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          templateId: 'tpl-1',
+          initialValues: { 'p-status': { type: 'select', value: 'filter-opt' } },
+        } as any);
+
+        const statusCalls = valueRepo.setValue.mock.calls.filter(
+          (c) => c[0].propertyId === 'p-status',
+        );
+        expect(statusCalls).toHaveLength(1);
+        expect(statusCalls[0][0].value).toEqual({
+          type: 'select',
+          value: 'tpl-opt',
+        });
+      });
+
+      it('skips initialValues for properties not in this database', async () => {
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          initialValues: {
+            'p-foreign': { type: 'text', value: 'x' },
+          },
+        } as any);
+        expect(valueRepo.setValue).not.toHaveBeenCalled();
+      });
+
+      it('skips an initialValue that fails type validation', async () => {
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          initialValues: {
+            'p-status': { type: 'text', value: 'wrong-type' },
+          },
+        } as any);
+        expect(valueRepo.setValue).not.toHaveBeenCalled();
+      });
+
+      it('verifies relation membership and applies valid relation values', async () => {
+        databaseRepo.findById.mockImplementation(async (id: string) =>
+          id === 'target-db'
+            ? { id: 'target-db', pageId: 'target-page', workspaceId: 'ws-1' }
+            : database,
+        );
+        pageRepo.findManyByIds.mockResolvedValue([
+          { id: 'pg-a', parentPageId: 'target-page' },
+        ] as any);
+
+        await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          initialValues: {
+            'p-rel': { type: 'relation', value: ['pg-a'] },
+          },
+        } as any);
+
+        expect(pageRepo.findManyByIds).toHaveBeenCalledWith(['pg-a'], {
+          workspaceId: 'ws-1',
+        });
+        expect(valueRepo.setValue).toHaveBeenCalledWith({
+          pageId: 'row-1',
+          propertyId: 'p-rel',
+          value: { type: 'relation', value: ['pg-a'] },
+        });
+      });
+
+      it('skips a relation value that fails membership without failing the row', async () => {
+        databaseRepo.findById.mockImplementation(async (id: string) =>
+          id === 'target-db'
+            ? { id: 'target-db', pageId: 'target-page', workspaceId: 'ws-1' }
+            : database,
+        );
+        pageRepo.findManyByIds.mockResolvedValue([] as any);
+
+        const result = await service.createRow(user, workspace, {
+          databaseId: 'db-1',
+          initialValues: {
+            'p-rel': { type: 'relation', value: ['pg-missing'] },
+          },
+        } as any);
+
+        expect(result).toEqual({ id: 'row-1' });
+        expect(valueRepo.setValue).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('listRows', () => {

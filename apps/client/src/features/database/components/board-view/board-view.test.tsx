@@ -173,7 +173,42 @@ describe("BoardView", () => {
       .find((c) => c.getAttribute("data-option-id") === "todo") as HTMLElement;
     fireEvent.click(within(todo).getByText("+ New"));
     expect(createRowMutate).toHaveBeenCalledWith(
-      { databaseId: "db1" },
+      { databaseId: "db1", initialValues: {} },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("seeds new cards with filter values but excludes the group-by property", () => {
+    const tags: IDatabaseProperty = {
+      id: "tags",
+      databaseId: "db1",
+      name: "Tags",
+      type: "multi_select",
+      config: { options: [{ id: "urgent", label: "Urgent", color: "red" }] },
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    renderBoard({
+      properties: [status, tags],
+      config: {
+        groupByPropertyId: "status",
+        filters: [
+          { propertyId: "status", op: "eq", value: "done" },
+          { propertyId: "tags", op: "contains", value: "urgent" },
+        ],
+      },
+    });
+    const todo = screen
+      .getAllByTestId("board-column")
+      .find((c) => c.getAttribute("data-option-id") === "todo") as HTMLElement;
+    fireEvent.click(within(todo).getByText("+ New"));
+    expect(createRowMutate).toHaveBeenCalledWith(
+      {
+        databaseId: "db1",
+        initialValues: { tags: { type: "multi_select", value: ["urgent"] } },
+      },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });

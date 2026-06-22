@@ -257,8 +257,22 @@ export function useCreateRowMutation(databaseId: string) {
   const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<IPage, Error, ICreateRowParams>({
     mutationFn: (data) => createRow(data),
-    onSuccess: (page) => {
-      appendRow(queryClient, databaseId, page);
+    onSuccess: (page, variables) => {
+      // Seed the cached row with the filter-derived initial values (#103) so it
+      // appears already filled and survives the active filter without a refetch.
+      // The server applies the same values, so a later refetch matches.
+      const now = new Date();
+      const values: IDatabasePropertyValue[] = Object.entries(
+        variables.initialValues ?? {},
+      ).map(([propertyId, value]) => ({
+        id: `optimistic-${page.id}-${propertyId}`,
+        pageId: page.id,
+        propertyId,
+        value,
+        createdAt: now,
+        updatedAt: now,
+      }));
+      appendRow(queryClient, databaseId, page, values);
       // Tell other clients on this DB view about the new row (#55 Phase 3).
       broadcastChange({ kind: "row-create", page });
       // A row is a page parented to the database, but it is intentionally not
