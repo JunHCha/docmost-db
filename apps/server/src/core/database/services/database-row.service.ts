@@ -73,8 +73,24 @@ export class DatabaseRowService {
       'doc',
     );
 
-    if (template) {
-      await this.applyTemplateValues(page.id, template, database);
+    // Merge preset values for the new row: the template's values take priority,
+    // and the filter-derived initialValues (#103) only fill propertyIds the
+    // template left untouched. Applied through a single validated path.
+    const presets: Record<string, unknown> = {};
+    if (dto.initialValues && typeof dto.initialValues === 'object') {
+      Object.assign(presets, dto.initialValues);
+    }
+    const templatePresets = template?.propertyValues;
+    if (
+      templatePresets &&
+      typeof templatePresets === 'object' &&
+      !Array.isArray(templatePresets)
+    ) {
+      Object.assign(presets, templatePresets as Record<string, unknown>);
+    }
+
+    if (Object.keys(presets).length > 0) {
+      await this.applyPresetValues(page.id, presets, database);
     }
 
     return page;
@@ -95,25 +111,22 @@ export class DatabaseRowService {
     return template;
   }
 
-  // Apply a template's property_values onto the new row. Each entry is a tagged
-  // { type, value } keyed by propertyId. Defensively skip propertyIds that are
-  // not properties of this database, and skip values that fail type validation.
-  private async applyTemplateValues(
+  // Apply preset property values onto the new row. Each entry is a tagged
+  // { type, value } keyed by propertyId — sourced from a template and/or the
+  // active view's filters (#103). Defensively skip propertyIds that are not
+  // properties of this database, skip values that fail type validation, and —
+  // for relations — skip values whose page ids are not live rows of the target
+  // database (membership boost over the old template path). A skipped value
+  // never fails the whole row.
+  private async applyPresetValues(
     pageId: string,
-    template: { propertyValues: unknown },
+    presets: Record<string, unknown>,
     database: Database,
   ): Promise<void> {
-    const presets = template.propertyValues;
-    if (!presets || typeof presets !== 'object' || Array.isArray(presets)) {
-      return;
-    }
-
     const properties = await this.propertyRepo.findByDatabaseId(database.id);
     const byId = new Map(properties.map((p) => [p.id, p]));
 
-    for (const [propertyId, raw] of Object.entries(
-      presets as Record<string, unknown>,
-    )) {
+    for (const [propertyId, raw] of Object.entries(presets)) {
       const property = byId.get(propertyId);
       if (!property) continue;
 
@@ -125,8 +138,15 @@ export class DatabaseRowService {
           raw,
           property.config as { options?: any[] },
         );
+        if (property.type === 'relation') {
+          await this.assertRelationMembership(
+            value.value as string[],
+            property.config as { targetDatabaseId?: string },
+            database.workspaceId,
+          );
+        }
       } catch {
-        // Malformed/incompatible preset — skip rather than fail the whole row.
+        // Malformed/incompatible/foreign preset — skip rather than fail the row.
         continue;
       }
 

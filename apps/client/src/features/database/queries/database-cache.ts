@@ -188,8 +188,15 @@ export function patchRowTitleEverywhere(
   );
 }
 
-export function appendRow(qc: QueryClient, databaseId: string, page: IPage) {
-  patchRows(qc, databaseId, (rows) => [...rows, { row: page, values: [] }]);
+export function appendRow(
+  qc: QueryClient,
+  databaseId: string,
+  page: IPage,
+  // Seed values (e.g. filter-derived initial values, #103) so the new row shows
+  // up already filled and survives the active filter without a refetch.
+  values: IDatabasePropertyValue[] = [],
+) {
+  patchRows(qc, databaseId, (rows) => [...rows, { row: page, values }]);
 }
 
 // Like appendRow but skips slots that already contain the row. Used when

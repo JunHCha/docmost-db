@@ -22,6 +22,8 @@ import {
   useDatabaseTemplatesQuery,
 } from "@/features/database/queries/database-query.ts";
 import { IPage } from "@/features/page/types/page.types.ts";
+import { sanitizeFilters } from "@/features/database/filters/sanitize.ts";
+import { deriveInitialValuesFromFilters } from "@/features/database/filters/initial-values.ts";
 import { PageGlyph } from "./cells/page-ref-chip";
 import { PageOpenControls } from "@/features/database/components/relation-peek/page-open-controls.tsx";
 import { ColumnHeader } from "./column-header";
@@ -137,6 +139,17 @@ export function TableView({
     [properties, configColumns],
   );
   const ordered = useMemo(() => columns.map((c) => c.property), [columns]);
+
+  // Seed a new "+ Row" with the active filters' values so it stays in this view
+  // after creation (issue #103). Empty when no filter pins a fillable value.
+  const initialValues = useMemo(
+    () =>
+      deriveInitialValuesFromFilters(
+        sanitizeFilters(activeView.config.filters ?? []),
+        properties,
+      ),
+    [activeView.config.filters, properties],
+  );
 
   // The Title column is not a property, so its resizable width lives directly on
   // the view config (titleWidth) rather than in config.columns.
@@ -304,7 +317,7 @@ export function TableView({
                 <Button
                   variant="subtle"
                   size="xs"
-                  onClick={() => createRow.mutate({ databaseId })}
+                  onClick={() => createRow.mutate({ databaseId, initialValues })}
                 >
                   {t("+ Row")}
                 </Button>
