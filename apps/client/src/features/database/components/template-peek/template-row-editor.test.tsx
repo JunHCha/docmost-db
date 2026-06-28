@@ -269,6 +269,7 @@ describe("TemplateRowEditor", () => {
       icon: null,
       propertyValues: { p1: { type: "relation", value: ["r1"] } },
       content: null,
+      embedViews: null,
       position: "a0",
       workspaceId: "w1",
       createdAt: new Date(),
@@ -285,6 +286,31 @@ describe("TemplateRowEditor", () => {
     expect(screen.getByText("Alpha")).toBeTruthy();
   });
 
+  it("preserves an existing template's embed views in the save payload", () => {
+    const existing: IDatabaseTemplate = {
+      id: "t1",
+      databaseId: "db1",
+      name: "Old",
+      icon: null,
+      propertyValues: {},
+      content: null,
+      embedViews: {
+        "embed-1": [
+          { name: "Default", type: "table", config: {}, isDefault: true },
+        ],
+      },
+      position: "a0",
+      workspaceId: "w1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    renderEditor(existing);
+    fireEvent.click(screen.getByText("Save"));
+    expect(updateMutate.mock.calls[0][0].embedViews).toEqual(
+      existing.embedViews,
+    );
+  });
+
   it("updates an existing template by id", () => {
     const existing: IDatabaseTemplate = {
       id: "t1",
@@ -293,6 +319,7 @@ describe("TemplateRowEditor", () => {
       icon: "📋",
       propertyValues: {},
       content: null,
+      embedViews: null,
       position: "a0",
       workspaceId: "w1",
       createdAt: new Date(),

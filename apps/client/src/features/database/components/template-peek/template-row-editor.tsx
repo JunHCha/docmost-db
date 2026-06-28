@@ -28,6 +28,10 @@ import {
 import { DatabasePickerModal } from "@/features/database/components/embed/database-picker-modal.tsx";
 import { shouldTemplateEditorOpenPicker } from "@/features/editor/components/slash-menu/db-picker-scope.ts";
 import { getCellComponent } from "../table-view/cells/registry";
+import {
+  StoredEmbedView,
+  TemplateEmbedProvider,
+} from "./template-embed-context";
 import classes from "./template-row-editor.module.css";
 
 interface TemplateRowEditorProps {
@@ -64,6 +68,15 @@ export function TemplateRowEditor({
   const [propertyValues, setPropertyValues] = useState<
     Record<string, IPropertyValue>
   >(template?.propertyValues ?? {});
+  // Embed view settings keyed by embedId, edited via the embedded DatabaseView's
+  // template mode (#115) and saved onto the template record. Seeded from the
+  // template's stored embedViews when editing an existing one.
+  const [embedViews, setEmbedViewsState] = useState<
+    Record<string, StoredEmbedView[]>
+  >((template?.embedViews as Record<string, StoredEmbedView[]>) ?? {});
+  const getEmbedViews = (id: string) => embedViews[id];
+  const setEmbedViews = (id: string, views: StoredEmbedView[]) =>
+    setEmbedViewsState((prev) => ({ ...prev, [id]: views }));
 
   // A stable per-editor id scopes the "Database view (linked)" slash event to
   // this template editor so a co-mounted page editor can't open our picker and
@@ -132,6 +145,9 @@ export function TemplateRowEditor({
       icon: icon ?? undefined,
       propertyValues,
       content,
+      // Omit an empty map so a template with no embed views stays untouched.
+      embedViews:
+        Object.keys(embedViews).length > 0 ? embedViews : undefined,
     };
     if (template) {
       updateTemplate.mutate({ templateId: template.id, ...common });
@@ -220,26 +236,38 @@ export function TemplateRowEditor({
           </Stack>
         )}
 
-        <div className={classes.editorBody}>
-          <EditorContent editor={editor} />
-          {editor && (
-            <>
-              <EditorBubbleMenu editor={editor} templateMode />
-              <EditorLinkMenu editor={editor} />
-            </>
-          )}
-          {editor && spaceId && (
-            <DatabasePickerModal
-              opened={dbPickerOpened}
-              spaceId={spaceId}
-              onClose={() => setDbPickerOpened(false)}
-              onConfirm={({ databaseId }) => {
-                editor.commands.insertDatabaseView({ databaseId });
-                setDbPickerOpened(false);
-              }}
-            />
-          )}
-        </div>
+        {/* Provider scopes the embedded DatabaseView (rendered as a tiptap node
+            view inside EditorContent) to template mode: its filter $ref options
+            come from these properties and its view edits flow into embedViews
+            state rather than the page-scoped views table (#115). */}
+        <TemplateEmbedProvider
+          value={{
+            templateProperties: properties,
+            getEmbedViews,
+            setEmbedViews,
+          }}
+        >
+          <div className={classes.editorBody}>
+            <EditorContent editor={editor} />
+            {editor && (
+              <>
+                <EditorBubbleMenu editor={editor} templateMode />
+                <EditorLinkMenu editor={editor} />
+              </>
+            )}
+            {editor && spaceId && (
+              <DatabasePickerModal
+                opened={dbPickerOpened}
+                spaceId={spaceId}
+                onClose={() => setDbPickerOpened(false)}
+                onConfirm={({ databaseId }) => {
+                  editor.commands.insertDatabaseView({ databaseId });
+                  setDbPickerOpened(false);
+                }}
+              />
+            )}
+          </div>
+        </TemplateEmbedProvider>
 
         <Group justify="flex-end" className={classes.footer}>
           <Button variant="default" onClick={onClose}>
