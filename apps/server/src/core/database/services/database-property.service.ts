@@ -65,17 +65,32 @@ export class DatabasePropertyService {
     assertPropertyType(dto.type);
     const config = await this.resolveConfig(dto.type, dto.config, database);
 
-    const siblings = await this.propertyRepo.findByDatabaseId(dto.databaseId);
-    const last = siblings[siblings.length - 1];
-    const position = generateJitteredKeyBetween(last?.position ?? null, null);
+    if (dto.type === 'relation') {
+      await this.assertNoDuplicateRelationTarget(
+        dto.databaseId,
+        config.targetDatabaseId,
+      );
+    }
 
-    return this.propertyRepo.insertProperty({
+    const position = await this.nextPosition(dto.databaseId);
+
+    const property = await this.propertyRepo.insertProperty({
       databaseId: dto.databaseId,
       name: dto.name,
       type: dto.type,
       config,
       position,
     });
+
+    if (dto.type === 'relation') {
+      // NOT atomic: the repos accept a trx but the service runs sequentially,
+      // so a failure mid-pairing can leave a half-linked reverse column. We
+      // accept this (matching the repo's non-atomic convention) since relation
+      // creation is rare and self-healing on the next edit. See conventions.md.
+      return this.pairReverseRelation(property, config.targetDatabaseId);
+    }
+
+    return property;
   }
 
   async update(user: User, dto: UpdatePropertyDto): Promise<DatabaseProperty> {
@@ -89,6 +104,18 @@ export class DatabasePropertyService {
     // discarded, so values can be migrated from option ids to labels below.
     const oldType = property.type as PropertyType;
     const oldOptions = ((property.config as any)?.options ?? []) as SelectOption[];
+
+    // A relation's type is locked: its reverse pairing would be orphaned by a
+    // type change. Delete it instead (which cascades to the reverse column).
+    if (
+      oldType === 'relation' &&
+      dto.type !== undefined &&
+      dto.type !== 'relation'
+    ) {
+      throw new BadRequestException(
+        'relation property type cannot be changed; delete instead',
+      );
+    }
 
     const patch: UpdatableDatabaseProperty = {};
     if (dto.name !== undefined) patch.name = dto.name;
@@ -126,7 +153,46 @@ export class DatabasePropertyService {
       patch.config = await this.resolveConfig(nextType, rawConfig, database);
     }
 
+    // Reject a SECOND relation to the same target db within this database before
+    // mutating anything — a duplicate pairing would create ambiguous reverse
+    // columns/mirrors (#111 QA). Checked here (not in pairReverseRelation) so the
+    // auto-created reverse column and a self-relation's own pair are exempt; only
+    // the user's explicit second relation to an already-linked target is blocked.
+    if ((dto.type ?? property.type) === 'relation' && patch.config) {
+      await this.assertNoDuplicateRelationTarget(
+        property.databaseId,
+        (patch.config as any).targetDatabaseId,
+        dto.propertyId,
+      );
+    }
+
     await this.propertyRepo.updateProperty(patch, dto.propertyId);
+
+    // Relation pairing side effects. NOT atomic (see create()'s note): the
+    // reverse-column create/soft-delete run as separate statements. Only runs
+    // when config was (re)validated this update (patch.config present).
+    const effectiveType = (dto.type ?? property.type) as PropertyType;
+    if (effectiveType === 'relation' && patch.config) {
+      const newTarget = (patch.config as any)?.targetDatabaseId as string;
+
+      // `property` carries the source id/databaseId/name loaded above.
+      if (oldType !== 'relation') {
+        // other type -> relation: create the reverse pairing.
+        await this.pairReverseRelation(property, newTarget);
+      } else {
+        const oldConfig = property.config as any;
+        const oldTarget = oldConfig?.targetDatabaseId as string;
+        if (newTarget !== oldTarget) {
+          // target changed: drop the old reverse pair, build a new one.
+          if (oldConfig?.relatedPropertyId) {
+            await this.propertyRepo.softDeleteProperty(
+              oldConfig.relatedPropertyId,
+            );
+          }
+          await this.pairReverseRelation(property, newTarget);
+        }
+      }
+    }
 
     if (typeChanged && (oldType === 'select' || oldType === 'multi_select')) {
       if (newType !== 'select' && newType !== 'multi_select') {
@@ -262,6 +328,88 @@ export class DatabasePropertyService {
     );
   }
 
+  // Reject creating/redirecting a relation when the database already has a live
+  // relation column pointing at the same target (#111 QA: "no two relation
+  // columns to the same target"). `excludePropertyId` skips the column being
+  // edited. findByDatabaseId returns live (non-deleted) columns only, so a
+  // deleted relation never blocks a new one. The auto-created reverse column is
+  // never routed through here, so a self-relation's pair stays valid.
+  private async assertNoDuplicateRelationTarget(
+    databaseId: string,
+    targetDatabaseId: string,
+    excludePropertyId?: string,
+  ): Promise<void> {
+    const siblings = await this.propertyRepo.findByDatabaseId(databaseId);
+    const duplicate = siblings.some(
+      (p) =>
+        p.id !== excludePropertyId &&
+        p.type === 'relation' &&
+        (p.config as any)?.targetDatabaseId === targetDatabaseId,
+    );
+    if (duplicate) {
+      throw new BadRequestException(
+        'A relation column to this database already exists',
+      );
+    }
+  }
+
+  // Append position for a new property in the given database.
+  private async nextPosition(databaseId: string): Promise<string> {
+    const siblings = await this.propertyRepo.findByDatabaseId(databaseId);
+    const last = siblings[siblings.length - 1];
+    return generateJitteredKeyBetween(last?.position ?? null, null);
+  }
+
+  // Create the reverse relation column in `targetDatabaseId` pointing back at
+  // `source`, then patch the source config with the reverse property's id so
+  // both sides reference each other (config.relatedPropertyId). View configs
+  // are intentionally left untouched: resolveColumns renders config-absent
+  // properties as visible, so the reverse column auto-shows without marking
+  // sibling view drafts dirty (see issue #111). Returns the patched source.
+  private async pairReverseRelation(
+    source: DatabaseProperty,
+    targetDatabaseId: string,
+  ): Promise<DatabaseProperty> {
+    // Both columns are auto-named after the database they point at, in the
+    // "<title>와 관계됨" convention (issue #111): the source points at the
+    // target, the reverse points back at the source. A pure rename later goes
+    // through update() without a config patch, so it never re-runs this and the
+    // user's custom name survives.
+    const [targetTitle, sourceTitle] = await Promise.all([
+      this.databaseRepo.findTitleById(targetDatabaseId),
+      this.databaseRepo.findTitleById(source.databaseId),
+    ]);
+    const relationName = (title: string | null): string =>
+      `${title?.trim() || 'Untitled'}와 관계됨`;
+
+    const reverse = await this.propertyRepo.insertProperty({
+      databaseId: targetDatabaseId,
+      name: relationName(sourceTitle),
+      type: 'relation',
+      config: {
+        targetDatabaseId: source.databaseId,
+        relatedPropertyId: source.id,
+      },
+      position: await this.nextPosition(targetDatabaseId),
+    });
+
+    const sourceName = relationName(targetTitle);
+    const sourceConfig = {
+      targetDatabaseId,
+      relatedPropertyId: reverse.id,
+    };
+    await this.propertyRepo.updateProperty(
+      { name: sourceName, config: sourceConfig },
+      source.id,
+    );
+
+    return {
+      ...source,
+      name: sourceName,
+      config: sourceConfig,
+    } as DatabaseProperty;
+  }
+
   async reorder(user: User, dto: ReorderPropertyDto): Promise<void> {
     const { database } = await this.getPropertyDatabase(
       user,
@@ -296,8 +444,22 @@ export class DatabasePropertyService {
   }
 
   async delete(user: User, dto: PropertyIdDto): Promise<void> {
-    await this.getPropertyDatabase(user, dto.propertyId, SpaceCaslAction.Edit);
+    const { property } = await this.getPropertyDatabase(
+      user,
+      dto.propertyId,
+      SpaceCaslAction.Edit,
+    );
     await this.propertyRepo.softDeleteProperty(dto.propertyId);
+
+    // Cascade to the paired reverse column so the bidirectional link stays
+    // consistent. NOT atomic (see create()'s note). Value cleanup is handled
+    // separately (Phase C / row service); this removes the column only.
+    if (property.type === 'relation') {
+      const relatedPropertyId = (property.config as any)?.relatedPropertyId;
+      if (relatedPropertyId) {
+        await this.propertyRepo.softDeleteProperty(relatedPropertyId);
+      }
+    }
   }
 
   async list(

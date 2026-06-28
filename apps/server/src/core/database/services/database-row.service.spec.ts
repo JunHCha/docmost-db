@@ -50,7 +50,7 @@ describe('DatabaseRowService', () => {
   let valueRepo: jest.Mocked<
     Pick<
       DatabasePropertyValueRepo,
-      'findByPageIds' | 'findByPageId' | 'setValue' | 'clearValue'
+      'findByPageId' | 'findByPageIds' | 'setValue' | 'clearValue'
     >
   >;
   let pageRepo: jest.Mocked<Pick<PageRepo, 'findById' | 'findManyByIds'>>;
@@ -69,8 +69,8 @@ describe('DatabaseRowService', () => {
       findByDatabaseId: jest.fn().mockResolvedValue([]),
     } as any;
     valueRepo = {
-      findByPageIds: jest.fn().mockResolvedValue([]),
       findByPageId: jest.fn().mockResolvedValue([]),
+      findByPageIds: jest.fn().mockResolvedValue([]),
       setValue: jest.fn(),
       clearValue: jest.fn(),
     } as any;
@@ -1002,6 +1002,280 @@ describe('DatabaseRowService', () => {
           value: { type: 'relation', value: ['p-a'] },
         } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('setValue — bidirectional mirroring', () => {
+    // Paired relation: source rel-1 (db-1 → target-db) <-> reverse rel-2.
+    const relationProperty: any = {
+      id: 'rel-1',
+      databaseId: 'db-1',
+      type: 'relation',
+      config: { targetDatabaseId: 'target-db', relatedPropertyId: 'rel-2' },
+    };
+    const targetDatabase: any = {
+      id: 'target-db',
+      pageId: 'target-page',
+      spaceId: 'space-2',
+      workspaceId: 'ws-1',
+    };
+
+    beforeEach(() => {
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'target-db' ? targetDatabase : database,
+      );
+      propertyRepo.findById.mockResolvedValue(relationProperty);
+      pageRepo.findById.mockResolvedValue({
+        id: 'row-1',
+        parentPageId: 'dbpage-1',
+      } as any);
+      pageRepo.findManyByIds.mockResolvedValue([
+        { id: 'p-a', parentPageId: 'target-page' },
+        { id: 'p-b', parentPageId: 'target-page' },
+        { id: 'p-c', parentPageId: 'target-page' },
+      ] as any);
+      valueRepo.setValue.mockResolvedValue({ id: 'v' } as any);
+    });
+
+    it('adds the source row to each newly linked target row reverse value', async () => {
+      // Source row had no prior value; target rows had no reverse value.
+      valueRepo.findByPageId.mockResolvedValue([]);
+
+      await service.setValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a'] },
+      } as any);
+
+      // Source value written.
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a'] },
+      });
+      // Reverse value on target row p-a now contains the source row.
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'p-a',
+        propertyId: 'rel-2',
+        value: { type: 'relation', value: ['row-1'] },
+      });
+    });
+
+    it('diffs old vs new: removes from dropped, adds to added, keeps shared', async () => {
+      // Source previously linked [p-a, p-b]; now [p-b, p-c].
+      valueRepo.findByPageId.mockImplementation(async (pageId: string) => {
+        if (pageId === 'row-1') {
+          return [
+            {
+              pageId: 'row-1',
+              propertyId: 'rel-1',
+              value: { type: 'relation', value: ['p-a', 'p-b'] },
+            },
+          ] as any;
+        }
+        // p-a and p-b reverse-link back to row-1.
+        if (pageId === 'p-a' || pageId === 'p-b') {
+          return [
+            {
+              pageId,
+              propertyId: 'rel-2',
+              value: { type: 'relation', value: ['row-1'] },
+            },
+          ] as any;
+        }
+        return [] as any;
+      });
+
+      await service.setValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-b', 'p-c'] },
+      } as any);
+
+      // p-a dropped → its reverse becomes empty → clearValue.
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('p-a', 'rel-2');
+      // p-c added → reverse gets row-1.
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'p-c',
+        propertyId: 'rel-2',
+        value: { type: 'relation', value: ['row-1'] },
+      });
+      // p-b shared → not touched on the reverse side.
+      const reverseCalls = valueRepo.setValue.mock.calls.filter(
+        (c) => c[0].pageId === 'p-b',
+      );
+      expect(reverseCalls).toHaveLength(0);
+
+      // Ordering guard: the source's PREVIOUS value must be read before it is
+      // overwritten. If the source is written first, old === new and nothing
+      // mirrors — a production-only bug a fixed findByPageId mock would hide.
+      const orderOf = (
+        fn: jest.Mock,
+        match: (args: any[]) => boolean,
+      ): number =>
+        Math.min(
+          ...fn.mock.calls.map((c, i) =>
+            match(c) ? fn.mock.invocationCallOrder[i] : Infinity,
+          ),
+        );
+      const sourceReadOrder = orderOf(
+        valueRepo.findByPageId as unknown as jest.Mock,
+        (c) => c[0] === 'row-1',
+      );
+      const sourceWriteOrder = orderOf(
+        valueRepo.setValue as unknown as jest.Mock,
+        (c) => c[0].pageId === 'row-1' && c[0].propertyId === 'rel-1',
+      );
+      expect(sourceReadOrder).toBeLessThan(sourceWriteOrder);
+    });
+
+    it('skips mirroring for a legacy relation without relatedPropertyId', async () => {
+      propertyRepo.findById.mockResolvedValue({
+        id: 'rel-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'target-db' },
+      } as any);
+
+      await service.setValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a'] },
+      } as any);
+
+      // Only the source value is written; no reverse value.
+      expect(valueRepo.setValue).toHaveBeenCalledTimes(1);
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a'] },
+      });
+    });
+
+    it('does not mirror when membership validation fails', async () => {
+      pageRepo.findManyByIds.mockResolvedValue([
+        { id: 'p-a', parentPageId: 'other-page' },
+      ] as any);
+
+      await expect(
+        service.setValue(user, {
+          pageId: 'row-1',
+          propertyId: 'rel-1',
+          value: { type: 'relation', value: ['p-a'] },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+    });
+
+    it('does not duplicate the source id on a reverse value that already has it', async () => {
+      valueRepo.findByPageId.mockImplementation(async (pageId: string) => {
+        if (pageId === 'p-a') {
+          return [
+            {
+              pageId: 'p-a',
+              propertyId: 'rel-2',
+              value: { type: 'relation', value: ['row-1', 'other'] },
+            },
+          ] as any;
+        }
+        return [] as any;
+      });
+
+      await service.setValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+        value: { type: 'relation', value: ['p-a'] },
+      } as any);
+
+      // p-a's reverse already contains row-1 → no redundant rewrite of p-a.
+      const reverseCalls = valueRepo.setValue.mock.calls.filter(
+        (c) => c[0].pageId === 'p-a',
+      );
+      expect(reverseCalls).toHaveLength(0);
+    });
+  });
+
+  describe('clearValue — bidirectional mirroring', () => {
+    const relationProperty: any = {
+      id: 'rel-1',
+      databaseId: 'db-1',
+      type: 'relation',
+      config: { targetDatabaseId: 'target-db', relatedPropertyId: 'rel-2' },
+    };
+
+    beforeEach(() => {
+      propertyRepo.findById.mockResolvedValue(relationProperty);
+      pageRepo.findById.mockResolvedValue({
+        id: 'row-1',
+        parentPageId: 'dbpage-1',
+      } as any);
+    });
+
+    it('removes the source row from every previously linked reverse value', async () => {
+      valueRepo.findByPageId.mockImplementation(async (pageId: string) => {
+        if (pageId === 'row-1') {
+          return [
+            {
+              pageId: 'row-1',
+              propertyId: 'rel-1',
+              value: { type: 'relation', value: ['p-a', 'p-b'] },
+            },
+          ] as any;
+        }
+        if (pageId === 'p-a') {
+          return [
+            {
+              pageId: 'p-a',
+              propertyId: 'rel-2',
+              value: { type: 'relation', value: ['row-1', 'keep'] },
+            },
+          ] as any;
+        }
+        if (pageId === 'p-b') {
+          return [
+            {
+              pageId: 'p-b',
+              propertyId: 'rel-2',
+              value: { type: 'relation', value: ['row-1'] },
+            },
+          ] as any;
+        }
+        return [] as any;
+      });
+
+      await service.clearValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+      } as any);
+
+      // p-a keeps "keep" after removing row-1.
+      expect(valueRepo.setValue).toHaveBeenCalledWith({
+        pageId: 'p-a',
+        propertyId: 'rel-2',
+        value: { type: 'relation', value: ['keep'] },
+      });
+      // p-b becomes empty → clearValue.
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('p-b', 'rel-2');
+      // Source value cleared.
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('row-1', 'rel-1');
+    });
+
+    it('skips mirroring for a legacy relation without relatedPropertyId', async () => {
+      propertyRepo.findById.mockResolvedValue({
+        id: 'rel-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'target-db' },
+      } as any);
+
+      await service.clearValue(user, {
+        pageId: 'row-1',
+        propertyId: 'rel-1',
+      } as any);
+
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+      expect(valueRepo.clearValue).toHaveBeenCalledTimes(1);
+      expect(valueRepo.clearValue).toHaveBeenCalledWith('row-1', 'rel-1');
     });
   });
 

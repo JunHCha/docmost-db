@@ -54,6 +54,23 @@ export class DatabaseRepo {
       .executeTakeFirst();
   }
 
+  // The database's display title (its page title). Used to auto-name relation
+  // columns after the database they point at ("<title>와 관계됨", issue #111).
+  async findTitleById(
+    databaseId: string,
+    trx?: KyselyTransaction,
+  ): Promise<string | null> {
+    const db = dbOrTx(this.db, trx);
+    const row = await db
+      .selectFrom('databases as d')
+      .innerJoin('pages as p', 'p.id', 'd.pageId')
+      .select('p.title')
+      .where('d.id', '=', databaseId)
+      .where('d.deletedAt', 'is', null)
+      .executeTakeFirst();
+    return row?.title ?? null;
+  }
+
   async findByPageId(
     pageId: string,
     trx?: KyselyTransaction,

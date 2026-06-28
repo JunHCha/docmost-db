@@ -41,7 +41,9 @@ describe('DatabasePropertyService', () => {
       | 'softDeleteProperty'
     >
   >;
-  let databaseRepo: jest.Mocked<Pick<DatabaseRepo, 'findById' | 'listRows'>>;
+  let databaseRepo: jest.Mocked<
+    Pick<DatabaseRepo, 'findById' | 'listRows' | 'findTitleById'>
+  >;
   let valueRepo: jest.Mocked<
     Pick<DatabasePropertyValueRepo, 'setValue' | 'clearValue' | 'findByPageIds'>
   >;
@@ -58,6 +60,10 @@ describe('DatabasePropertyService', () => {
     databaseRepo = {
       findById: jest.fn().mockResolvedValue(database),
       listRows: jest.fn().mockResolvedValue([]),
+      // Titles drive the auto-named relation columns ("<title>와 관계됨").
+      findTitleById: jest.fn().mockImplementation(async (id: string) =>
+        id === 'db-1' ? 'Tasks' : id === 'db-2' ? 'Projects' : 'Other',
+      ),
     } as any;
     valueRepo = {
       setValue: jest.fn(),
@@ -428,6 +434,295 @@ describe('DatabasePropertyService', () => {
       expect(patch.config.options).toHaveLength(1);
       expect(valueRepo.setValue).toHaveBeenCalledTimes(1);
       expect(valueRepo.clearValue).toHaveBeenCalledWith('row-2', 'p1');
+    });
+  });
+
+  describe('relation (bidirectional)', () => {
+    const dbB: any = {
+      id: 'db-2',
+      pageId: 'dbpage-2',
+      spaceId: 'space-1',
+      workspaceId: 'ws-1',
+    };
+
+    beforeEach(() => {
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'db-1' ? database : id === 'db-2' ? dbB : undefined,
+      );
+    });
+
+    it('creates a reverse relation in the target db and cross-links both (approval)', async () => {
+      // source insert -> reverse insert. Distinguish by databaseId.
+      propertyRepo.insertProperty.mockImplementation(async (v: any) => ({
+        id: v.databaseId === 'db-1' ? 'src-1' : 'rev-1',
+        ...v,
+      }));
+
+      const result = await service.create(user, {
+        databaseId: 'db-1',
+        name: 'Linked',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2' },
+      } as any);
+
+      // 1) source property inserted with target db-2
+      const srcInsert = propertyRepo.insertProperty.mock.calls.find(
+        (c: any) => c[0].databaseId === 'db-1',
+      )![0] as any;
+      expect(srcInsert.type).toBe('relation');
+      expect(srcInsert.config.targetDatabaseId).toBe('db-2');
+
+      // 2) reverse property inserted into db-2 pointing back at db-1 + src id
+      const revInsert = propertyRepo.insertProperty.mock.calls.find(
+        (c: any) => c[0].databaseId === 'db-2',
+      )![0] as any;
+      expect(revInsert.type).toBe('relation');
+      expect(revInsert.config).toEqual({
+        targetDatabaseId: 'db-1',
+        relatedPropertyId: 'src-1',
+      });
+      expect(revInsert.position).toEqual(expect.any(String));
+      // reverse column is auto-named after the SOURCE db ("Tasks와 관계됨").
+      expect(revInsert.name).toBe('Tasks와 관계됨');
+
+      // 3) source config patched with the reverse property id, and the source
+      // column is auto-named after the TARGET db ("Projects와 관계됨", #111).
+      expect(propertyRepo.updateProperty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Projects와 관계됨',
+          config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+        }),
+        'src-1',
+      );
+
+      expect(result.id).toBe('src-1');
+      expect(result.name).toBe('Projects와 관계됨');
+    });
+
+    it('creates two cross-linked columns for a self-relation', async () => {
+      let n = 0;
+      propertyRepo.insertProperty.mockImplementation(async (v: any) => ({
+        id: n++ === 0 ? 'src-1' : 'rev-1',
+        ...v,
+      }));
+
+      await service.create(user, {
+        databaseId: 'db-1',
+        name: 'Self',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-1' },
+      } as any);
+
+      // both inserts target db-1
+      expect(
+        propertyRepo.insertProperty.mock.calls.every(
+          (c: any) => c[0].databaseId === 'db-1',
+        ),
+      ).toBe(true);
+      const revInsert = propertyRepo.insertProperty.mock.calls[1][0] as any;
+      expect(revInsert.config).toEqual({
+        targetDatabaseId: 'db-1',
+        relatedPropertyId: 'src-1',
+      });
+      expect(propertyRepo.updateProperty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: { targetDatabaseId: 'db-1', relatedPropertyId: 'rev-1' },
+        }),
+        'src-1',
+      );
+    });
+
+    it('blocks changing a relation property to another type', async () => {
+      propertyRepo.findById.mockResolvedValue({
+        id: 'src-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+      } as any);
+
+      await expect(
+        service.update(user, { propertyId: 'src-1', type: 'text' } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(propertyRepo.updateProperty).not.toHaveBeenCalled();
+    });
+
+    it('creates a reverse relation when converting text -> relation', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce({
+          id: 'src-1',
+          databaseId: 'db-1',
+          type: 'text',
+          config: {},
+        } as any)
+        .mockResolvedValueOnce({ id: 'src-1', type: 'relation' } as any);
+      propertyRepo.insertProperty.mockImplementation(async (v: any) => ({
+        id: 'rev-1',
+        ...v,
+      }));
+
+      await service.update(user, {
+        propertyId: 'src-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2' },
+      } as any);
+
+      const revInsert = propertyRepo.insertProperty.mock.calls.find(
+        (c: any) => c[0].databaseId === 'db-2',
+      )![0] as any;
+      expect(revInsert.config).toEqual({
+        targetDatabaseId: 'db-1',
+        relatedPropertyId: 'src-1',
+      });
+      expect(propertyRepo.updateProperty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+        }),
+        'src-1',
+      );
+    });
+
+    it('re-pairs when the relation target changes', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce({
+          id: 'src-1',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-old' },
+        } as any)
+        .mockResolvedValueOnce({ id: 'src-1', type: 'relation' } as any);
+      // db-3 is another valid target in the same workspace
+      const dbC: any = { ...dbB, id: 'db-3', pageId: 'dbpage-3' };
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'db-1' ? database : id === 'db-3' ? dbC : undefined,
+      );
+      propertyRepo.insertProperty.mockImplementation(async (v: any) => ({
+        id: 'rev-new',
+        ...v,
+      }));
+
+      await service.update(user, {
+        propertyId: 'src-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-3' },
+      } as any);
+
+      // old reverse pair soft-deleted
+      expect(propertyRepo.softDeleteProperty).toHaveBeenCalledWith('rev-old');
+      // new reverse created in db-3
+      const revInsert = propertyRepo.insertProperty.mock.calls.find(
+        (c: any) => c[0].databaseId === 'db-3',
+      )![0] as any;
+      expect(revInsert.config).toEqual({
+        targetDatabaseId: 'db-1',
+        relatedPropertyId: 'src-1',
+      });
+      expect(propertyRepo.updateProperty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: { targetDatabaseId: 'db-3', relatedPropertyId: 'rev-new' },
+        }),
+        'src-1',
+      );
+    });
+
+    it('does not re-pair when target is unchanged', async () => {
+      propertyRepo.findById
+        .mockResolvedValueOnce({
+          id: 'src-1',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+        } as any)
+        .mockResolvedValueOnce({ id: 'src-1', name: 'Renamed' } as any);
+
+      await service.update(user, {
+        propertyId: 'src-1',
+        name: 'Renamed',
+        config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+      } as any);
+
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
+      expect(propertyRepo.softDeleteProperty).not.toHaveBeenCalled();
+    });
+
+    it('soft-deletes the paired reverse column on delete', async () => {
+      propertyRepo.findById.mockResolvedValue({
+        id: 'src-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+      } as any);
+
+      await service.delete(user, { propertyId: 'src-1' } as any);
+
+      expect(propertyRepo.softDeleteProperty).toHaveBeenCalledWith('src-1');
+      expect(propertyRepo.softDeleteProperty).toHaveBeenCalledWith('rev-1');
+    });
+
+    it('rejects creating a second relation to an already-linked target', async () => {
+      // db-1 already links db-2; a second relation to db-2 is not allowed.
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        {
+          id: 'existing',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2' },
+        },
+      ] as any);
+
+      await expect(
+        service.create(user, {
+          databaseId: 'db-1',
+          name: 'Another',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // Rejected before inserting anything (no half-created column).
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
+    });
+
+    it('rejects redirecting a relation to an already-linked target', async () => {
+      const dbC: any = {
+        id: 'db-3',
+        pageId: 'dbpage-3',
+        spaceId: 'space-1',
+        workspaceId: 'ws-1',
+      };
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'db-1' ? database : id === 'db-2' ? dbB : id === 'db-3' ? dbC : undefined,
+      );
+      // src-1 → db-2 today; db-1 already has another relation → db-3.
+      propertyRepo.findById.mockResolvedValueOnce({
+        id: 'src-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+      } as any);
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        {
+          id: 'src-1',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+        },
+        {
+          id: 'other',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-3' },
+        },
+      ] as any);
+
+      await expect(
+        service.update(user, {
+          propertyId: 'src-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-3' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // Rejected before mutating the column or its pairing.
+      expect(propertyRepo.updateProperty).not.toHaveBeenCalled();
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
     });
   });
 

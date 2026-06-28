@@ -25,8 +25,13 @@ export function RelationCell({
     typeof property.config?.targetDatabaseId === "string"
       ? property.config.targetDatabaseId
       : "";
-  const setValue = useSetValueMutation(databaseId);
-  const clearValue = useClearValueMutation(databaseId);
+  // Pass the target DB so a relation set/clear also resyncs the related DB's
+  // rows — the value is mirrored there server-side (#111 Phase C).
+  const setValue = useSetValueMutation(databaseId, targetDatabaseId || undefined);
+  const clearValue = useClearValueMutation(
+    databaseId,
+    targetDatabaseId || undefined,
+  );
   const targetViewId = useDefaultViewId(targetDatabaseId);
   const { data: rows } = useDatabaseRowsQuery(targetDatabaseId, targetViewId);
   const [opened, setOpened] = useState(false);

@@ -97,13 +97,28 @@ export function ColumnHeader({
   onReorderRef.current = onReorder;
   const orderedRef = useRef(orderedProperties);
   orderedRef.current = orderedProperties;
-  const remove = useDeletePropertyMutation(databaseId);
-  const { data: databases } = useListDatabasesQuery(spaceId);
   const currentTargetId =
     property.type === "relation" &&
     typeof property.config?.targetDatabaseId === "string"
       ? property.config.targetDatabaseId
       : undefined;
+  // Deleting a relation column cascade-deletes its reverse column on the related
+  // DB (#111), so pass the target id to resync that DB's properties.
+  const remove = useDeletePropertyMutation(databaseId, currentTargetId);
+  // Targets this DB already links (excluding this column). A second relation to
+  // the same target is rejected server-side (#111 QA), so disable them in the
+  // picker; this column's own current target stays selectable (shows the ✓).
+  const relatedTargetIds = new Set(
+    orderedProperties
+      .filter(
+        (p) =>
+          p.id !== property.id &&
+          p.type === "relation" &&
+          typeof p.config?.targetDatabaseId === "string",
+      )
+      .map((p) => p.config.targetDatabaseId as string),
+  );
+  const { data: databases } = useListDatabasesQuery(spaceId);
 
   useEffect(() => {
     // The draggable wrapper only exists in the non-editing view (see render),
@@ -248,29 +263,35 @@ export function ColumnHeader({
                       <Menu.Label>{t("Relation to")}</Menu.Label>
                       {(databases ?? [])
                         .filter((db) => db.id !== databaseId)
-                        .map((db) => (
-                          <Menu.Item
-                            key={db.id}
-                            leftSection={
-                              <span
-                                style={{ display: "inline-block", width: 12 }}
-                              >
-                                {db.id === currentTargetId ? "✓" : ""}
-                              </span>
-                            }
-                            onClick={() => {
-                              setPickingRelation(false);
-                              if (db.id === currentTargetId) return;
-                              update.mutate({
-                                propertyId: property.id,
-                                type: "relation",
-                                config: { targetDatabaseId: db.id },
-                              });
-                            }}
-                          >
-                            {db.title || t("Untitled")}
-                          </Menu.Item>
-                        ))}
+                        .map((db) => {
+                          // Already linked by another column → not selectable.
+                          const alreadyLinked = relatedTargetIds.has(db.id);
+                          return (
+                            <Menu.Item
+                              key={db.id}
+                              disabled={alreadyLinked}
+                              leftSection={
+                                <span
+                                  style={{ display: "inline-block", width: 12 }}
+                                >
+                                  {db.id === currentTargetId ? "✓" : ""}
+                                </span>
+                              }
+                              onClick={() => {
+                                setPickingRelation(false);
+                                if (db.id === currentTargetId) return;
+                                update.mutate({
+                                  propertyId: property.id,
+                                  type: "relation",
+                                  config: { targetDatabaseId: db.id },
+                                });
+                              }}
+                            >
+                              {db.title || t("Untitled")}
+                              {alreadyLinked ? ` (${t("already linked")})` : ""}
+                            </Menu.Item>
+                          );
+                        })}
                     </>
                   ) : (
                     <>
@@ -285,13 +306,21 @@ export function ColumnHeader({
                           {t("Change relation target")}
                         </Menu.Item>
                       )}
-                      <Menu.Label>{t("Type")}</Menu.Label>
-                      {/* Each type is a Menu.Item, not a nested <Select>: a Select
-                        renders its options in a portal, and clicking one counts
-                        as an outside-click that closes this Menu and unmounts
-                        the Select before its onChange commits — so the type
-                        never actually changed. Menu.Item clicks commit. */}
-                      {TYPE_OPTIONS.map((opt) => (
+                      {/* Relation columns lock their type: the server pairs them
+                        bidirectionally and rejects a type change with 400
+                        (delete instead, #111). So hide the whole Type section
+                        for relation — only Rename / Change relation target /
+                        Delete remain. */}
+                      {property.type !== "relation" && (
+                        <>
+                          <Menu.Label>{t("Type")}</Menu.Label>
+                          {/* Each type is a Menu.Item, not a nested <Select>: a
+                            Select renders its options in a portal, and clicking
+                            one counts as an outside-click that closes this Menu
+                            and unmounts the Select before its onChange commits —
+                            so the type never actually changed. Menu.Item clicks
+                            commit. */}
+                          {TYPE_OPTIONS.map((opt) => (
                         <Menu.Item
                           key={opt.value}
                           closeMenuOnClick={opt.value !== "relation"}
@@ -337,7 +366,9 @@ export function ColumnHeader({
                         >
                           {t(opt.label)}
                         </Menu.Item>
-                      ))}
+                          ))}
+                        </>
+                      )}
                       <Menu.Divider />
                       <Menu.Item
                         color="red"
