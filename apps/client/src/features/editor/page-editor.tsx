@@ -76,6 +76,7 @@ import ColumnsMenu from "@/features/editor/components/columns/columns-menu.tsx";
 import { TransclusionLookupProvider } from "@/features/editor/components/transclusion/transclusion-lookup-context";
 import { useTranslation } from "react-i18next";
 import { DatabasePickerModal } from "@/features/database/components/embed/database-picker-modal.tsx";
+import { shouldPageEditorOpenPicker } from "@/features/editor/components/slash-menu/db-picker-scope.ts";
 import { usePageQuery } from "@/features/page/queries/page-query.ts";
 
 interface PageEditorProps {
@@ -359,11 +360,11 @@ export default function PageEditor({
   // open the modal (mirrors search-and-replace's openFindDialogFromEditor).
   useEffect(() => {
     const openPicker = (e: Event) => {
-      // Only respond when the event targets this page (or carries no page, for
-      // backward-compat), so a picker opened in one editor can't surface in
-      // another mounted instance.
+      // Only respond when the event targets this page (or carries no marker,
+      // for backward-compat); a template-scoped event must be ignored so a
+      // co-mounted template editor's picker can't surface here (#113).
       const detail = (e as CustomEvent).detail;
-      if (detail?.pageId && detail.pageId !== pageId) return;
+      if (!shouldPageEditorOpenPicker(detail, pageId)) return;
       setDbPickerOpened(true);
     };
     document.addEventListener("openDatabasePickerFromEditor", openPicker);
