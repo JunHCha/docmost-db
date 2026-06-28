@@ -370,6 +370,19 @@ export class DatabaseRowService {
         property.config as { targetDatabaseId?: string },
         database.workspaceId,
       );
+
+      const result = await this.valueRepo.setValue({
+        pageId: dto.pageId,
+        propertyId: dto.propertyId,
+        value: value as any,
+      });
+      // Mirror the link onto the paired reverse property on each target row.
+      await this.mirrorRelation(
+        dto.pageId,
+        property,
+        value.value as string[],
+      );
+      return result;
     }
 
     return this.valueRepo.setValue({
@@ -392,7 +405,79 @@ export class DatabaseRowService {
     );
     // Symmetric with setValue: only clear values on a live row of this database.
     await this.assertRowInDatabase(dto.pageId, database);
+
+    if (property.type === 'relation') {
+      // Clearing == setting the link to []: drop the source row from every
+      // previously linked target row's reverse value, then clear the source.
+      await this.mirrorRelation(dto.pageId, property, []);
+    }
+
     await this.valueRepo.clearValue(dto.pageId, dto.propertyId);
+  }
+
+  // Keep the paired reverse relation in sync after the source value changes.
+  // `newIds` is the source row's new link set ([] for clear). We diff against
+  // the source's previous value and add/remove the source pageId on each
+  // affected target row's reverse value (config.relatedPropertyId).
+  //
+  // NOT atomic: the value repo accepts a trx but this runs sequentially per
+  // target row, matching the repo's non-atomic convention (Phase B does the
+  // same for column pairing). A mid-loop failure can leave a half-mirrored
+  // link; the client's onError invalidates the rows query to resync. We never
+  // call back into setValue/clearValue (no recursion) — only direct repo
+  // writes — so there is no mirror-of-a-mirror loop. See conventions.md.
+  private async mirrorRelation(
+    sourcePageId: string,
+    property: { id: string; config: unknown },
+    newIds: string[],
+  ): Promise<void> {
+    const relatedPropertyId = (property.config as { relatedPropertyId?: string })
+      ?.relatedPropertyId;
+    // Legacy/one-way relation: no paired column to mirror into.
+    if (!relatedPropertyId) return;
+
+    const oldIds = await this.readRelationIds(sourcePageId, property.id);
+    const added = newIds.filter((id) => !oldIds.includes(id));
+    const removed = oldIds.filter((id) => !newIds.includes(id));
+
+    for (const targetId of added) {
+      const reverse = await this.readRelationIds(targetId, relatedPropertyId);
+      if (reverse.includes(sourcePageId)) continue;
+      await this.valueRepo.setValue({
+        pageId: targetId,
+        propertyId: relatedPropertyId,
+        value: { type: 'relation', value: [...reverse, sourcePageId] } as any,
+      });
+    }
+
+    for (const targetId of removed) {
+      const reverse = await this.readRelationIds(targetId, relatedPropertyId);
+      const next = reverse.filter((id) => id !== sourcePageId);
+      if (next.length === 0) {
+        await this.valueRepo.clearValue(targetId, relatedPropertyId);
+      } else {
+        await this.valueRepo.setValue({
+          pageId: targetId,
+          propertyId: relatedPropertyId,
+          value: { type: 'relation', value: next } as any,
+        });
+      }
+    }
+  }
+
+  // Read a single relation value's page-id array for (pageId, propertyId),
+  // returning [] when absent or not a relation value.
+  private async readRelationIds(
+    pageId: string,
+    propertyId: string,
+  ): Promise<string[]> {
+    const values = await this.valueRepo.findByPageId(pageId);
+    const row = values.find((v) => v.propertyId === propertyId);
+    const value = row?.value as { type?: string; value?: unknown } | undefined;
+    if (!value || value.type !== 'relation' || !Array.isArray(value.value)) {
+      return [];
+    }
+    return value.value as string[];
   }
 
   // --- helpers ---

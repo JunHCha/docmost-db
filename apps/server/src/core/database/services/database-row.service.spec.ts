@@ -1165,11 +1165,11 @@ describe('DatabaseRowService', () => {
         value: { type: 'relation', value: ['p-a'] },
       } as any);
 
-      expect(valueRepo.setValue).toHaveBeenCalledWith({
-        pageId: 'p-a',
-        propertyId: 'rel-2',
-        value: { type: 'relation', value: ['row-1', 'other'] },
-      });
+      // p-a's reverse already contains row-1 → no redundant rewrite of p-a.
+      const reverseCalls = valueRepo.setValue.mock.calls.filter(
+        (c) => c[0].pageId === 'p-a',
+      );
+      expect(reverseCalls).toHaveLength(0);
     });
   });
 
