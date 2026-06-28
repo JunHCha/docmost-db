@@ -374,6 +374,17 @@ export function DragHandlePlugin(
             return;
           }
 
+          // A database embed renders its own column grip (column-header) and an
+          // embed header that doubles as the block handle, so the generic block
+          // handle stacked a second vertical-dot grip on top of the column grip
+          // whenever the grid was hovered. Bow out while the pointer is inside
+          // the grid; the embed header sits OUTSIDE data-database-grid, so it
+          // still gets the handle and the whole embed stays draggable.
+          if (isWithinDatabaseGrid(event.target)) {
+            hideDragHandle();
+            return;
+          }
+
           const node = nodeDOMAtCoords(
             {
               x: event.clientX + 50 + options.dragHandleWidth,
