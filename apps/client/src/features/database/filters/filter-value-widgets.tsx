@@ -1,4 +1,5 @@
-import { NumberInput, Select, Switch, TextInput } from "@mantine/core";
+import { useState } from "react";
+import { Group, NumberInput, Select, Switch, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,7 +11,12 @@ import {
   useDatabaseRowsQuery,
   useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
+import {
+  TemplateEmbedContextValue,
+  useTemplateEmbedContext,
+} from "@/features/database/components/template-peek/template-embed-context.tsx";
 import { opNeedsValue } from "./operators";
+import { isTemplatePropertyRef } from "./template-property-ref.ts";
 
 interface FilterValueWidgetProps {
   property: IDatabaseProperty;
@@ -50,6 +56,67 @@ function RelationValueWidget({
   );
 }
 
+// Inside a template's embed view a relation filter can compare against either a
+// concrete page or a *reference* to one of the template's own relation
+// properties ({ templatePropertyRef }), snapshotted to the new row's value at
+// creation (issue #115). A kind toggle switches between the page picker and a
+// select over the template's relation properties.
+function TemplateRelationValueWidget({
+  property,
+  value,
+  onChange,
+  ctx,
+}: Omit<FilterValueWidgetProps, "op"> & {
+  ctx: TemplateEmbedContextValue;
+}) {
+  const { t } = useTranslation();
+  const refValue = isTemplatePropertyRef(value) ? value : null;
+  const [mode, setMode] = useState<"page" | "ref">(refValue ? "ref" : "page");
+  const refOptions = ctx.templateProperties
+    .filter((p) => p.type === "relation")
+    .map((p) => ({ value: p.id, label: p.name }));
+  return (
+    <Group gap="xs" wrap="nowrap" align="center">
+      <Select
+        aria-label={t("Filter value kind")}
+        data={[
+          { value: "page", label: t("Specific page") },
+          { value: "ref", label: t("Template property reference") },
+        ]}
+        value={mode}
+        onChange={(v) => {
+          const next = v === "ref" ? "ref" : "page";
+          setMode(next);
+          // Reset the comparison value when switching kinds so a stale page id
+          // or ref never lingers across modes.
+          onChange(next === "ref" ? undefined : "");
+        }}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+        w={180}
+      />
+      {mode === "ref" ? (
+        <Select
+          aria-label={t("Template property")}
+          data={refOptions}
+          value={refValue?.templatePropertyRef ?? null}
+          onChange={(v) =>
+            onChange(v ? { templatePropertyRef: v } : undefined)
+          }
+          comboboxProps={{ withinPortal: true }}
+          searchable
+        />
+      ) : (
+        <RelationValueWidget
+          property={property}
+          value={value}
+          onChange={onChange}
+        />
+      )}
+    </Group>
+  );
+}
+
 // Renders the value input that matches the property type. is_empty / is_not_empty
 // ops compare against nothing, so the widget is hidden for them. The emitted
 // value is the raw comparison value (not the tagged {type,value} cell shape).
@@ -60,6 +127,9 @@ export function FilterValueWidget({
   onChange,
 }: FilterValueWidgetProps) {
   const { t } = useTranslation();
+  // In a template editor an embedded view can reference template properties in
+  // its relation filters; outside one this is null and behaviour is unchanged.
+  const templateCtx = useTemplateEmbedContext();
 
   if (!opNeedsValue(op)) return null;
 
@@ -115,7 +185,14 @@ export function FilterValueWidget({
       );
     }
     case "relation":
-      return (
+      return templateCtx ? (
+        <TemplateRelationValueWidget
+          property={property}
+          value={value}
+          onChange={onChange}
+          ctx={templateCtx}
+        />
+      ) : (
         <RelationValueWidget
           property={property}
           value={value}

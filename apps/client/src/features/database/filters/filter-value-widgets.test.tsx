@@ -8,6 +8,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
 }));
 
 import { FilterValueWidget } from "./filter-value-widgets";
+import { TemplateEmbedProvider } from "@/features/database/components/template-peek/template-embed-context.tsx";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
 function prop(over: Partial<IDatabaseProperty>): IDatabaseProperty {
@@ -150,5 +151,101 @@ describe("FilterValueWidget", () => {
     fireEvent.click(screen.getByRole("textbox", { name: "Filter value" }));
     fireEvent.click(screen.getByText("Urgent"));
     expect(onChange).toHaveBeenCalledWith("o2");
+  });
+
+  // --- Template embed $ref mode (#115) ---
+
+  const ctx = {
+    templateProperties: [
+      prop({ id: "tp1", name: "Team", type: "relation" }),
+      prop({ id: "tp2", name: "Owner", type: "relation" }),
+      prop({ id: "tp3", name: "Notes", type: "text" }),
+    ],
+    getEmbedViews: () => undefined,
+    setEmbedViews: vi.fn(),
+  };
+
+  function renderInTemplate(node: React.ReactNode) {
+    return render(
+      <MantineProvider>
+        <TemplateEmbedProvider value={ctx}>{node}</TemplateEmbedProvider>
+      </MantineProvider>,
+    );
+  }
+
+  it("does NOT show the value-kind toggle outside a template context", () => {
+    renderWidget(
+      <FilterValueWidget
+        property={prop({
+          type: "relation",
+          config: { targetDatabaseId: "td" },
+        })}
+        op="contains"
+        value={null}
+        onChange={vi.fn()}
+      />,
+    );
+    // No template context => plain relation page picker, no "kind" select.
+    expect(screen.queryByLabelText("Filter value kind")).toBeNull();
+  });
+
+  it("shows the kind toggle for a relation inside a template context", () => {
+    renderInTemplate(
+      <FilterValueWidget
+        property={prop({
+          type: "relation",
+          config: { targetDatabaseId: "td" },
+        })}
+        op="contains"
+        value={null}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Filter value kind" }),
+    ).toBeTruthy();
+  });
+
+  it("emits a templatePropertyRef when a template relation property is picked", () => {
+    const onChange = vi.fn();
+    renderInTemplate(
+      <FilterValueWidget
+        property={prop({
+          type: "relation",
+          config: { targetDatabaseId: "td" },
+        })}
+        op="contains"
+        value={null}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("textbox", { name: "Filter value kind" }),
+    );
+    fireEvent.click(screen.getByText("Template property reference"));
+    fireEvent.click(
+      screen.getByRole("textbox", { name: "Template property" }),
+    );
+    // Only relation template properties are offered (Notes/text is excluded).
+    expect(screen.queryByText("Notes")).toBeNull();
+    fireEvent.click(screen.getByText("Team"));
+    expect(onChange).toHaveBeenCalledWith({ templatePropertyRef: "tp1" });
+  });
+
+  it("restores the $ref mode and selected property from an existing ref value", () => {
+    renderInTemplate(
+      <FilterValueWidget
+        property={prop({
+          type: "relation",
+          config: { targetDatabaseId: "td" },
+        })}
+        op="contains"
+        value={{ templatePropertyRef: "tp2" }}
+        onChange={vi.fn()}
+      />,
+    );
+    // The kind toggle reads as the reference mode and the property select shows
+    // the referenced template property's name.
+    expect(screen.getByText("Owner")).toBeTruthy();
   });
 });
