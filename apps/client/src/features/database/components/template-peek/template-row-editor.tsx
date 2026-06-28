@@ -3,12 +3,9 @@ import { ReactNode, useState } from "react";
 import {
   ActionIcon,
   Button,
-  Checkbox,
   Group,
-  NumberInput,
   Stack,
   Text,
-  TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -27,6 +24,7 @@ import {
   useCreateTemplateMutation,
   useUpdateTemplateMutation,
 } from "@/features/database/queries/database-query.ts";
+import { getCellComponent } from "../table-view/cells/registry";
 import classes from "./template-row-editor.module.css";
 
 interface TemplateRowEditorProps {
@@ -156,23 +154,33 @@ export function TemplateRowEditor({
 
         {properties.length > 0 && (
           <Stack gap={2} className={classes.presets}>
-            {properties.map((property) => (
-              <Group key={property.id} wrap="nowrap" gap="md" align="center">
-                <Group gap={6} wrap="nowrap" w={140} style={{ flexShrink: 0 }}>
-                  <PropertyTypeIcon type={property.type} />
-                  <Text size="sm" c="dimmed" truncate>
-                    {property.name}
-                  </Text>
+            {properties.map((property) => {
+              // Reuse the grid's per-type cell editor in controlled mode: it
+              // commits to onChange (local state) instead of a pageId-based
+              // mutation, since a template has no backing page (#112). The
+              // collab-bound GridCell is bypassed in favour of the registry cell.
+              const Cell = getCellComponent(property.type);
+              return (
+                <Group key={property.id} wrap="nowrap" gap="md" align="center">
+                  <Group gap={6} wrap="nowrap" w={140} style={{ flexShrink: 0 }}>
+                    <PropertyTypeIcon type={property.type} />
+                    <Text size="sm" c="dimmed" truncate>
+                      {property.name}
+                    </Text>
+                  </Group>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Cell
+                      property={property}
+                      value={propertyValues[property.id]}
+                      pageId=""
+                      databaseId={databaseId}
+                      showEmptyPlaceholder
+                      onChange={(next) => setValue(property.id, next)}
+                    />
+                  </div>
                 </Group>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <PresetValueInput
-                    property={property}
-                    value={propertyValues[property.id]}
-                    onChange={(next) => setValue(property.id, next)}
-                  />
-                </div>
-              </Group>
-            ))}
+              );
+            })}
           </Stack>
         )}
 
@@ -201,63 +209,5 @@ const EMPTY_DOC = JSON.stringify({
   type: "doc",
   content: [{ type: "paragraph" }],
 });
-
-// A per-type preset value editor (no own label — the labelled row supplies it).
-// text/number/checkbox cover the common presets; other types fall back to a
-// best-effort string the server accepts (mirrors the prior modal behaviour).
-function PresetValueInput({
-  property,
-  value,
-  onChange,
-}: {
-  property: IDatabaseProperty;
-  value: IPropertyValue | undefined;
-  onChange: (next: IPropertyValue | undefined) => void;
-}) {
-  const { t } = useTranslation();
-  const raw = value?.value;
-
-  if (property.type === "checkbox") {
-    return (
-      <Checkbox
-        aria-label={property.name}
-        checked={raw === true}
-        onChange={(e) =>
-          onChange(
-            e.currentTarget.checked
-              ? { type: "checkbox", value: true }
-              : undefined,
-          )
-        }
-      />
-    );
-  }
-
-  if (property.type === "number") {
-    return (
-      <NumberInput
-        aria-label={property.name}
-        variant="unstyled"
-        value={typeof raw === "number" ? raw : ""}
-        onChange={(v) =>
-          onChange(v === "" ? undefined : { type: "number", value: Number(v) })
-        }
-      />
-    );
-  }
-
-  return (
-    <TextInput
-      aria-label={property.name}
-      variant="unstyled"
-      placeholder={t("No preset")}
-      value={typeof raw === "string" ? raw : ""}
-      onChange={(e) => {
-        const next = e.currentTarget.value;
-        onChange(next ? { type: property.type, value: next } : undefined);
-      }}
-    />
-  );
-}
 
 export default TemplateRowEditor;

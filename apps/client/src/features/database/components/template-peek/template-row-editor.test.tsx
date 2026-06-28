@@ -4,10 +4,25 @@ import { MantineProvider } from "@mantine/core";
 
 const createMutate = vi.fn();
 const updateMutate = vi.fn();
+let rowsData: any[] = [];
+
+// The template editor now renders the grid's per-type cell editors in
+// controlled mode, so the value-mutation hooks they read must be stubbed too —
+// they should never fire (controlled cells emit onChange instead, #112).
+const setValueMutate = vi.fn();
+const clearValueMutate = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useCreateTemplateMutation: () => ({ mutate: createMutate }),
   useUpdateTemplateMutation: () => ({ mutate: updateMutate }),
+  useSetValueMutation: () => ({ mutate: setValueMutate }),
+  useClearValueMutation: () => ({ mutate: clearValueMutate }),
+  useDatabaseRowsQuery: () => ({ data: rowsData }),
+  useDefaultViewId: () => "v1",
+  useUpdatePropertyMutation: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 // Stub the emoji picker (lazy emoji-mart) so the editor renders synchronously.
@@ -55,8 +70,8 @@ import {
   IDatabaseTemplate,
 } from "@/features/database/types/database.types.ts";
 
-const properties: IDatabaseProperty[] = [
-  {
+function prop(over: Partial<IDatabaseProperty>): IDatabaseProperty {
+  return {
     id: "p1",
     databaseId: "db1",
     name: "Status",
@@ -66,15 +81,22 @@ const properties: IDatabaseProperty[] = [
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-  } as any,
-];
+    ...over,
+  } as IDatabaseProperty;
+}
 
-function renderEditor(template: IDatabaseTemplate | null, onClose = vi.fn()) {
+const properties: IDatabaseProperty[] = [prop({ id: "p1", name: "Status" })];
+
+function renderEditor(
+  template: IDatabaseTemplate | null,
+  props: IDatabaseProperty[] = properties,
+  onClose = vi.fn(),
+) {
   render(
     <MantineProvider>
       <TemplateRowEditor
         databaseId="db1"
-        properties={properties}
+        properties={props}
         template={template}
         onClose={onClose}
       />
@@ -87,6 +109,9 @@ describe("TemplateRowEditor", () => {
   beforeEach(() => {
     createMutate.mockReset();
     updateMutate.mockReset();
+    setValueMutate.mockReset();
+    clearValueMutate.mockReset();
+    rowsData = [];
   });
 
   it("marks the editor as a template with an accent badge", () => {
@@ -114,9 +139,12 @@ describe("TemplateRowEditor", () => {
     fireEvent.change(screen.getByLabelText("Template name"), {
       target: { value: "Meeting" },
     });
+    // Controlled text cell: click to enter edit mode, type, blur to commit.
+    fireEvent.click(screen.getByText("Empty"));
     fireEvent.change(screen.getByLabelText("Status"), {
       target: { value: "todo" },
     });
+    fireEvent.blur(screen.getByLabelText("Status"));
     fireEvent.click(screen.getByText("Save"));
 
     expect(createMutate).toHaveBeenCalledTimes(1);
@@ -126,7 +154,94 @@ describe("TemplateRowEditor", () => {
       propertyValues: { p1: { type: "text", value: "todo" } },
       content: editorJSON,
     });
+    // The cell ran in controlled mode — no pageId-based value mutation fired.
+    expect(setValueMutate).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("edits a select value into the save payload", () => {
+    renderEditor(null, [
+      prop({
+        id: "p1",
+        name: "Stage",
+        type: "select",
+        config: {
+          options: [
+            { id: "o1", label: "Todo", color: "blue" },
+            { id: "o2", label: "Doing", color: "green" },
+          ],
+        },
+      }),
+    ]);
+    fireEvent.click(screen.getByLabelText("Stage"));
+    fireEvent.click(screen.getByText("Doing"));
+    fireEvent.click(screen.getByText("Save"));
+    expect(createMutate.mock.calls[0][0].propertyValues).toEqual({
+      p1: { type: "select", value: "o2" },
+    });
+    expect(setValueMutate).not.toHaveBeenCalled();
+  });
+
+  it("edits a date value into the save payload", () => {
+    renderEditor(null, [prop({ id: "p1", name: "Due", type: "date" })]);
+    fireEvent.click(screen.getByText("Empty"));
+    fireEvent.change(screen.getByLabelText("Due"), {
+      target: { value: "June 1, 2026" },
+    });
+    fireEvent.click(screen.getByText("Save"));
+    expect(createMutate.mock.calls[0][0].propertyValues).toEqual({
+      p1: { type: "date", value: "2026-06-01" },
+    });
+  });
+
+  it("picks a relation page into the save payload", () => {
+    rowsData = [{ row: { id: "r1", title: "Alpha" }, values: [] }];
+    renderEditor(null, [
+      prop({
+        id: "p1",
+        name: "Project",
+        type: "relation",
+        config: { targetDatabaseId: "target-db" },
+      }),
+    ]);
+    fireEvent.click(screen.getByLabelText("Project"));
+    const option = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Alpha"));
+    fireEvent.click(option!);
+    fireEvent.click(screen.getByText("Save"));
+    expect(createMutate.mock.calls[0][0].propertyValues).toEqual({
+      p1: { type: "relation", value: ["r1"] },
+    });
+    expect(setValueMutate).not.toHaveBeenCalled();
+  });
+
+  it("restores existing relation chips when reopened for edit", () => {
+    rowsData = [
+      { row: { id: "r1", title: "Alpha" }, values: [] },
+      { row: { id: "r2", title: "Beta" }, values: [] },
+    ];
+    const existing: IDatabaseTemplate = {
+      id: "t1",
+      databaseId: "db1",
+      name: "Old",
+      icon: null,
+      propertyValues: { p1: { type: "relation", value: ["r1"] } },
+      content: null,
+      position: "a0",
+      workspaceId: "w1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    renderEditor(existing, [
+      prop({
+        id: "p1",
+        name: "Project",
+        type: "relation",
+        config: { targetDatabaseId: "target-db" },
+      }),
+    ]);
+    expect(screen.getByText("Alpha")).toBeTruthy();
   });
 
   it("updates an existing template by id", () => {

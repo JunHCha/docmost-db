@@ -34,6 +34,7 @@ export function MultiSelectCell({
   pageId,
   databaseId,
   showEmptyPlaceholder,
+  onChange,
 }: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
@@ -60,6 +61,14 @@ export function MultiSelectCell({
   const editing = options.find((o) => o.id === editingOptionId) ?? null;
 
   function commit(nextIds: string[]) {
+    if (onChange) {
+      onChange(
+        nextIds.length === 0
+          ? undefined
+          : { type: "multi_select", value: nextIds },
+      );
+      return;
+    }
     if (nextIds.length === 0) {
       clearValue.mutate({ pageId, propertyId: property.id });
     } else {

@@ -34,6 +34,7 @@ export function SelectCell({
   pageId,
   databaseId,
   showEmptyPlaceholder,
+  onChange,
 }: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
@@ -60,6 +61,10 @@ export function SelectCell({
   function select(optionId: string) {
     combobox.closeDropdown();
     setSearch("");
+    if (onChange) {
+      onChange({ type: "select", value: optionId });
+      return;
+    }
     setValue.mutate({
       pageId,
       propertyId: property.id,
@@ -70,6 +75,10 @@ export function SelectCell({
   function clear() {
     combobox.closeDropdown();
     setSearch("");
+    if (onChange) {
+      onChange(undefined);
+      return;
+    }
     clearValue.mutate({ pageId, propertyId: property.id });
   }
 

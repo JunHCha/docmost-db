@@ -227,4 +227,52 @@ describe("SelectCell", () => {
     // Duplicate label rejected: no config write.
     expect(updateMutate).not.toHaveBeenCalled();
   });
+
+  function renderControlled(value: any, onChange: (n: any) => void) {
+    return render(
+      <MantineProvider>
+        <SelectCell
+          property={property}
+          value={value}
+          pageId=""
+          databaseId="db1"
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+  }
+
+  it("controlled: emits onChange(option id) on selection, no value mutation", () => {
+    const onChange = vi.fn();
+    renderControlled(undefined, onChange);
+    fireEvent.click(screen.getByLabelText("Status"));
+    fireEvent.click(screen.getByText("Doing"));
+    expect(onChange).toHaveBeenCalledWith({ type: "select", value: "o2" });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) on clear, no value mutation", () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "select", value: "o1" }, onChange);
+    fireEvent.click(screen.getByLabelText("Status"));
+    fireEvent.click(screen.getByText("Clear"));
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: option create still persists config, then emits onChange", async () => {
+    const onChange = vi.fn();
+    renderControlled(undefined, onChange);
+    fireEvent.click(screen.getByLabelText("Status"));
+    const search = screen.getByPlaceholderText("Search or create...");
+    fireEvent.change(search, { target: { value: "Done" } });
+    fireEvent.click(screen.getByText('Create "Done"'));
+    // Option config is a property edit — runs even in controlled mode.
+    expect(updateMutateAsync).toHaveBeenCalledTimes(1);
+    const newId = updateMutateAsync.mock.calls[0][0].config.options[2].id;
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ type: "select", value: newId }),
+    );
+    expect(setMutate).not.toHaveBeenCalled();
+  });
 });

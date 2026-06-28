@@ -18,6 +18,7 @@ export function RelationCell({
   pageId,
   databaseId,
   showEmptyPlaceholder,
+  onChange,
 }: CellProps) {
   const { t } = useTranslation();
   const targetDatabaseId =
@@ -46,6 +47,14 @@ export function RelationCell({
 
   function commit(ids: string[]) {
     const unique = [...new Set(ids)];
+    if (onChange) {
+      onChange(
+        unique.length === 0
+          ? undefined
+          : { type: "relation", value: unique },
+      );
+      return;
+    }
     if (unique.length === 0) {
       clearValue.mutate({ pageId, propertyId: property.id });
       return;
