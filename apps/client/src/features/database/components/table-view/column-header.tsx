@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Group, Menu, ActionIcon, Text, TextInput } from "@mantine/core";
-import { IconArrowsLeftRight, IconGripVertical } from "@tabler/icons-react";
+import {
+  IconArrowsLeftRight,
+  IconCheck,
+  IconGripVertical,
+} from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -291,12 +295,17 @@ export function ColumnHeader({
                         <Menu.Item
                           key={opt.value}
                           closeMenuOnClick={opt.value !== "relation"}
+                          // Lead with the type's own glyph (same source as the
+                          // column header / properties panel, #104). The active
+                          // type's check moves to the right so the icon column
+                          // stays aligned across every option.
                           leftSection={
-                            <span
-                              style={{ display: "inline-block", width: 12 }}
-                            >
-                              {opt.value === property.type ? "✓" : ""}
-                            </span>
+                            <PropertyTypeIcon type={opt.value} size={14} />
+                          }
+                          rightSection={
+                            opt.value === property.type ? (
+                              <IconCheck size={14} />
+                            ) : null
                           }
                           onClick={() => {
                             // Relation needs a target database, so open the
