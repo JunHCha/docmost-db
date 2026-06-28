@@ -98,6 +98,29 @@ describe('DatabaseTemplateService', () => {
       expect(result.id).toBe('t-new');
     });
 
+    it('persists embedViews when provided', async () => {
+      templateRepo.findByDatabaseId.mockResolvedValue([]);
+      const embedViews = {
+        'embed-1': [{ name: 'Tasks', type: 'table', config: { filters: [] } }],
+      };
+      await service.create(user, {
+        databaseId: 'db-1',
+        name: 'Project',
+        embedViews,
+      } as any);
+      expect(templateRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ embedViews }),
+      );
+    });
+
+    it('persists embedViews as null when omitted', async () => {
+      templateRepo.findByDatabaseId.mockResolvedValue([]);
+      await service.create(user, { databaseId: 'db-1', name: 'x' } as any);
+      expect(templateRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ embedViews: null }),
+      );
+    });
+
     it('orders a new template after the last existing one', async () => {
       templateRepo.findByDatabaseId.mockResolvedValue([
         { id: 't1', position: 'a0' } as any,
@@ -167,6 +190,27 @@ describe('DatabaseTemplateService', () => {
         't1',
       );
       expect(result).toEqual({ id: 't1', name: 'Renamed' });
+    });
+
+    it('patches embedViews when provided', async () => {
+      templateRepo.findById
+        .mockResolvedValueOnce({ id: 't1', databaseId: 'db-1' } as any)
+        .mockResolvedValueOnce({ id: 't1' } as any);
+      const embedViews = { 'embed-1': [{ name: 'T', type: 'table', config: {} }] };
+      await service.update(user, { templateId: 't1', embedViews } as any);
+      expect(templateRepo.updateTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({ embedViews }),
+        't1',
+      );
+    });
+
+    it('does not touch embedViews when omitted', async () => {
+      templateRepo.findById
+        .mockResolvedValueOnce({ id: 't1', databaseId: 'db-1' } as any)
+        .mockResolvedValueOnce({ id: 't1' } as any);
+      await service.update(user, { templateId: 't1', name: 'x' } as any);
+      const patch = templateRepo.updateTemplate.mock.calls[0][0];
+      expect('embedViews' in patch).toBe(false);
     });
 
     it('forbids updating without Edit', async () => {
