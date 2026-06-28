@@ -7,7 +7,13 @@ import {
   type Driver,
   type QueryResult,
 } from 'kysely';
-import { up, down } from './20260610T090000-relation-bidirectional-cleanup';
+// Lives OUTSIDE the migrations/ folder on purpose: Kysely's FileMigrationProvider
+// loads EVERY file in that folder as a migration, so a co-located *.spec.ts breaks
+// `migration:latest` ("describe is not defined"). jest still finds it via testRegex.
+import {
+  up,
+  down,
+} from './migrations/20260610T090000-relation-bidirectional-cleanup';
 
 // Records every compiled SQL string the migration executes, without a real
 // database. A minimal Postgres-compiling Kysely lets the tagged `sql` template
