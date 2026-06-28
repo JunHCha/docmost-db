@@ -90,4 +90,48 @@ describe("NumberCell", () => {
     });
     expect(setMutate).not.toHaveBeenCalled();
   });
+
+  it("controlled: emits onChange with a number, no mutation", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <NumberCell
+          property={property}
+          value={undefined}
+          pageId=""
+          databaseId="db1"
+          showEmptyPlaceholder
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByText("Empty"));
+    const input = screen.getByLabelText("Count");
+    fireEvent.change(input, { target: { value: "42" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith({ type: "number", value: 42 });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) when emptied, no mutation", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <NumberCell
+          property={property}
+          value={{ type: "number", value: 7 }}
+          pageId=""
+          databaseId="db1"
+          showEmptyPlaceholder
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByText("7"));
+    const input = screen.getByLabelText("Count");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
 });

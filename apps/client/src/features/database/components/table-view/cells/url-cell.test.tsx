@@ -154,4 +154,26 @@ describe("UrlCell", () => {
       value: { type: "url", value: "https://x.com" },
     });
   });
+
+  it("controlled: emits onChange and skips mutations", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <UrlCell
+          property={property}
+          value={undefined}
+          pageId=""
+          databaseId="db1"
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("Edit Link"));
+    const input = screen.getByLabelText("Link");
+    fireEvent.change(input, { target: { value: "https://x.com" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith({ type: "url", value: "https://x.com" });
+    expect(setMutate).not.toHaveBeenCalled();
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
 });

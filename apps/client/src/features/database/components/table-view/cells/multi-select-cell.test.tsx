@@ -245,4 +245,57 @@ describe("MultiSelectCell", () => {
     fireEvent.blur(input);
     expect(updateMutate).not.toHaveBeenCalled();
   });
+
+  function renderControlled(value: any, onChange: (n: any) => void) {
+    return render(
+      <MantineProvider>
+        <MultiSelectCell
+          property={property}
+          value={value}
+          pageId=""
+          databaseId="db1"
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+  }
+
+  it("controlled: emits onChange(id array) on selection, no value mutation", () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "multi_select", value: ["o1"] }, onChange);
+    fireEvent.click(screen.getByLabelText("Tags"));
+    fireEvent.click(screen.getByText("Green"));
+    expect(onChange).toHaveBeenCalledWith({
+      type: "multi_select",
+      value: ["o1", "o2"],
+    });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) when last option removed", () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "multi_select", value: ["o1"] }, onChange);
+    fireEvent.click(screen.getByLabelText("Tags"));
+    clickOption("Red");
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: option create still persists config, then emits onChange", async () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "multi_select", value: ["o1"] }, onChange);
+    fireEvent.click(screen.getByLabelText("Tags"));
+    const search = screen.getByPlaceholderText("Search or create...");
+    fireEvent.change(search, { target: { value: "Blue" } });
+    fireEvent.click(screen.getByText('Create "Blue"'));
+    expect(updateMutateAsync).toHaveBeenCalledTimes(1);
+    const newId = updateMutateAsync.mock.calls[0][0].config.options[2].id;
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        type: "multi_select",
+        value: ["o1", newId],
+      }),
+    );
+    expect(setMutate).not.toHaveBeenCalled();
+  });
 });

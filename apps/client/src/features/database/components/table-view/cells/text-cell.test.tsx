@@ -39,6 +39,21 @@ function renderCell(value: any, showEmptyPlaceholder = true) {
   );
 }
 
+function renderControlled(value: any, onChange: (n: any) => void) {
+  return render(
+    <MantineProvider>
+      <TextCell
+        property={property}
+        value={value}
+        pageId=""
+        databaseId="db1"
+        showEmptyPlaceholder
+        onChange={onChange}
+      />
+    </MantineProvider>,
+  );
+}
+
 describe("TextCell", () => {
   beforeEach(() => {
     setMutate.mockReset();
@@ -94,5 +109,29 @@ describe("TextCell", () => {
       propertyId: "prop1",
     });
     expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange and skips mutations on new value", () => {
+    const onChange = vi.fn();
+    renderControlled(undefined, onChange);
+    fireEvent.click(screen.getByText("Empty"));
+    const input = screen.getByLabelText("Name");
+    fireEvent.change(input, { target: { value: "hello" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith({ type: "text", value: "hello" });
+    expect(setMutate).not.toHaveBeenCalled();
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) when emptied", () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "text", value: "hello" }, onChange);
+    fireEvent.click(screen.getByText("hello"));
+    const input = screen.getByLabelText("Name");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(setMutate).not.toHaveBeenCalled();
+    expect(clearMutate).not.toHaveBeenCalled();
   });
 });
