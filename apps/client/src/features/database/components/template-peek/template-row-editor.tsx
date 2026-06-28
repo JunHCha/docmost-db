@@ -1,5 +1,5 @@
 import "@/features/editor/styles/index.css";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useId, useState } from "react";
 import {
   ActionIcon,
   Button,
@@ -22,8 +22,11 @@ import {
 } from "@/features/database/types/database.types.ts";
 import {
   useCreateTemplateMutation,
+  useDatabaseInfoByIdQuery,
   useUpdateTemplateMutation,
 } from "@/features/database/queries/database-query.ts";
+import { DatabasePickerModal } from "@/features/database/components/embed/database-picker-modal.tsx";
+import { shouldTemplateEditorOpenPicker } from "@/features/editor/components/slash-menu/db-picker-scope.ts";
 import { getCellComponent } from "../table-view/cells/registry";
 import classes from "./template-row-editor.module.css";
 
@@ -62,20 +65,53 @@ export function TemplateRowEditor({
     Record<string, IPropertyValue>
   >(template?.propertyValues ?? {});
 
-  const editor = useEditor({
-    extensions: templateExtensions,
-    content: template?.content ?? "",
-    editorProps: {
-      handleDOMEvents: {
-        keydown: (_view, event) => {
-          // Let the slash-command popup own arrow/enter navigation when open.
-          if (["ArrowUp", "ArrowDown", "Enter"].includes(event.key)) {
-            if (document.querySelector("#slash-command")) return true;
-          }
+  // A stable per-editor id scopes the "Database view (linked)" slash event to
+  // this template editor so a co-mounted page editor can't open our picker and
+  // vice versa (#113).
+  const templateEditorId = useId();
+  const [dbPickerOpened, setDbPickerOpened] = useState(false);
+
+  // The embed picker needs a spaceId, but a template only carries its
+  // databaseId — resolve the database to derive its space.
+  const dbInfo = useDatabaseInfoByIdQuery(databaseId);
+  const spaceId = dbInfo.data?.database?.spaceId;
+
+  const editor = useEditor(
+    {
+      extensions: templateExtensions,
+      content: template?.content ?? "",
+      onCreate({ editor }) {
+        // @ts-ignore - stamp the scope marker the slash item reads at dispatch.
+        editor.storage.templateEditorId = templateEditorId;
+      },
+      editorProps: {
+        handleDOMEvents: {
+          keydown: (_view, event) => {
+            // Let the slash-command popup own arrow/enter navigation when open.
+            if (["ArrowUp", "ArrowDown", "Enter"].includes(event.key)) {
+              if (document.querySelector("#slash-command")) return true;
+            }
+          },
         },
       },
     },
-  });
+    [templateEditorId],
+  );
+
+  // The "Database view (linked)" slash item can't insert synchronously (the
+  // picker is a two-step async flow), so it dispatches this event; open the
+  // modal only for our own scoped event (mirrors page-editor).
+  useEffect(() => {
+    const openPicker = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!shouldTemplateEditorOpenPicker(detail, templateEditorId)) return;
+      setDbPickerOpened(true);
+    };
+    document.addEventListener("openDatabasePickerFromEditor", openPicker);
+    return () => {
+      document.removeEventListener("openDatabasePickerFromEditor", openPicker);
+    };
+  }, [templateEditorId]);
 
   function setValue(propertyId: string, next: IPropertyValue | undefined) {
     setPropertyValues((prev) => {
@@ -191,6 +227,17 @@ export function TemplateRowEditor({
               <EditorBubbleMenu editor={editor} templateMode />
               <EditorLinkMenu editor={editor} />
             </>
+          )}
+          {editor && spaceId && (
+            <DatabasePickerModal
+              opened={dbPickerOpened}
+              spaceId={spaceId}
+              onClose={() => setDbPickerOpened(false)}
+              onConfirm={({ databaseId }) => {
+                editor.commands.insertDatabaseView({ databaseId });
+                setDbPickerOpened(false);
+              }}
+            />
           )}
         </div>
 
