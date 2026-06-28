@@ -30,6 +30,7 @@ export function DateCell({
   pageId,
   databaseId,
   showEmptyPlaceholder,
+  onChange,
 }: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
@@ -45,6 +46,10 @@ export function DateCell({
     const iso = toIso(next);
     if (iso === stored || iso === lastCommitted.current) return;
     lastCommitted.current = iso;
+    if (onChange) {
+      onChange(iso === "" ? undefined : { type: "date", value: iso });
+      return;
+    }
     if (iso === "") {
       clearValue.mutate({ pageId, propertyId: property.id });
     } else {

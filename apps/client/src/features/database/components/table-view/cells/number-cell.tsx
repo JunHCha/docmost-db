@@ -5,6 +5,7 @@ import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
+import { IPropertyValue } from "@/features/database/types/database.types.ts";
 import { CellProps } from "./cell-props";
 import {
   INLINE_EMPTY_PLACEHOLDER,
@@ -19,6 +20,7 @@ export function NumberCell({
   pageId,
   databaseId,
   showEmptyPlaceholder,
+  onChange,
 }: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
@@ -32,21 +34,29 @@ export function NumberCell({
     setEditing(true);
   }
 
+  function persist(next: IPropertyValue | undefined) {
+    if (onChange) {
+      onChange(next);
+      return;
+    }
+    if (next === undefined) {
+      clearValue.mutate({ pageId, propertyId: property.id });
+    } else {
+      setValue.mutate({ pageId, propertyId: property.id, value: next });
+    }
+  }
+
   function commit() {
     setEditing(false);
     const next = draft.trim();
     if (next === stored) return;
     if (next === "") {
-      clearValue.mutate({ pageId, propertyId: property.id });
+      persist(undefined);
       return;
     }
     const num = Number(next);
     if (Number.isNaN(num)) return;
-    setValue.mutate({
-      pageId,
-      propertyId: property.id,
-      value: { type: "number", value: num },
-    });
+    persist({ type: "number", value: num });
   }
 
   if (editing) {

@@ -130,4 +130,46 @@ describe("DateCell", () => {
     });
     expect(setMutate).not.toHaveBeenCalled();
   });
+
+  it("controlled: emits onChange with an ISO date, no mutation", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <DateCell
+          property={property}
+          value={undefined}
+          pageId=""
+          databaseId="db1"
+          showEmptyPlaceholder
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByText("Empty"));
+    const input = screen.getByLabelText("Due");
+    fireEvent.change(input, { target: { value: "June 1, 2026" } });
+    expect(onChange).toHaveBeenCalledWith({ type: "date", value: "2026-06-01" });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) when cleared, no mutation", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <DateCell
+          property={property}
+          value={{ type: "date", value: "2026-06-01" }}
+          pageId=""
+          databaseId="db1"
+          showEmptyPlaceholder
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByText("2026-06-01"));
+    const input = screen.getByLabelText("Due");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
 });

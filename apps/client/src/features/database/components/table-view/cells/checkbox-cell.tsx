@@ -10,12 +10,17 @@ export function CheckboxCell({
   value,
   pageId,
   databaseId,
+  onChange,
 }: CellProps) {
   const setValue = useSetValueMutation(databaseId);
   const clearValue = useClearValueMutation(databaseId);
   const checked = value?.value === true;
 
   function toggle(next: boolean) {
+    if (onChange) {
+      onChange(next ? { type: "checkbox", value: true } : undefined);
+      return;
+    }
     if (next) {
       setValue.mutate({
         pageId,

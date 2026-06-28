@@ -62,4 +62,40 @@ describe("CheckboxCell", () => {
       propertyId: "prop1",
     });
   });
+
+  it("controlled: emits onChange(true) on toggle on, no mutation", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <CheckboxCell
+          property={property}
+          value={undefined}
+          pageId=""
+          databaseId="db1"
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("Done"));
+    expect(onChange).toHaveBeenCalledWith({ type: "checkbox", value: true });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) on toggle off, no mutation", () => {
+    const onChange = vi.fn();
+    render(
+      <MantineProvider>
+        <CheckboxCell
+          property={property}
+          value={{ type: "checkbox", value: true }}
+          pageId=""
+          databaseId="db1"
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("Done"));
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
 });

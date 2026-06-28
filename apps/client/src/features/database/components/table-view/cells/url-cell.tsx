@@ -6,6 +6,7 @@ import {
   useClearValueMutation,
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
+import { IPropertyValue } from "@/features/database/types/database.types.ts";
 import { CellProps } from "./cell-props";
 import {
   INLINE_EMPTY_PLACEHOLDER,
@@ -56,6 +57,7 @@ export function UrlCell({
   pageId,
   databaseId,
   showEmptyPlaceholder,
+  onChange,
 }: CellProps) {
   const { t } = useTranslation();
   const setValue = useSetValueMutation(databaseId);
@@ -69,19 +71,23 @@ export function UrlCell({
     setEditing(true);
   }
 
+  function persist(next: IPropertyValue | undefined) {
+    if (onChange) {
+      onChange(next);
+      return;
+    }
+    if (next === undefined) {
+      clearValue.mutate({ pageId, propertyId: property.id });
+    } else {
+      setValue.mutate({ pageId, propertyId: property.id, value: next });
+    }
+  }
+
   function commit() {
     setEditing(false);
     const next = draft.trim();
     if (next === stored) return;
-    if (next === "") {
-      clearValue.mutate({ pageId, propertyId: property.id });
-    } else {
-      setValue.mutate({
-        pageId,
-        propertyId: property.id,
-        value: { type: "url", value: next },
-      });
-    }
+    persist(next === "" ? undefined : { type: "url", value: next });
   }
 
   if (editing) {
