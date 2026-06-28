@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 const createMutate = vi.fn();
@@ -12,18 +12,45 @@ let rowsData: any[] = [];
 const setValueMutate = vi.fn();
 const clearValueMutate = vi.fn();
 
+// Database info resolves the embed picker's spaceId from the template's
+// databaseId. Tests override `dbInfoData` to exercise the unresolved case.
+let dbInfoData: any = { database: { spaceId: "space-1" } };
+
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useCreateTemplateMutation: () => ({ mutate: createMutate }),
   useUpdateTemplateMutation: () => ({ mutate: updateMutate }),
   useSetValueMutation: () => ({ mutate: setValueMutate }),
   useClearValueMutation: () => ({ mutate: clearValueMutate }),
   useDatabaseRowsQuery: () => ({ data: rowsData }),
+  useDatabaseInfoByIdQuery: () => ({ data: dbInfoData }),
   useDefaultViewId: () => "v1",
   useUpdatePropertyMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn().mockResolvedValue(undefined),
   }),
 }));
+
+// The picker modal is exercised through its props (open state + onConfirm), not
+// its internal database list query, so stub it to a minimal confirm trigger.
+let lastPickerSpaceId: string | undefined;
+vi.mock(
+  "@/features/database/components/embed/database-picker-modal.tsx",
+  () => ({
+    DatabasePickerModal: ({ opened, spaceId, onConfirm }: any) => {
+      lastPickerSpaceId = spaceId;
+      if (!opened) return null;
+      return (
+        <button
+          type="button"
+          aria-label="Confirm DB pick"
+          onClick={() => onConfirm({ databaseId: "picked-db" })}
+        >
+          confirm
+        </button>
+      );
+    },
+  }),
+);
 
 // Stub the emoji picker (lazy emoji-mart) so the editor renders synchronously.
 vi.mock("@/components/ui/emoji-picker", () => ({
@@ -46,11 +73,21 @@ const editorJSON = {
     { type: "heading", content: [{ type: "text", text: "Hi" }] },
   ],
 };
+const insertDatabaseView = vi.fn();
+let lastEditor: any;
 vi.mock("@tiptap/react", () => ({
-  useEditor: () => ({
-    getJSON: () => editorJSON,
-    commands: { focus: vi.fn() },
-  }),
+  useEditor: (options: any) => {
+    const editor: any = {
+      storage: {} as Record<string, unknown>,
+      getJSON: () => editorJSON,
+      commands: { focus: vi.fn(), insertDatabaseView },
+    };
+    // Mirror tiptap: run the onCreate callback once so the component can stamp
+    // its templateEditorId onto editor.storage for event scoping.
+    options?.onCreate?.({ editor });
+    lastEditor = editor;
+    return editor;
+  },
   EditorContent: () => <div data-testid="editor-content" />,
 }));
 vi.mock("@/features/editor/extensions/extensions", () => ({
@@ -111,7 +148,11 @@ describe("TemplateRowEditor", () => {
     updateMutate.mockReset();
     setValueMutate.mockReset();
     clearValueMutate.mockReset();
+    insertDatabaseView.mockReset();
     rowsData = [];
+    dbInfoData = { database: { spaceId: "space-1" } };
+    lastEditor = undefined;
+    lastPickerSpaceId = undefined;
   });
 
   it("marks the editor as a template with an accent badge", () => {
@@ -272,5 +313,59 @@ describe("TemplateRowEditor", () => {
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalled();
     expect(createMutate).not.toHaveBeenCalled();
+  });
+
+  // --- Database embed view insertion (#113) ---
+
+  function dispatchOpenPicker(detail: unknown) {
+    act(() => {
+      document.dispatchEvent(
+        new CustomEvent("openDatabasePickerFromEditor", { detail }),
+      );
+    });
+  }
+
+  it("opens the picker and inserts a database view on its own scoped event", () => {
+    renderEditor(null);
+    const templateEditorId = lastEditor.storage.templateEditorId as string;
+    expect(templateEditorId).toBeTruthy();
+
+    // No picker until the slash event for this editor arrives.
+    expect(screen.queryByLabelText("Confirm DB pick")).toBeNull();
+
+    dispatchOpenPicker({ templateEditorId });
+    fireEvent.click(screen.getByLabelText("Confirm DB pick"));
+
+    expect(insertDatabaseView).toHaveBeenCalledWith({ databaseId: "picked-db" });
+    // Modal closes after a confirm.
+    expect(screen.queryByLabelText("Confirm DB pick")).toBeNull();
+  });
+
+  it("resolves the picker spaceId from the template's databaseId", () => {
+    renderEditor(null);
+    const templateEditorId = lastEditor.storage.templateEditorId as string;
+    dispatchOpenPicker({ templateEditorId });
+    expect(lastPickerSpaceId).toBe("space-1");
+  });
+
+  it("ignores a page-scoped event (does not open the template picker)", () => {
+    renderEditor(null);
+    dispatchOpenPicker({ pageId: "page-1" });
+    expect(screen.queryByLabelText("Confirm DB pick")).toBeNull();
+  });
+
+  it("ignores another template editor's event", () => {
+    renderEditor(null);
+    dispatchOpenPicker({ templateEditorId: "some-other-template" });
+    expect(screen.queryByLabelText("Confirm DB pick")).toBeNull();
+  });
+
+  it("does not render the picker modal until spaceId resolves", () => {
+    dbInfoData = { database: null };
+    renderEditor(null);
+    const templateEditorId = lastEditor.storage.templateEditorId as string;
+    dispatchOpenPicker({ templateEditorId });
+    // Even though the open event fired, an unresolved spaceId withholds the modal.
+    expect(screen.queryByLabelText("Confirm DB pick")).toBeNull();
   });
 });
