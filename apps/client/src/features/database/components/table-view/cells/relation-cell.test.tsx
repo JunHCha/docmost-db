@@ -170,4 +170,39 @@ describe("RelationCell", () => {
     expect(screen.queryByLabelText("Open in side panel")).toBeNull();
     expect(screen.getByText("(deleted)")).toBeTruthy();
   });
+
+  function renderControlled(value: any, onChange: (n: any) => void) {
+    return render(
+      <MantineProvider>
+        <RelationCell
+          property={property}
+          value={value}
+          pageId=""
+          databaseId="db1"
+          onChange={onChange}
+        />
+      </MantineProvider>,
+    );
+  }
+
+  it("controlled: emits onChange(relation array) on selection, no mutation", () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "relation", value: ["r1"] }, onChange);
+    fireEvent.click(screen.getByLabelText("Projects"));
+    clickOption("Beta");
+    expect(onChange).toHaveBeenCalledWith({
+      type: "relation",
+      value: ["r1", "r2"],
+    });
+    expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it("controlled: emits onChange(undefined) when last reference removed", () => {
+    const onChange = vi.fn();
+    renderControlled({ type: "relation", value: ["r1"] }, onChange);
+    fireEvent.click(screen.getByLabelText("Projects"));
+    clickOption("Alpha");
+    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(clearMutate).not.toHaveBeenCalled();
+  });
 });
