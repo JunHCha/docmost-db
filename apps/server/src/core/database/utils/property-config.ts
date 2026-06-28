@@ -70,7 +70,16 @@ export function normalizePropertyConfig(
         "'relation' config requires a 'targetDatabaseId'",
       );
     }
-    return { targetDatabaseId };
+    // relatedPropertyId pairs this relation with its reverse column in the
+    // target db (bidirectional). Preserved when present; the service fills it
+    // in after creating the reverse property. See data-model.md (relation).
+    const relatedPropertyId = cfg.relatedPropertyId;
+    return {
+      targetDatabaseId,
+      ...(typeof relatedPropertyId === 'string' && relatedPropertyId
+        ? { relatedPropertyId }
+        : {}),
+    };
   }
 
   // text / number / date / checkbox / url carry no config.
