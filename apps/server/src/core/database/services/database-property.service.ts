@@ -325,9 +325,21 @@ export class DatabasePropertyService {
     source: DatabaseProperty,
     targetDatabaseId: string,
   ): Promise<DatabaseProperty> {
+    // Both columns are auto-named after the database they point at, in the
+    // "<title>와 관계됨" convention (issue #111): the source points at the
+    // target, the reverse points back at the source. A pure rename later goes
+    // through update() without a config patch, so it never re-runs this and the
+    // user's custom name survives.
+    const [targetTitle, sourceTitle] = await Promise.all([
+      this.databaseRepo.findTitleById(targetDatabaseId),
+      this.databaseRepo.findTitleById(source.databaseId),
+    ]);
+    const relationName = (title: string | null): string =>
+      `${title?.trim() || 'Untitled'}와 관계됨`;
+
     const reverse = await this.propertyRepo.insertProperty({
       databaseId: targetDatabaseId,
-      name: `Related to ${source.name}`,
+      name: relationName(sourceTitle),
       type: 'relation',
       config: {
         targetDatabaseId: source.databaseId,
@@ -336,16 +348,21 @@ export class DatabasePropertyService {
       position: await this.nextPosition(targetDatabaseId),
     });
 
+    const sourceName = relationName(targetTitle);
     const sourceConfig = {
       targetDatabaseId,
       relatedPropertyId: reverse.id,
     };
     await this.propertyRepo.updateProperty(
-      { config: sourceConfig },
+      { name: sourceName, config: sourceConfig },
       source.id,
     );
 
-    return { ...source, config: sourceConfig } as DatabaseProperty;
+    return {
+      ...source,
+      name: sourceName,
+      config: sourceConfig,
+    } as DatabaseProperty;
   }
 
   async reorder(user: User, dto: ReorderPropertyDto): Promise<void> {

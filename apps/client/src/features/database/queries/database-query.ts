@@ -223,9 +223,7 @@ export function useSetValueMutation(databaseId: string, targetDatabaseId?: strin
       patchRowValue(queryClient, databaseId, value);
       // Tell other clients on this DB view what changed (#55 Phase 2).
       broadcastChange({ kind: "set", value });
-      if (targetDatabaseId) {
-        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetDatabaseId) });
-      }
+      if (targetDatabaseId) resyncRelatedDb(targetDatabaseId);
     },
     onError: () => {
       // Force a resync so a failed patch never leaves the cache out of step
@@ -258,9 +256,7 @@ export function useClearValueMutation(
         pageId: variables.pageId,
         propertyId: variables.propertyId,
       });
-      if (targetDatabaseId) {
-        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetDatabaseId) });
-      }
+      if (targetDatabaseId) resyncRelatedDb(targetDatabaseId);
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
@@ -356,6 +352,26 @@ function relationTargetId(property: IDatabaseProperty): string | undefined {
   return typeof id === "string" ? id : undefined;
 }
 
+// Resync the RELATED database after a relation mirror/pairing on this DB (#111).
+// refetchType:"all" is essential: the app sets global refetchOnMount:false +
+// 5min staleTime (see main.tsx), so a plain invalidate only refetches the
+// related DB's queries while they are ACTIVE. If that DB's view is not mounted,
+// a plain invalidate leaves it stale and refetchOnMount:false means navigating
+// to it serves the cached (pre-pairing) data — the reverse column / mirrored
+// value is missing until a hard refresh. "all" refetches inactive queries now.
+function resyncRelatedDb(targetId: string, opts?: { properties?: boolean }) {
+  queryClient.invalidateQueries({
+    queryKey: rowsPrefix(targetId),
+    refetchType: "all",
+  });
+  if (opts?.properties) {
+    queryClient.invalidateQueries({
+      queryKey: databasePropertiesKey(targetId),
+      refetchType: "all",
+    });
+  }
+}
+
 export function useCreatePropertyMutation(databaseId: string) {
   const { t } = useTranslation();
   return useMutation<IDatabaseProperty, Error, ICreatePropertyParams>({
@@ -363,12 +379,7 @@ export function useCreatePropertyMutation(databaseId: string) {
     onSuccess: (property) => {
       appendProperty(queryClient, databaseId, property);
       const targetId = relationTargetId(property);
-      if (targetId) {
-        queryClient.invalidateQueries({
-          queryKey: databasePropertiesKey(targetId),
-        });
-        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetId) });
-      }
+      if (targetId) resyncRelatedDb(targetId, { properties: true });
     },
     onError: () => {
       queryClient.invalidateQueries({
@@ -398,12 +409,7 @@ export function useUpdatePropertyMutation(databaseId: string) {
       // Changing a relation's target re-pairs the reverse column on the related
       // DB (#111), so resync that DB's properties from the updated config.
       const targetId = relationTargetId(property);
-      if (targetId) {
-        queryClient.invalidateQueries({
-          queryKey: databasePropertiesKey(targetId),
-        });
-        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetId) });
-      }
+      if (targetId) resyncRelatedDb(targetId, { properties: true });
     },
     onError: () => {
       queryClient.invalidateQueries({
@@ -430,12 +436,7 @@ export function useDeletePropertyMutation(
     mutationFn: (data) => deleteProperty(data),
     onSuccess: (_, variables) => {
       removeProperty(queryClient, databaseId, variables.propertyId);
-      if (targetDatabaseId) {
-        queryClient.invalidateQueries({
-          queryKey: databasePropertiesKey(targetDatabaseId),
-        });
-        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetDatabaseId) });
-      }
+      if (targetDatabaseId) resyncRelatedDb(targetDatabaseId, { properties: true });
     },
     onError: () => {
       queryClient.invalidateQueries({

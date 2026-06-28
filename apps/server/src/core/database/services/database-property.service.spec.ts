@@ -41,7 +41,9 @@ describe('DatabasePropertyService', () => {
       | 'softDeleteProperty'
     >
   >;
-  let databaseRepo: jest.Mocked<Pick<DatabaseRepo, 'findById' | 'listRows'>>;
+  let databaseRepo: jest.Mocked<
+    Pick<DatabaseRepo, 'findById' | 'listRows' | 'findTitleById'>
+  >;
   let valueRepo: jest.Mocked<
     Pick<DatabasePropertyValueRepo, 'setValue' | 'clearValue' | 'findByPageIds'>
   >;
@@ -58,6 +60,10 @@ describe('DatabasePropertyService', () => {
     databaseRepo = {
       findById: jest.fn().mockResolvedValue(database),
       listRows: jest.fn().mockResolvedValue([]),
+      // Titles drive the auto-named relation columns ("<title>와 관계됨").
+      findTitleById: jest.fn().mockImplementation(async (id: string) =>
+        id === 'db-1' ? 'Tasks' : id === 'db-2' ? 'Projects' : 'Other',
+      ),
     } as any;
     valueRepo = {
       setValue: jest.fn(),
@@ -476,16 +482,21 @@ describe('DatabasePropertyService', () => {
         relatedPropertyId: 'src-1',
       });
       expect(revInsert.position).toEqual(expect.any(String));
+      // reverse column is auto-named after the SOURCE db ("Tasks와 관계됨").
+      expect(revInsert.name).toBe('Tasks와 관계됨');
 
-      // 3) source config patched with the reverse property id
+      // 3) source config patched with the reverse property id, and the source
+      // column is auto-named after the TARGET db ("Projects와 관계됨", #111).
       expect(propertyRepo.updateProperty).toHaveBeenCalledWith(
         expect.objectContaining({
+          name: 'Projects와 관계됨',
           config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
         }),
         'src-1',
       );
 
       expect(result.id).toBe('src-1');
+      expect(result.name).toBe('Projects와 관계됨');
     });
 
     it('creates two cross-linked columns for a self-relation', async () => {

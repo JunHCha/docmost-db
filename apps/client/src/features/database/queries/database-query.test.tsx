@@ -251,8 +251,11 @@ describe("relation mutations also invalidate the target database (#111)", () => 
       value: { type: "relation", value: ["x"] },
     } as never);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // refetchType:"all" so the related DB refetches even while inactive (the app
+    // sets global refetchOnMount:false, so a plain invalidate would go stale-only).
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["database-rows", "db-target"],
+      refetchType: "all",
     });
   });
 
@@ -286,6 +289,7 @@ describe("relation mutations also invalidate the target database (#111)", () => 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["database-rows", "db-target"],
+      refetchType: "all",
     });
   });
 
@@ -308,9 +312,11 @@ describe("relation mutations also invalidate the target database (#111)", () => 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: databasePropertiesKey("db-target"),
+      refetchType: "all",
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["database-rows", "db-target"],
+      refetchType: "all",
     });
   });
 
@@ -331,6 +337,7 @@ describe("relation mutations also invalidate the target database (#111)", () => 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: databasePropertiesKey("db-target"),
+      refetchType: "all",
     });
   });
 
@@ -346,6 +353,7 @@ describe("relation mutations also invalidate the target database (#111)", () => 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: databasePropertiesKey("db-target"),
+      refetchType: "all",
     });
   });
 });
