@@ -140,6 +140,7 @@ vi.mock("./toolbar/view-toolbar", () => ({
 }));
 
 import { DatabaseView } from "./database-view";
+import { TemplateEmbedProvider } from "./template-peek/template-embed-context";
 import { viewDraftStorageKey } from "./view-draft-storage";
 
 // Note: no MemoryRouter — DatabaseView must mount without any route context,
@@ -370,6 +371,76 @@ describe("DatabaseView", () => {
     // The embed owns its views, so saving persists to its own scope (issue #39).
     fireEvent.click(screen.getByText("Save changes"));
     expect(updateViewMutate).toHaveBeenCalled();
+  });
+
+  // --- Template embed mode (#115) ---
+
+  function renderTemplateView(
+    ctxOver: Partial<{
+      getEmbedViews: (id: string) => any;
+      setEmbedViews: (id: string, views: any) => void;
+    }> = {},
+    embedId = "embed-1",
+  ) {
+    const ctx = {
+      templateProperties: [],
+      getEmbedViews: ctxOver.getEmbedViews ?? (() => undefined),
+      setEmbedViews: ctxOver.setEmbedViews ?? vi.fn(),
+    };
+    return render(
+      <MantineProvider>
+        <TemplateEmbedProvider value={ctx}>
+          <DatabaseView
+            databaseId="db1"
+            spaceId="space1"
+            embedId={embedId}
+          />
+        </TemplateEmbedProvider>
+      </MantineProvider>,
+    );
+  }
+
+  it("synthesizes a default view in template mode without the server views", () => {
+    // Server returns no views for this scope; template mode synthesizes one so
+    // the grid still renders rather than spinning forever.
+    viewsQuery.mockReturnValue({ data: [] });
+    propertiesQuery.mockReturnValue({ data: oneProperty, isLoading: false });
+    renderTemplateView();
+    expect(screen.getByTestId("table-view")).toBeTruthy();
+  });
+
+  it("saves the draft into the template context, not the server, in template mode", () => {
+    viewsQuery.mockReturnValue({ data: [] });
+    const setEmbedViews = vi.fn();
+    renderTemplateView({ setEmbedViews });
+    fireEvent.click(screen.getByTestId("change-filters"));
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).not.toHaveBeenCalled();
+    expect(setEmbedViews).toHaveBeenCalledWith("embed-1", [
+      expect.objectContaining({
+        isDefault: true,
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    ]);
+  });
+
+  it("seeds the initial draft from a stored embed view in template mode", () => {
+    viewsQuery.mockReturnValue({ data: [] });
+    const getEmbedViews = () => [
+      {
+        name: "Default",
+        type: "table",
+        isDefault: true,
+        config: { sorts: [{ propertyId: "p1", direction: "asc" }] },
+      },
+    ];
+    renderTemplateView({ getEmbedViews });
+    // The toolbar renders from the draft seeded out of the stored config.
+    expect(screen.getByTestId("toolbar-sorts").textContent).toContain(
+      '"direction":"asc"',
+    );
   });
 
   it("shows the table-only empty state when a filtered view returns no rows", () => {

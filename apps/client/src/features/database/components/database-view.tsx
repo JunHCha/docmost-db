@@ -32,6 +32,7 @@ import { ViewToolbar } from "./toolbar/view-toolbar";
 import { DatabasePresenceAvatars } from "./database-presence-avatars";
 import { useDatabaseCollabPresence } from "../hooks/database-collab-context";
 import { useEditingCellTracker } from "../hooks/use-editing-cell-tracker";
+import { useTemplateEmbedContext } from "./template-peek/template-embed-context";
 
 interface DatabaseViewProps {
   // Mount by raw identifiers rather than an IPage so the same body can render
@@ -75,8 +76,41 @@ export function DatabaseView({
   const { setEditingCell } = useDatabaseCollabPresence();
   useEditingCellTracker(rootRef, setEditingCell);
   const propertiesQuery = useDatabasePropertiesQuery(databaseId);
+  // Template mode (issue #115): when this embed is mounted inside a template
+  // editor the views live on the template record (via context), not the
+  // page-scoped views table. The hook is still called unconditionally to keep
+  // hook order stable; its result is ignored below in template mode.
+  const embedCtx = useTemplateEmbedContext();
+  const templateMode = embedCtx && embedId ? embedCtx : null;
   const viewsQuery = useDatabaseViewsQuery(databaseId, embedId, pageId);
-  const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
+  const serverViews = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
+  // In template mode synthesize a single view from the stored embed views (or a
+  // bare default when none exist yet) instead of reading the server list.
+  const views = useMemo<typeof serverViews>(() => {
+    if (!templateMode || !embedId) return serverViews;
+    const stored = templateMode.getEmbedViews(embedId) ?? [];
+    const first = stored[0] ?? {
+      name: "Default",
+      type: "table",
+      config: {},
+      isDefault: true,
+    };
+    return [
+      {
+        id: `tpl:${embedId}:0`,
+        databaseId,
+        name: first.name,
+        type: first.type,
+        config: first.config ?? {},
+        isDefault: true,
+        position: "a0",
+        embedId,
+        ownerUserId: null,
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
+      },
+    ];
+  }, [templateMode, embedId, databaseId, serverViews]);
 
   // Local active-view selection. Resolve against the live list every render so
   // a deleted (or not-yet-chosen) active view falls back to the default/first
@@ -242,6 +276,19 @@ export function DatabaseView({
   // views cache then echoes this exact config (draft === saved).
   function saveChanges() {
     if (!activeView || !dirty) return;
+    // Template mode persists into the template record via context (single view)
+    // rather than the page-scoped views table (issue #115).
+    if (templateMode && embedId) {
+      templateMode.setEmbedViews(embedId, [
+        {
+          name: activeView.name,
+          type: activeView.type,
+          config: draft,
+          isDefault: true,
+        },
+      ]);
+      return;
+    }
     updateView.mutate({ viewId: activeView.id, config: draft });
   }
 
@@ -266,14 +313,21 @@ export function DatabaseView({
     // drag-handle plugin reads this attribute to bow out (see drag-handle.ts).
     <Stack gap="xs" ref={rootRef} data-database-grid>
       <Group justify="space-between" align="center">
-        <ViewSwitcher
-          databaseId={databaseId}
-          embedId={embedId}
-          pageId={pageId}
-          views={views}
-          activeViewId={activeViewId}
-          onActivate={setSelectedViewId}
-        />
+        {templateMode ? (
+          // Single synthesized view; no tabs/create/personal-view actions.
+          <Text fw={500} size="sm">
+            {activeView.name}
+          </Text>
+        ) : (
+          <ViewSwitcher
+            databaseId={databaseId}
+            embedId={embedId}
+            pageId={pageId}
+            views={views}
+            activeViewId={activeViewId}
+            onActivate={setSelectedViewId}
+          />
+        )}
         <Group gap="sm" align="center" wrap="nowrap">
           {dirty && (
             // Deferred save (#92): the draft has unsaved edits. These actions are
