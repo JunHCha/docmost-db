@@ -208,7 +208,13 @@ export function useDefaultViewId(databaseId: string, embedId?: string): string {
   return (data.find((v) => v.isDefault) ?? data[0]).id;
 }
 
-export function useSetValueMutation(databaseId: string) {
+// Relation values mirror to the related database server-side (#111 Phase C):
+// setting/clearing a relation on DB A also writes the reverse value on DB B.
+// The relation cell knows its targetDatabaseId, so it passes it here and we
+// resync the target's rows (a prefix invalidate hits every cached view/filter
+// slot). For non-relation cells targetDatabaseId is undefined and nothing
+// extra is invalidated.
+export function useSetValueMutation(databaseId: string, targetDatabaseId?: string) {
   const { t } = useTranslation();
   const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<IDatabasePropertyValue, Error, ISetValueParams>({
@@ -217,6 +223,9 @@ export function useSetValueMutation(databaseId: string) {
       patchRowValue(queryClient, databaseId, value);
       // Tell other clients on this DB view what changed (#55 Phase 2).
       broadcastChange({ kind: "set", value });
+      if (targetDatabaseId) {
+        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetDatabaseId) });
+      }
     },
     onError: () => {
       // Force a resync so a failed patch never leaves the cache out of step
@@ -227,7 +236,12 @@ export function useSetValueMutation(databaseId: string) {
   });
 }
 
-export function useClearValueMutation(databaseId: string) {
+export function useClearValueMutation(
+  databaseId: string,
+  // See useSetValueMutation — clearing a relation also clears the mirrored
+  // value on the related database, so resync its rows when given.
+  targetDatabaseId?: string,
+) {
   const { t } = useTranslation();
   const broadcastChange = useDatabaseCollabBroadcast();
   return useMutation<void, Error, IClearValueParams>({
@@ -244,6 +258,9 @@ export function useClearValueMutation(databaseId: string) {
         pageId: variables.pageId,
         propertyId: variables.propertyId,
       });
+      if (targetDatabaseId) {
+        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetDatabaseId) });
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
@@ -328,12 +345,30 @@ export function useUpdateRowTitleMutation(databaseId: string) {
   });
 }
 
+// A relation property carries its related database id in config.targetDatabaseId.
+// Relation property CRUD pairs with a reverse column on the target DB server-side
+// (#111 Phase B): create auto-adds it, delete cascade-removes it. So when the
+// mutated property is a relation we resync the target DB's properties (and rows,
+// since a mirror column can surface mirrored values) from that id.
+function relationTargetId(property: IDatabaseProperty): string | undefined {
+  if (property?.type !== "relation") return undefined;
+  const id = property.config?.targetDatabaseId;
+  return typeof id === "string" ? id : undefined;
+}
+
 export function useCreatePropertyMutation(databaseId: string) {
   const { t } = useTranslation();
   return useMutation<IDatabaseProperty, Error, ICreatePropertyParams>({
     mutationFn: (data) => createProperty(data),
     onSuccess: (property) => {
       appendProperty(queryClient, databaseId, property);
+      const targetId = relationTargetId(property);
+      if (targetId) {
+        queryClient.invalidateQueries({
+          queryKey: databasePropertiesKey(targetId),
+        });
+        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetId) });
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({
@@ -360,6 +395,15 @@ export function useUpdatePropertyMutation(databaseId: string) {
           queryKey: rowsPrefix(databaseId),
         });
       }
+      // Changing a relation's target re-pairs the reverse column on the related
+      // DB (#111), so resync that DB's properties from the updated config.
+      const targetId = relationTargetId(property);
+      if (targetId) {
+        queryClient.invalidateQueries({
+          queryKey: databasePropertiesKey(targetId),
+        });
+        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetId) });
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({
@@ -373,12 +417,25 @@ export function useUpdatePropertyMutation(databaseId: string) {
   });
 }
 
-export function useDeletePropertyMutation(databaseId: string) {
+export function useDeletePropertyMutation(
+  databaseId: string,
+  // Deleting a relation property cascade-removes its reverse column on the
+  // related DB (#111). The delete response is void, so the caller (which knows
+  // the property's config.targetDatabaseId) passes it here to resync the
+  // related DB's properties.
+  targetDatabaseId?: string,
+) {
   const { t } = useTranslation();
   return useMutation<void, Error, IDeletePropertyParams>({
     mutationFn: (data) => deleteProperty(data),
     onSuccess: (_, variables) => {
       removeProperty(queryClient, databaseId, variables.propertyId);
+      if (targetDatabaseId) {
+        queryClient.invalidateQueries({
+          queryKey: databasePropertiesKey(targetDatabaseId),
+        });
+        queryClient.invalidateQueries({ queryKey: rowsPrefix(targetDatabaseId) });
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({

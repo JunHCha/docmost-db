@@ -219,6 +219,137 @@ describe("database mutations resync the cache on error", () => {
   });
 });
 
+describe("relation mutations also invalidate the target database (#111)", () => {
+  let invalidateSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    Object.values(service).forEach((fn) => fn.mockReset());
+    queryClient.clear();
+    invalidateSpy = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+  });
+  afterEach(() => invalidateSpy.mockRestore());
+
+  it("setValue invalidates the target database rows when a targetDatabaseId is given", async () => {
+    // Relation value mirrors to the related DB server-side (#111 Phase C), so the
+    // relation cell passes the targetDatabaseId and we resync its rows too.
+    service.setValue.mockResolvedValue({
+      id: "v1",
+      pageId: "p1",
+      propertyId: "prop1",
+      value: { type: "relation", value: ["x"] },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const { result } = renderHook(
+      () => useSetValueMutation(dbId, "db-target"),
+      { wrapper },
+    );
+    result.current.mutate({
+      pageId: "p1",
+      propertyId: "prop1",
+      value: { type: "relation", value: ["x"] },
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["database-rows", "db-target"],
+    });
+  });
+
+  it("setValue leaves the target untouched when no targetDatabaseId is given", async () => {
+    service.setValue.mockResolvedValue({
+      id: "v1",
+      pageId: "p1",
+      propertyId: "prop1",
+      value: { type: "text", value: "hi" },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const { result } = renderHook(() => useSetValueMutation(dbId), { wrapper });
+    result.current.mutate({
+      pageId: "p1",
+      propertyId: "prop1",
+      value: { type: "text", value: "hi" },
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // No stray rows invalidation (the success path patches the cache directly).
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it("clearValue invalidates the target database rows when a targetDatabaseId is given", async () => {
+    service.clearValue.mockResolvedValue(undefined);
+    const { result } = renderHook(
+      () => useClearValueMutation(dbId, "db-target"),
+      { wrapper },
+    );
+    result.current.mutate({ pageId: "p1", propertyId: "prop1" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["database-rows", "db-target"],
+    });
+  });
+
+  it("createProperty invalidates the target DB rows+properties from the response config", async () => {
+    // Creating a relation property auto-creates the reverse column on the target
+    // DB (#111 Phase B), so its properties (and rows for mirrored values) resync.
+    service.createProperty.mockResolvedValue({
+      id: "prop1",
+      type: "relation",
+      config: { targetDatabaseId: "db-target" },
+    });
+    const { result } = renderHook(() => useCreatePropertyMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({
+      databaseId: dbId,
+      type: "relation",
+      config: { targetDatabaseId: "db-target" },
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databasePropertiesKey("db-target"),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["database-rows", "db-target"],
+    });
+  });
+
+  it("updateProperty invalidates the target DB properties from the response config", async () => {
+    service.updateProperty.mockResolvedValue({
+      id: "prop1",
+      type: "relation",
+      config: { targetDatabaseId: "db-target" },
+    });
+    const { result } = renderHook(() => useUpdatePropertyMutation(dbId), {
+      wrapper,
+    });
+    result.current.mutate({
+      propertyId: "prop1",
+      type: "relation",
+      config: { targetDatabaseId: "db-target" },
+    } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databasePropertiesKey("db-target"),
+    });
+  });
+
+  it("deleteProperty invalidates the target DB properties when given a targetDatabaseId", async () => {
+    // Deleting a relation property cascade-deletes the reverse column (#111), so
+    // the caller passes its targetDatabaseId to resync the related DB.
+    service.deleteProperty.mockResolvedValue(undefined);
+    const { result } = renderHook(
+      () => useDeletePropertyMutation(dbId, "db-target"),
+      { wrapper },
+    );
+    result.current.mutate({ propertyId: "prop1" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: databasePropertiesKey("db-target"),
+    });
+  });
+});
+
 describe("useCreateRowMutation success path", () => {
   beforeEach(() => {
     Object.values(service).forEach((fn) => fn.mockReset());

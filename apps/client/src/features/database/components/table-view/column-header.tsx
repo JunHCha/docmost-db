@@ -97,13 +97,15 @@ export function ColumnHeader({
   onReorderRef.current = onReorder;
   const orderedRef = useRef(orderedProperties);
   orderedRef.current = orderedProperties;
-  const remove = useDeletePropertyMutation(databaseId);
-  const { data: databases } = useListDatabasesQuery(spaceId);
   const currentTargetId =
     property.type === "relation" &&
     typeof property.config?.targetDatabaseId === "string"
       ? property.config.targetDatabaseId
       : undefined;
+  // Deleting a relation column cascade-deletes its reverse column on the related
+  // DB (#111), so pass the target id to resync that DB's properties.
+  const remove = useDeletePropertyMutation(databaseId, currentTargetId);
+  const { data: databases } = useListDatabasesQuery(spaceId);
 
   useEffect(() => {
     // The draggable wrapper only exists in the non-editing view (see render),
