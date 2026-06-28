@@ -92,7 +92,12 @@ function TemplateRelationValueWidget({
           onChange(next === "ref" ? undefined : "");
         }}
         allowDeselect={false}
-        comboboxProps={{ withinPortal: true }}
+        // The filter builder Popover is withinPortal={false} and closes on any
+        // outside click, so its value widgets must render their dropdowns inside
+        // the popover too (matches filter-row's selects). A portaled dropdown
+        // would land outside the popover and a click on an option would dismiss
+        // it (#115 QA).
+        comboboxProps={{ withinPortal: false }}
         w={180}
       />
       {mode === "ref" ? (
@@ -103,7 +108,7 @@ function TemplateRelationValueWidget({
           onChange={(v) =>
             onChange(v ? { templatePropertyRef: v } : undefined)
           }
-          comboboxProps={{ withinPortal: true }}
+          comboboxProps={{ withinPortal: false }}
           searchable
         />
       ) : (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
@@ -230,6 +230,31 @@ describe("FilterValueWidget", () => {
     expect(screen.queryByText("Notes")).toBeNull();
     fireEvent.click(screen.getByText("Team"));
     expect(onChange).toHaveBeenCalledWith({ templatePropertyRef: "tp1" });
+  });
+
+  it("renders the value-kind dropdown inside its own DOM, not a body portal (#115 QA)", () => {
+    // The filter builder Popover is withinPortal={false} and closes on any
+    // outside click. A portaled value-kind dropdown would land in document.body
+    // (outside the popover) so clicking an option would dismiss the whole filter
+    // popover. Asserting the option lives inside the component's container proves
+    // comboboxProps.withinPortal === false, which keeps the popover open.
+    const { container } = renderInTemplate(
+      <FilterValueWidget
+        property={prop({
+          type: "relation",
+          config: { targetDatabaseId: "td" },
+        })}
+        op="contains"
+        value={null}
+        onChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("textbox", { name: "Filter value kind" }),
+    );
+    expect(
+      within(container).getByText("Template property reference"),
+    ).toBeTruthy();
   });
 
   it("restores the $ref mode and selected property from an existing ref value", () => {
