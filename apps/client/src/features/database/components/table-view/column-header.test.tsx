@@ -280,6 +280,26 @@ describe("ColumnHeader", () => {
     expect(screen.queryByText("Self")).toBeNull();
   });
 
+  it("does not offer a Type section for relation columns (type is locked, #111)", () => {
+    // The server rejects a relation type change (400: delete instead), so the
+    // header must not render the Type label or the type-change items for a
+    // relation column.
+    databasesData = [
+      { id: "db2", pageId: "p2", title: "People", icon: null },
+    ];
+    renderHeaderWith({ type: "relation", config: { targetDatabaseId: "db2" } });
+    fireEvent.click(screen.getByLabelText("Column options"));
+    expect(screen.queryByText("Type")).toBeNull();
+    // None of the type-change items are rendered.
+    expect(screen.queryByText("Number")).toBeNull();
+    expect(screen.queryByText("Checkbox")).toBeNull();
+    expect(screen.queryByText("Text")).toBeNull();
+    // Rename / Change relation target / Delete remain available.
+    expect(screen.getByText("Rename")).toBeTruthy();
+    expect(screen.getByText("Change relation target")).toBeTruthy();
+    expect(screen.getByText("Delete")).toBeTruthy();
+  });
+
   it("lets an existing relation column switch to a different target database", () => {
     databasesData = [
       { id: "db2", pageId: "p2", title: "People", icon: null },
@@ -290,7 +310,9 @@ describe("ColumnHeader", () => {
       config: { targetDatabaseId: "db2" },
     });
     fireEvent.click(screen.getByLabelText("Column options"));
-    fireEvent.click(screen.getByText("Relation"));
+    // Relation columns have no "Relation" type item (type is locked, #111);
+    // the target is changed via the dedicated "Change relation target" entry.
+    fireEvent.click(screen.getByText("Change relation target"));
     fireEvent.click(screen.getByText("Tasks"));
     expect(updateMutate).toHaveBeenCalledWith({
       propertyId: "prop1",

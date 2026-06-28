@@ -285,13 +285,21 @@ export function ColumnHeader({
                           {t("Change relation target")}
                         </Menu.Item>
                       )}
-                      <Menu.Label>{t("Type")}</Menu.Label>
-                      {/* Each type is a Menu.Item, not a nested <Select>: a Select
-                        renders its options in a portal, and clicking one counts
-                        as an outside-click that closes this Menu and unmounts
-                        the Select before its onChange commits — so the type
-                        never actually changed. Menu.Item clicks commit. */}
-                      {TYPE_OPTIONS.map((opt) => (
+                      {/* Relation columns lock their type: the server pairs them
+                        bidirectionally and rejects a type change with 400
+                        (delete instead, #111). So hide the whole Type section
+                        for relation — only Rename / Change relation target /
+                        Delete remain. */}
+                      {property.type !== "relation" && (
+                        <>
+                          <Menu.Label>{t("Type")}</Menu.Label>
+                          {/* Each type is a Menu.Item, not a nested <Select>: a
+                            Select renders its options in a portal, and clicking
+                            one counts as an outside-click that closes this Menu
+                            and unmounts the Select before its onChange commits —
+                            so the type never actually changed. Menu.Item clicks
+                            commit. */}
+                          {TYPE_OPTIONS.map((opt) => (
                         <Menu.Item
                           key={opt.value}
                           closeMenuOnClick={opt.value !== "relation"}
@@ -337,7 +345,9 @@ export function ColumnHeader({
                         >
                           {t(opt.label)}
                         </Menu.Item>
-                      ))}
+                          ))}
+                        </>
+                      )}
                       <Menu.Divider />
                       <Menu.Item
                         color="red"
