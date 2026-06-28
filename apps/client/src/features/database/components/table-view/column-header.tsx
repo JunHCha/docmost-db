@@ -105,6 +105,19 @@ export function ColumnHeader({
   // Deleting a relation column cascade-deletes its reverse column on the related
   // DB (#111), so pass the target id to resync that DB's properties.
   const remove = useDeletePropertyMutation(databaseId, currentTargetId);
+  // Targets this DB already links (excluding this column). A second relation to
+  // the same target is rejected server-side (#111 QA), so disable them in the
+  // picker; this column's own current target stays selectable (shows the ✓).
+  const relatedTargetIds = new Set(
+    orderedProperties
+      .filter(
+        (p) =>
+          p.id !== property.id &&
+          p.type === "relation" &&
+          typeof p.config?.targetDatabaseId === "string",
+      )
+      .map((p) => p.config.targetDatabaseId as string),
+  );
   const { data: databases } = useListDatabasesQuery(spaceId);
 
   useEffect(() => {
@@ -250,29 +263,35 @@ export function ColumnHeader({
                       <Menu.Label>{t("Relation to")}</Menu.Label>
                       {(databases ?? [])
                         .filter((db) => db.id !== databaseId)
-                        .map((db) => (
-                          <Menu.Item
-                            key={db.id}
-                            leftSection={
-                              <span
-                                style={{ display: "inline-block", width: 12 }}
-                              >
-                                {db.id === currentTargetId ? "✓" : ""}
-                              </span>
-                            }
-                            onClick={() => {
-                              setPickingRelation(false);
-                              if (db.id === currentTargetId) return;
-                              update.mutate({
-                                propertyId: property.id,
-                                type: "relation",
-                                config: { targetDatabaseId: db.id },
-                              });
-                            }}
-                          >
-                            {db.title || t("Untitled")}
-                          </Menu.Item>
-                        ))}
+                        .map((db) => {
+                          // Already linked by another column → not selectable.
+                          const alreadyLinked = relatedTargetIds.has(db.id);
+                          return (
+                            <Menu.Item
+                              key={db.id}
+                              disabled={alreadyLinked}
+                              leftSection={
+                                <span
+                                  style={{ display: "inline-block", width: 12 }}
+                                >
+                                  {db.id === currentTargetId ? "✓" : ""}
+                                </span>
+                              }
+                              onClick={() => {
+                                setPickingRelation(false);
+                                if (db.id === currentTargetId) return;
+                                update.mutate({
+                                  propertyId: property.id,
+                                  type: "relation",
+                                  config: { targetDatabaseId: db.id },
+                                });
+                              }}
+                            >
+                              {db.title || t("Untitled")}
+                              {alreadyLinked ? ` (${t("already linked")})` : ""}
+                            </Menu.Item>
+                          );
+                        })}
                     </>
                   ) : (
                     <>

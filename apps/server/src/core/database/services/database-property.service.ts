@@ -65,6 +65,13 @@ export class DatabasePropertyService {
     assertPropertyType(dto.type);
     const config = await this.resolveConfig(dto.type, dto.config, database);
 
+    if (dto.type === 'relation') {
+      await this.assertNoDuplicateRelationTarget(
+        dto.databaseId,
+        config.targetDatabaseId,
+      );
+    }
+
     const position = await this.nextPosition(dto.databaseId);
 
     const property = await this.propertyRepo.insertProperty({
@@ -144,6 +151,19 @@ export class DatabasePropertyService {
       const rawConfig =
         dto.config ?? (typeChanged ? {} : (property.config as object));
       patch.config = await this.resolveConfig(nextType, rawConfig, database);
+    }
+
+    // Reject a SECOND relation to the same target db within this database before
+    // mutating anything — a duplicate pairing would create ambiguous reverse
+    // columns/mirrors (#111 QA). Checked here (not in pairReverseRelation) so the
+    // auto-created reverse column and a self-relation's own pair are exempt; only
+    // the user's explicit second relation to an already-linked target is blocked.
+    if ((dto.type ?? property.type) === 'relation' && patch.config) {
+      await this.assertNoDuplicateRelationTarget(
+        property.databaseId,
+        (patch.config as any).targetDatabaseId,
+        dto.propertyId,
+      );
     }
 
     await this.propertyRepo.updateProperty(patch, dto.propertyId);
@@ -306,6 +326,31 @@ export class DatabasePropertyService {
     return (await this.valueRepo.findByPageIds(pageIds)).filter(
       (v) => v.propertyId === propertyId,
     );
+  }
+
+  // Reject creating/redirecting a relation when the database already has a live
+  // relation column pointing at the same target (#111 QA: "no two relation
+  // columns to the same target"). `excludePropertyId` skips the column being
+  // edited. findByDatabaseId returns live (non-deleted) columns only, so a
+  // deleted relation never blocks a new one. The auto-created reverse column is
+  // never routed through here, so a self-relation's pair stays valid.
+  private async assertNoDuplicateRelationTarget(
+    databaseId: string,
+    targetDatabaseId: string,
+    excludePropertyId?: string,
+  ): Promise<void> {
+    const siblings = await this.propertyRepo.findByDatabaseId(databaseId);
+    const duplicate = siblings.some(
+      (p) =>
+        p.id !== excludePropertyId &&
+        p.type === 'relation' &&
+        (p.config as any)?.targetDatabaseId === targetDatabaseId,
+    );
+    if (duplicate) {
+      throw new BadRequestException(
+        'A relation column to this database already exists',
+      );
+    }
   }
 
   // Append position for a new property in the given database.

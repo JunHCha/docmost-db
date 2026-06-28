@@ -280,6 +280,54 @@ describe("ColumnHeader", () => {
     expect(screen.queryByText("Self")).toBeNull();
   });
 
+  it("disables a target this database already links via another column (#111 QA)", () => {
+    // A second relation to the same target is rejected server-side, so the
+    // picker disables an already-linked target and keeps free ones selectable.
+    databasesData = [
+      { id: "db2", pageId: "p2", title: "People", icon: null },
+      { id: "db3", pageId: "p3", title: "Projects", icon: null },
+    ];
+    const sibling = {
+      ...property,
+      id: "rel-existing",
+      type: "relation",
+      config: { targetDatabaseId: "db2" },
+    } as IDatabaseProperty;
+    render(
+      <MantineProvider>
+        <ColumnHeader
+          property={property}
+          databaseId="db1"
+          spaceId="space1"
+          orderedProperties={[property, sibling]}
+          width={180}
+          onHide={vi.fn()}
+          onResize={vi.fn()}
+          onReorder={vi.fn()}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Relation"));
+
+    // People (db2) already linked → disabled; clicking it does not commit.
+    const peopleItem = screen.getByText(/People/).closest("button");
+    expect(
+      peopleItem?.hasAttribute("disabled") ||
+        peopleItem?.hasAttribute("data-disabled"),
+    ).toBe(true);
+    fireEvent.click(peopleItem!);
+    expect(updateMutate).not.toHaveBeenCalled();
+
+    // Projects (db3) is free → selectable and commits.
+    fireEvent.click(screen.getByText("Projects"));
+    expect(updateMutate).toHaveBeenCalledWith({
+      propertyId: "prop1",
+      type: "relation",
+      config: { targetDatabaseId: "db3" },
+    });
+  });
+
   it("does not offer a Type section for relation columns (type is locked, #111)", () => {
     // The server rejects a relation type change (400: delete instead), so the
     // header must not render the Type label or the type-change items for a

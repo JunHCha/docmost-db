@@ -657,6 +657,73 @@ describe('DatabasePropertyService', () => {
       expect(propertyRepo.softDeleteProperty).toHaveBeenCalledWith('src-1');
       expect(propertyRepo.softDeleteProperty).toHaveBeenCalledWith('rev-1');
     });
+
+    it('rejects creating a second relation to an already-linked target', async () => {
+      // db-1 already links db-2; a second relation to db-2 is not allowed.
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        {
+          id: 'existing',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2' },
+        },
+      ] as any);
+
+      await expect(
+        service.create(user, {
+          databaseId: 'db-1',
+          name: 'Another',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // Rejected before inserting anything (no half-created column).
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
+    });
+
+    it('rejects redirecting a relation to an already-linked target', async () => {
+      const dbC: any = {
+        id: 'db-3',
+        pageId: 'dbpage-3',
+        spaceId: 'space-1',
+        workspaceId: 'ws-1',
+      };
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'db-1' ? database : id === 'db-2' ? dbB : id === 'db-3' ? dbC : undefined,
+      );
+      // src-1 → db-2 today; db-1 already has another relation → db-3.
+      propertyRepo.findById.mockResolvedValueOnce({
+        id: 'src-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+      } as any);
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        {
+          id: 'src-1',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-1' },
+        },
+        {
+          id: 'other',
+          databaseId: 'db-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-3' },
+        },
+      ] as any);
+
+      await expect(
+        service.update(user, {
+          propertyId: 'src-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-3' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // Rejected before mutating the column or its pairing.
+      expect(propertyRepo.updateProperty).not.toHaveBeenCalled();
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
+    });
   });
 
   describe('reorder', () => {
