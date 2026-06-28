@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { isDraftDirty } from "./view-draft";
+import { resolveColumns } from "./table-view/view-columns";
+import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
 describe("isDraftDirty", () => {
   it("is not dirty when draft equals saved", () => {
@@ -84,5 +86,51 @@ describe("isDraftDirty", () => {
   it("is never dirty without both draft and saved", () => {
     expect(isDraftDirty(undefined, {})).toBe(false);
     expect(isDraftDirty({}, undefined)).toBe(false);
+  });
+});
+
+describe("auto-created reverse relation column does not dirty sibling views (#111)", () => {
+  // The backend creates the reverse relation column WITHOUT touching any view
+  // config (Phase B/D). So a sibling view whose saved+draft configs both predate
+  // the new column must stay clean: isDraftDirty compares only the configs (which
+  // are identical), while resolveColumns surfaces the new property as visible by
+  // default. This pins both halves against a regression where the auto-create
+  // leaks into a dirty draft / hidden column.
+  const prop = (id: string, position: string): IDatabaseProperty => ({
+    id,
+    databaseId: "db1",
+    name: id,
+    type: "text",
+    config: {},
+    position,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  });
+
+  it("stays clean and auto-shows the new column", () => {
+    // saved + draft were captured before the reverse column existed, so both
+    // reference only the original columns and are byte-identical.
+    const savedColumns = [
+      { propertyId: "a", visible: true },
+      { propertyId: "b", visible: true },
+    ];
+    const saved = { columns: savedColumns };
+    const draft = { columns: savedColumns.map((c) => ({ ...c })) };
+
+    // A reverse relation column "rev" appears in properties but in neither config.
+    const properties = [
+      prop("a", "a0"),
+      prop("b", "a1"),
+      prop("rev", "a2"),
+    ];
+
+    // No new dirty state: the auto-create never edited the view config.
+    expect(isDraftDirty(draft, saved)).toBe(false);
+
+    // The new column is rendered (visible) by default despite being absent from
+    // the config, trailing the configured columns by position.
+    const resolved = resolveColumns(properties, savedColumns);
+    expect(resolved.map((c) => c.property.id)).toEqual(["a", "b", "rev"]);
   });
 });
