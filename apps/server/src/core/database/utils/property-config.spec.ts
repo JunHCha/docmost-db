@@ -66,5 +66,23 @@ describe('property-config', () => {
         normalizePropertyConfig('relation', { targetDatabaseId: 'db-2' }),
       ).toEqual({ targetDatabaseId: 'db-2' });
     });
+
+    it('preserves relatedPropertyId for relation (bidirectional pairing)', () => {
+      expect(
+        normalizePropertyConfig('relation', {
+          targetDatabaseId: 'db-2',
+          relatedPropertyId: 'p-rev',
+        }),
+      ).toEqual({ targetDatabaseId: 'db-2', relatedPropertyId: 'p-rev' });
+    });
+
+    it('drops a non-string relatedPropertyId', () => {
+      expect(
+        normalizePropertyConfig('relation', {
+          targetDatabaseId: 'db-2',
+          relatedPropertyId: 123,
+        }),
+      ).toEqual({ targetDatabaseId: 'db-2' });
+    });
   });
 });
