@@ -18,4 +18,8 @@ export class CreateTemplateDto {
   @IsOptional()
   @IsObject()
   content?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  embedViews?: Record<string, unknown>;
 }
