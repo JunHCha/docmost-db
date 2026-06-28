@@ -46,4 +46,31 @@ describe("getSuggestionItems database view item", () => {
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].detail).toEqual({ pageId: "page-1" });
   });
+
+  it("scopes the event to the template editor when storage carries a templateEditorId", () => {
+    const items = flatten(getSuggestionItems({ query: "database" }));
+    const item = items.find((i) => i.title === "Database view (linked)")!;
+
+    const run = vi.fn();
+    const deleteRange = vi.fn(() => ({ run }));
+    const focus = vi.fn(() => ({ deleteRange }));
+    const chain = vi.fn(() => ({ focus }));
+    // A template editor has no backing page, so it marks the event with its
+    // own templateEditorId instead of a pageId (page-editors must ignore it).
+    const editor = {
+      chain,
+      storage: { templateEditorId: "tpl-7", pageId: undefined },
+    } as any;
+
+    const dispatched: CustomEvent[] = [];
+    const listener = (e: Event) => dispatched.push(e as CustomEvent);
+    document.addEventListener("openDatabasePickerFromEditor", listener);
+
+    item.command({ editor, range: { from: 1, to: 5 } } as any);
+
+    document.removeEventListener("openDatabasePickerFromEditor", listener);
+
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].detail).toEqual({ templateEditorId: "tpl-7" });
+  });
 });
