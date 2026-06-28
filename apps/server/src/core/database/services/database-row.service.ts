@@ -371,18 +371,20 @@ export class DatabaseRowService {
         database.workspaceId,
       );
 
-      const result = await this.valueRepo.setValue({
-        pageId: dto.pageId,
-        propertyId: dto.propertyId,
-        value: value as any,
-      });
-      // Mirror the link onto the paired reverse property on each target row.
+      // Mirror BEFORE writing the source value: mirrorRelation reads the
+      // source row's PREVIOUS link set to diff against newIds. Writing the
+      // source first would make old === new, so nothing would mirror.
+      // Symmetric with clearValue, which also mirrors before clearing.
       await this.mirrorRelation(
         dto.pageId,
         property,
         value.value as string[],
       );
-      return result;
+      return this.valueRepo.setValue({
+        pageId: dto.pageId,
+        propertyId: dto.propertyId,
+        value: value as any,
+      });
     }
 
     return this.valueRepo.setValue({

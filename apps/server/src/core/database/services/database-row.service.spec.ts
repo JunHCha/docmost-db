@@ -1105,6 +1105,28 @@ describe('DatabaseRowService', () => {
         (c) => c[0].pageId === 'p-b',
       );
       expect(reverseCalls).toHaveLength(0);
+
+      // Ordering guard: the source's PREVIOUS value must be read before it is
+      // overwritten. If the source is written first, old === new and nothing
+      // mirrors — a production-only bug a fixed findByPageId mock would hide.
+      const orderOf = (
+        fn: jest.Mock,
+        match: (args: any[]) => boolean,
+      ): number =>
+        Math.min(
+          ...fn.mock.calls.map((c, i) =>
+            match(c) ? fn.mock.invocationCallOrder[i] : Infinity,
+          ),
+        );
+      const sourceReadOrder = orderOf(
+        valueRepo.findByPageId as unknown as jest.Mock,
+        (c) => c[0] === 'row-1',
+      );
+      const sourceWriteOrder = orderOf(
+        valueRepo.setValue as unknown as jest.Mock,
+        (c) => c[0].pageId === 'row-1' && c[0].propertyId === 'rel-1',
+      );
+      expect(sourceReadOrder).toBeLessThan(sourceWriteOrder);
     });
 
     it('skips mirroring for a legacy relation without relatedPropertyId', async () => {
