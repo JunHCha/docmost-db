@@ -55,6 +55,25 @@ describe("sanitizeFilters", () => {
       { propertyId: "p3", op: "is_empty" },
     ]);
   });
+
+  it("drops a template-property-ref filter (unresolvable in preview)", () => {
+    const filters: IFilterCondition[] = [
+      { propertyId: "p1", op: "contains", value: { templatePropertyRef: "t1" } },
+    ];
+    // A $ref can only be resolved at row creation; sending it to the rows query
+    // would 400 the server, so it is dropped from the preview query.
+    expect(sanitizeFilters(filters)).toEqual([]);
+  });
+
+  it("keeps literal relation filters alongside dropped refs", () => {
+    const filters: IFilterCondition[] = [
+      { propertyId: "p1", op: "contains", value: "page-1" },
+      { propertyId: "p2", op: "contains", value: { templatePropertyRef: "t1" } },
+    ];
+    expect(sanitizeFilters(filters)).toEqual([
+      { propertyId: "p1", op: "contains", value: "page-1" },
+    ]);
+  });
 });
 
 describe("sanitizeSorts", () => {
