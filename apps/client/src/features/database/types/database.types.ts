@@ -243,6 +243,8 @@ export interface IDatabaseTemplate {
   propertyValues: Record<string, IPropertyValue> | null;
   // Prosemirror document JSON applied as the new row's body.
   content: Record<string, unknown> | null;
+  // Embed view settings keyed by embedId, seeded onto the new row at creation.
+  embedViews: Record<string, unknown> | null;
   position: string;
   workspaceId: string;
   createdAt: Date;
@@ -259,6 +261,7 @@ export interface ICreateTemplateParams {
   icon?: string;
   propertyValues?: Record<string, IPropertyValue>;
   content?: Record<string, unknown>;
+  embedViews?: Record<string, unknown>;
 }
 
 export interface IUpdateTemplateParams {
@@ -267,6 +270,7 @@ export interface IUpdateTemplateParams {
   icon?: string;
   propertyValues?: Record<string, IPropertyValue>;
   content?: Record<string, unknown>;
+  embedViews?: Record<string, unknown>;
 }
 
 export interface ITemplateIdParams {
