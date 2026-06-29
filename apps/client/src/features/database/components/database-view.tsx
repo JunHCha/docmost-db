@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseViewConfig,
@@ -168,7 +169,22 @@ export function DatabaseView({
         : undefined,
     [activeView, draft, filters, sorts, pageId],
   );
-  const rowsQuery = useDatabaseRowsQuery(databaseId, activeViewId, viewConfig);
+  // Debounce only the FILTERS that drive the rows query: a filter value typed
+  // character-by-character would otherwise fire a request (and a refetch) per
+  // keystroke, flickering the grid. Sorts/columns change by discrete clicks, so
+  // they stay immediate (debouncing them would add lag for no benefit). The
+  // toolbar/draft are always immediate; only the server query waits for typing.
+  const [debouncedFilters] = useDebouncedValue(viewConfig?.filters, 250);
+  const rowsQueryConfig = useMemo(
+    () =>
+      viewConfig ? { ...viewConfig, filters: debouncedFilters } : undefined,
+    [viewConfig, debouncedFilters],
+  );
+  const rowsQuery = useDatabaseRowsQuery(
+    databaseId,
+    activeViewId,
+    rowsQueryConfig,
+  );
 
   // The active view as the grid should render it RIGHT NOW: the saved view with
   // the unsaved draft config layered on so column order/width/visibility and
