@@ -1,4 +1,5 @@
-import { NumberInput, Select, Switch, TextInput } from "@mantine/core";
+import { useState } from "react";
+import { Group, NumberInput, Select, Switch, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,7 +11,9 @@ import {
   useDatabaseRowsQuery,
   useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
+import { useEmbedHost } from "@/features/database/components/embed-host-context.tsx";
 import { opNeedsValue } from "./operators";
+import { isThisPageRef } from "./self-ref.ts";
 
 interface FilterValueWidgetProps {
   property: IDatabaseProperty;
@@ -50,6 +53,52 @@ function RelationValueWidget({
   );
 }
 
+// Inside an embedded view (an embed has a host page), a relation filter can
+// compare against "this page" — the host — instead of a fixed page. The symbol
+// { thisPage: true } is stored and resolved to the host page id at render time
+// (live self-reference). A kind toggle switches between the page picker and it.
+function SelfRefRelationValueWidget({
+  property,
+  value,
+  onChange,
+}: Omit<FilterValueWidgetProps, "op">) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<"page" | "this">(
+    isThisPageRef(value) ? "this" : "page",
+  );
+  return (
+    <Group gap="xs" wrap="nowrap" align="center">
+      <Select
+        aria-label={t("Filter value kind")}
+        data={[
+          { value: "page", label: t("Specific page") },
+          { value: "this", label: t("This page") },
+        ]}
+        value={mode}
+        onChange={(v) => {
+          const next = v === "this" ? "this" : "page";
+          setMode(next);
+          // Reset the comparison value when switching kinds so a stale page id
+          // or symbol never lingers across modes.
+          onChange(next === "this" ? { thisPage: true } : "");
+        }}
+        allowDeselect={false}
+        // The filter builder Popover closes on outside clicks, so value widgets
+        // must keep their dropdowns inside it (withinPortal: false).
+        comboboxProps={{ withinPortal: false }}
+        w={160}
+      />
+      {mode === "page" && (
+        <RelationValueWidget
+          property={property}
+          value={value}
+          onChange={onChange}
+        />
+      )}
+    </Group>
+  );
+}
+
 // Renders the value input that matches the property type. is_empty / is_not_empty
 // ops compare against nothing, so the widget is hidden for them. The emitted
 // value is the raw comparison value (not the tagged {type,value} cell shape).
@@ -60,6 +109,9 @@ export function FilterValueWidget({
   onChange,
 }: FilterValueWidgetProps) {
   const { t } = useTranslation();
+  // An embed exposes its host page here; relation filters then offer a live
+  // "this page" reference. Null on the database's own page (no host).
+  const embedHost = useEmbedHost();
 
   if (!opNeedsValue(op)) return null;
 
@@ -115,7 +167,13 @@ export function FilterValueWidget({
       );
     }
     case "relation":
-      return (
+      return embedHost?.hostPageId ? (
+        <SelfRefRelationValueWidget
+          property={property}
+          value={value}
+          onChange={onChange}
+        />
+      ) : (
         <RelationValueWidget
           property={property}
           value={value}

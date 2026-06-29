@@ -18,6 +18,11 @@ export const FILTER_OPS = [
 
 export type FilterOp = (typeof FILTER_OPS)[number];
 
+// The page Title is not a database property, so a filter on it carries this
+// sentinel as its propertyId; the row list resolves it as a text filter against
+// pages.title. Keep in sync with the client constant (filters/title-filter.ts).
+export const TITLE_FILTER_ID = '__title__';
+
 export function isFilterOp(op: string): op is FilterOp {
   return (FILTER_OPS as readonly string[]).includes(op);
 }

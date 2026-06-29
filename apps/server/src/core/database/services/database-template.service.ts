@@ -46,7 +46,6 @@ export class DatabaseTemplateService {
       icon: dto.icon ?? null,
       propertyValues: (dto.propertyValues ?? null) as Record<string, any>,
       content: (dto.content ?? null) as Record<string, any>,
-      embedViews: (dto.embedViews ?? null) as Record<string, any>,
       position,
       workspaceId: database.workspaceId,
     });
@@ -65,7 +64,6 @@ export class DatabaseTemplateService {
     if (dto.propertyValues !== undefined)
       patch.propertyValues = dto.propertyValues;
     if (dto.content !== undefined) patch.content = dto.content;
-    if (dto.embedViews !== undefined) patch.embedViews = dto.embedViews;
     await this.templateRepo.updateTemplate(patch, template.id);
     return this.templateRepo.findById(template.id);
   }

@@ -9,7 +9,10 @@ import {
 } from '@docmost/db/types/entity.types';
 import { dbOrTx } from '@docmost/db/utils';
 import { PropertyType } from '../../../core/database/utils/property-config';
-import { FilterOp } from '../../../core/database/utils/filter-ops';
+import {
+  FilterOp,
+  TITLE_FILTER_ID,
+} from '../../../core/database/utils/filter-ops';
 
 // A database row enriched with its page's title/icon, for listing.
 export type DatabaseListItem = Database & {
@@ -189,6 +192,34 @@ export class DatabaseRepo {
   }
 
   private buildFilter(filter: RowFilter) {
+    // The Title pseudo-column compares against pages.title (a column on the row
+    // page itself), not a property value. Text ops only (resolveListOptions
+    // validates it as text). See TITLE_FILTER_ID.
+    if (filter.propertyId === TITLE_FILTER_ID) {
+      const title = sql`pages.title`;
+      if (filter.op === 'is_empty') {
+        return sql<boolean>`(${title} is null or ${title} = '')`;
+      }
+      if (filter.op === 'is_not_empty') {
+        return sql<boolean>`(${title} is not null and ${title} <> '')`;
+      }
+      const s = String(filter.value ?? '');
+      switch (filter.op) {
+        case 'eq':
+          return sql<boolean>`(${title} = ${s})`;
+        case 'neq':
+          // Includes title-less rows (NULL is distinct from s), mirroring the
+          // text branch / conventions.md §1.
+          return sql<boolean>`(${title} is distinct from ${s})`;
+        case 'contains':
+          return sql<boolean>`(${title} ilike ${'%' + s + '%'})`;
+        case 'not_contains':
+          return sql<boolean>`(${title} is null or ${title} not ilike ${'%' + s + '%'})`;
+        default:
+          return sql<boolean>`(${title} = ${s})`;
+      }
+    }
+
     const v = this.valueSubquery(filter.propertyId);
     const { op, propertyType, value } = filter;
 
@@ -265,6 +296,10 @@ export class DatabaseRepo {
   }
 
   private sortExpression(sort: RowSort) {
+    // The Title pseudo-column sorts on pages.title (TITLE_FILTER_ID).
+    if (sort.propertyId === TITLE_FILTER_ID) {
+      return sql`pages.title`;
+    }
     const v = this.valueSubquery(sort.propertyId);
     if (sort.propertyType === 'number') {
       return sql`(${v})::text::numeric`;

@@ -9,9 +9,7 @@ import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
 import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
 import { DatabaseTemplateRepo } from '@docmost/db/repos/database/database-template.repo';
-import { DatabaseViewRepo } from '@docmost/db/repos/database/database-view.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
-import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
   SpaceCaslAction,
@@ -24,13 +22,12 @@ import {
   RowSort,
 } from '@docmost/db/repos/database/database.repo';
 import { assertPropertyType } from '../utils/property-config';
-import { assertOpForType, assertFilterValueForType } from '../utils/filter-ops';
-import { validateValueForType } from '../utils/property-value';
-import { collectEmbedIdsFromPmJson } from '../utils/database-embed-prosemirror.util';
 import {
-  resolveSnapshotConfig,
-  ViewConfig,
-} from '../utils/template-embed-view.util';
+  assertOpForType,
+  assertFilterValueForType,
+  TITLE_FILTER_ID,
+} from '../utils/filter-ops';
+import { validateValueForType } from '../utils/property-value';
 import { CreateRowDto } from '../dto/create-row.dto';
 import { ListRowsDto } from '../dto/list-rows.dto';
 import { DeleteRowsDto } from '../dto/delete-rows.dto';
@@ -45,7 +42,6 @@ export class DatabaseRowService {
     private readonly propertyRepo: DatabasePropertyRepo,
     private readonly valueRepo: DatabasePropertyValueRepo,
     private readonly templateRepo: DatabaseTemplateRepo,
-    private readonly viewRepo: DatabaseViewRepo,
     private readonly pageRepo: PageRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
   ) {}
@@ -101,72 +97,7 @@ export class DatabaseRowService {
       await this.applyPresetValues(page.id, presets, database);
     }
 
-    // Seed the template's embed views onto the new row's embed scope, snapshotting
-    // any template-property references against the row's just-applied values.
-    if (template?.embedViews && template.content) {
-      await this.seedTemplateEmbedViews(page.id, template, database);
-    }
-
     return page;
-  }
-
-  // Materialize the template's stored embed views ({ [embedId]: StoredEmbedView[] })
-  // as page-scoped database_views for the new row. Relation $ref filters are
-  // snapshotted to the row's real relation values via resolveSnapshotConfig.
-  // Defensive throughout: a malformed entry is skipped, never failing the row.
-  private async seedTemplateEmbedViews(
-    pageId: string,
-    template: { embedViews: unknown; content: unknown },
-    database: Database,
-  ): Promise<void> {
-    const embedIds = collectEmbedIdsFromPmJson(template.content);
-    if (embedIds.length === 0) return;
-
-    const embedViews = template.embedViews;
-    if (!embedViews || typeof embedViews !== 'object') return;
-    const byEmbedId = embedViews as Record<string, unknown>;
-
-    // Build a map of propertyId → relation page ids from the row's applied values.
-    const relationValues = new Map<string, string[]>();
-    const applied = await this.valueRepo.findByPageId(pageId);
-    for (const v of applied) {
-      const value = v.value as { type?: string; value?: unknown } | null;
-      if (value?.type === 'relation' && Array.isArray(value.value)) {
-        relationValues.set(v.propertyId, value.value as string[]);
-      }
-    }
-
-    let position: string | null = null;
-    for (const embedId of embedIds) {
-      const stored = byEmbedId[embedId];
-      if (!Array.isArray(stored)) continue;
-
-      for (let i = 0; i < stored.length; i++) {
-        const view = stored[i];
-        if (!view || typeof view !== 'object') continue;
-        try {
-          const config = resolveSnapshotConfig(
-            (view.config ?? {}) as ViewConfig,
-            relationValues,
-          );
-          position = generateJitteredKeyBetween(position, null);
-          await this.viewRepo.insertView({
-            databaseId: database.id,
-            name: view.name,
-            type: view.type ?? 'table',
-            config: config as Record<string, any>,
-            position,
-            isDefault: view.isDefault ?? i === 0,
-            embedId,
-            ownerUserId: null,
-            sourcePageId: pageId,
-          });
-        } catch {
-          // Skip a malformed view; never fail the whole row creation.
-          continue;
-        }
-      }
-    }
   }
 
   // Load the template and verify it belongs to this database. Edit permission
@@ -306,6 +237,18 @@ export class DatabaseRowService {
     const typeById = new Map(properties.map((p) => [p.id, p.type]));
 
     const resolvedFilters: RowFilter[] = filters.map((f) => {
+      // The Title pseudo-column is not a property: validate it as text and let
+      // the repo compare against pages.title (TITLE_FILTER_ID).
+      if (f.propertyId === TITLE_FILTER_ID) {
+        assertOpForType('text', f.op);
+        const value = assertFilterValueForType('text', f.op, f.value);
+        return {
+          propertyId: TITLE_FILTER_ID,
+          propertyType: 'text',
+          op: f.op,
+          value,
+        };
+      }
       const type = typeById.get(f.propertyId);
       if (!type) {
         throw new BadRequestException(
@@ -327,6 +270,14 @@ export class DatabaseRowService {
     });
 
     const resolvedSorts: RowSort[] = sorts.map((s) => {
+      // The Title pseudo-column sorts on pages.title as text (TITLE_FILTER_ID).
+      if (s.propertyId === TITLE_FILTER_ID) {
+        return {
+          propertyId: TITLE_FILTER_ID,
+          propertyType: 'text',
+          direction: s.direction,
+        };
+      }
       const type = typeById.get(s.propertyId);
       if (!type) {
         throw new BadRequestException(

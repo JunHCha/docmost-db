@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ActionIcon, Group, Select } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -10,6 +11,7 @@ import {
   opNeedsValue,
 } from "@/features/database/filters/operators.ts";
 import { FilterValueWidget } from "@/features/database/filters/filter-value-widgets.tsx";
+import { titleFilterProperty } from "@/features/database/filters/title-filter.ts";
 
 interface FilterRowProps {
   properties: IDatabaseProperty[];
@@ -28,10 +30,16 @@ export function FilterRow({
   onRemove,
 }: FilterRowProps) {
   const { t } = useTranslation();
-  const property = properties.find((p) => p.id === condition.propertyId);
+  // Title is filterable too, via a synthetic text property prepended to the
+  // list (it is not a real database property, so it has no grid column).
+  const allProperties = useMemo(
+    () => [titleFilterProperty(t("Title")), ...properties],
+    [properties, t],
+  );
+  const property = allProperties.find((p) => p.id === condition.propertyId);
 
   function changeProperty(propertyId: string | null) {
-    const next = properties.find((p) => p.id === propertyId);
+    const next = allProperties.find((p) => p.id === propertyId);
     if (!next) return;
     const firstOp = operatorsForType(next.type)[0]?.op ?? condition.op;
     onChange({ propertyId: next.id, op: firstOp, value: undefined });
@@ -56,7 +64,7 @@ export function FilterRow({
     <Group gap="xs" wrap="nowrap" align="center">
       <Select
         aria-label={t("Filter property")}
-        data={properties.map((p) => ({ value: p.id, label: p.name }))}
+        data={allProperties.map((p) => ({ value: p.id, label: p.name }))}
         value={condition.propertyId}
         onChange={changeProperty}
         comboboxProps={{ withinPortal: false }}

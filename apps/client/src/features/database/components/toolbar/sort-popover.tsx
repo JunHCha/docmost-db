@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ActionIcon, Button, Group, Select, Stack, Text } from "@mantine/core";
 import { IconGripVertical, IconX } from "@tabler/icons-react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
@@ -11,6 +11,7 @@ import {
   IDatabaseProperty,
   ISortCondition,
 } from "@/features/database/types/database.types.ts";
+import { titleFilterProperty } from "@/features/database/filters/title-filter.ts";
 
 // Pure list reorder: remove the item at `from` and insert it at `to`. The sort
 // list order is the tie-break priority (top = highest), so moving a row updates
@@ -136,14 +137,24 @@ function SortRow({
 // priority) plus an Add sort action. Rows reorder by dragging the grip handle.
 export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
   const { t } = useTranslation();
+  // Title is sortable too, via a synthetic text property prepended to the list
+  // (not a real database property, so it has no grid column).
+  const allProperties = useMemo(
+    () => [titleFilterProperty(t("Title")), ...properties],
+    [properties, t],
+  );
 
   const used = new Set(sorts.map((s) => s.propertyId));
   // Nothing left to add once every property is already a sort condition; a
   // column may only appear once.
-  const hasUnusedProperty = properties.some((p) => !used.has(p.id));
+  const hasUnusedProperty = allProperties.some((p) => !used.has(p.id));
 
   function addSort() {
-    const next = properties.find((p) => !used.has(p.id));
+    // Default a new sort to the first unused real property (Title is a choice,
+    // not the default); fall back to Title only when every property is taken.
+    const next =
+      properties.find((p) => !used.has(p.id)) ??
+      allProperties.find((p) => !used.has(p.id));
     if (!next) return;
     onChange([...sorts, { propertyId: next.id, direction: "asc" }]);
   }
@@ -165,7 +176,7 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
         <SortRow
           key={index}
           index={index}
-          properties={properties}
+          properties={allProperties}
           sort={sort}
           usedByOthers={
             new Set(

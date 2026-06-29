@@ -115,4 +115,22 @@ describe("FilterRow", () => {
     fireEvent.click(screen.getByLabelText("Remove filter"));
     expect(onRemove).toHaveBeenCalled();
   });
+
+  it("offers Title as a filterable column and emits its sentinel id", () => {
+    const { onChange } = renderRow({ propertyId: "p1", op: "eq", value: "o1" });
+    fireEvent.click(screen.getByRole("textbox", { name: "Filter property" }));
+    fireEvent.click(screen.getByText("Title"));
+    // Title behaves as a text column: first text op (eq), value reset.
+    expect(onChange).toHaveBeenCalledWith({
+      propertyId: "__title__",
+      op: "eq",
+      value: undefined,
+    });
+  });
+
+  it("renders a text value input once Title is the filter column", () => {
+    renderRow({ propertyId: "__title__", op: "contains", value: "plan" });
+    const input = screen.getByLabelText("Filter value") as HTMLInputElement;
+    expect(input.value).toBe("plan");
+  });
 });
