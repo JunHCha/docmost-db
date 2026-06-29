@@ -22,7 +22,11 @@ import {
   RowSort,
 } from '@docmost/db/repos/database/database.repo';
 import { assertPropertyType } from '../utils/property-config';
-import { assertOpForType, assertFilterValueForType } from '../utils/filter-ops';
+import {
+  assertOpForType,
+  assertFilterValueForType,
+  TITLE_FILTER_ID,
+} from '../utils/filter-ops';
 import { validateValueForType } from '../utils/property-value';
 import { CreateRowDto } from '../dto/create-row.dto';
 import { ListRowsDto } from '../dto/list-rows.dto';
@@ -233,6 +237,18 @@ export class DatabaseRowService {
     const typeById = new Map(properties.map((p) => [p.id, p.type]));
 
     const resolvedFilters: RowFilter[] = filters.map((f) => {
+      // The Title pseudo-column is not a property: validate it as text and let
+      // the repo compare against pages.title (TITLE_FILTER_ID).
+      if (f.propertyId === TITLE_FILTER_ID) {
+        assertOpForType('text', f.op);
+        const value = assertFilterValueForType('text', f.op, f.value);
+        return {
+          propertyId: TITLE_FILTER_ID,
+          propertyType: 'text',
+          op: f.op,
+          value,
+        };
+      }
       const type = typeById.get(f.propertyId);
       if (!type) {
         throw new BadRequestException(
