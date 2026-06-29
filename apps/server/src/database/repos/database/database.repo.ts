@@ -296,6 +296,10 @@ export class DatabaseRepo {
   }
 
   private sortExpression(sort: RowSort) {
+    // The Title pseudo-column sorts on pages.title (TITLE_FILTER_ID).
+    if (sort.propertyId === TITLE_FILTER_ID) {
+      return sql`pages.title`;
+    }
     const v = this.valueSubquery(sort.propertyId);
     if (sort.propertyType === 'number') {
       return sql`(${v})::text::numeric`;

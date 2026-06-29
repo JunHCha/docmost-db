@@ -481,6 +481,22 @@ describe('DatabaseRowService', () => {
       });
     });
 
+    it('resolves a Title sort as a text sort (pseudo-column)', async () => {
+      propertyRepo.findByDatabaseId.mockResolvedValue([] as any);
+
+      await service.listRows(user, {
+        databaseId: 'db-1',
+        sorts: [{ propertyId: '__title__', direction: 'asc' }],
+      } as any);
+
+      expect(databaseRepo.listRows).toHaveBeenCalledWith('dbpage-1', {
+        filters: [],
+        sorts: [
+          { propertyId: '__title__', propertyType: 'text', direction: 'asc' },
+        ],
+      });
+    });
+
     it('rejects an op not allowed for the property type (400)', async () => {
       propertyRepo.findByDatabaseId.mockResolvedValue([
         { id: 'p-sel', type: 'select' },

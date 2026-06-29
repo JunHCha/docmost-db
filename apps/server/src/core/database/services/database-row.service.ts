@@ -270,6 +270,14 @@ export class DatabaseRowService {
     });
 
     const resolvedSorts: RowSort[] = sorts.map((s) => {
+      // The Title pseudo-column sorts on pages.title as text (TITLE_FILTER_ID).
+      if (s.propertyId === TITLE_FILTER_ID) {
+        return {
+          propertyId: TITLE_FILTER_ID,
+          propertyType: 'text',
+          direction: s.direction,
+        };
+      }
       const type = typeById.get(s.propertyId);
       if (!type) {
         throw new BadRequestException(
