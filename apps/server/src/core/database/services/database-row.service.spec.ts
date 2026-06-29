@@ -17,7 +17,6 @@ import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-proper
 import { DatabasePropertyValueRepo } from '@docmost/db/repos/database/database-property-value.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { DatabaseTemplateRepo } from '@docmost/db/repos/database/database-template.repo';
-import { DatabaseViewRepo } from '@docmost/db/repos/database/database-view.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
   SpaceCaslAction,
@@ -55,7 +54,6 @@ describe('DatabaseRowService', () => {
   >;
   let pageRepo: jest.Mocked<Pick<PageRepo, 'findById' | 'findManyByIds'>>;
   let templateRepo: jest.Mocked<Pick<DatabaseTemplateRepo, 'findById'>>;
-  let viewRepo: jest.Mocked<Pick<DatabaseViewRepo, 'insertView'>>;
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
 
   beforeEach(async () => {
@@ -79,9 +77,6 @@ describe('DatabaseRowService', () => {
       findManyByIds: jest.fn().mockResolvedValue([]),
     } as any;
     templateRepo = { findById: jest.fn() } as any;
-    viewRepo = {
-      insertView: jest.fn().mockResolvedValue({ id: 'view-1' }),
-    } as any;
     spaceAbility = {
       createForUser: jest.fn().mockResolvedValue(abilityMock(true)),
     } as any;
@@ -95,7 +90,6 @@ describe('DatabaseRowService', () => {
         { provide: DatabasePropertyValueRepo, useValue: valueRepo },
         { provide: PageRepo, useValue: pageRepo },
         { provide: DatabaseTemplateRepo, useValue: templateRepo },
-        { provide: DatabaseViewRepo, useValue: viewRepo },
         { provide: SpaceAbilityFactory, useValue: spaceAbility },
       ],
     }).compile();
@@ -286,215 +280,6 @@ describe('DatabaseRowService', () => {
         } as any);
 
         expect(valueRepo.setValue).not.toHaveBeenCalled();
-      });
-    });
-
-    describe('embed view seeding', () => {
-      const embedDoc = {
-        type: 'doc',
-        content: [
-          { type: 'databaseView', attrs: { embedId: 'embed-1' } },
-        ],
-      };
-
-      beforeEach(() => {
-        pageService.create.mockResolvedValue({ id: 'row-1' } as any);
-        propertyRepo.findByDatabaseId.mockResolvedValue([
-          { id: 'p-status', type: 'select', config: {} },
-        ] as any);
-      });
-
-      it('seeds a literal-filter embed view onto the new row scope', async () => {
-        templateRepo.findById.mockResolvedValue({
-          id: 'tpl-1',
-          databaseId: 'db-1',
-          name: 'Project',
-          icon: null,
-          content: embedDoc,
-          propertyValues: null,
-          embedViews: {
-            'embed-1': [
-              {
-                name: 'Tasks',
-                type: 'table',
-                config: {
-                  filters: [
-                    { propertyId: 'p-team', op: 'contains', value: 'lit-x' },
-                  ],
-                },
-              },
-            ],
-          },
-        } as any);
-
-        await service.createRow(user, workspace, {
-          databaseId: 'db-1',
-          templateId: 'tpl-1',
-        } as any);
-
-        expect(viewRepo.insertView).toHaveBeenCalledTimes(1);
-        const arg = viewRepo.insertView.mock.calls[0][0];
-        expect(arg).toEqual(
-          expect.objectContaining({
-            databaseId: 'db-1',
-            name: 'Tasks',
-            type: 'table',
-            embedId: 'embed-1',
-            sourcePageId: 'row-1',
-            ownerUserId: null,
-            config: {
-              filters: [
-                { propertyId: 'p-team', op: 'contains', value: 'lit-x' },
-              ],
-            },
-          }),
-        );
-      });
-
-      it('snapshots a $ref filter to the row real relation values', async () => {
-        templateRepo.findById.mockResolvedValue({
-          id: 'tpl-1',
-          databaseId: 'db-1',
-          name: 'Project',
-          icon: null,
-          content: embedDoc,
-          propertyValues: null,
-          embedViews: {
-            'embed-1': [
-              {
-                name: 'Tasks',
-                type: 'table',
-                config: {
-                  filters: [
-                    {
-                      propertyId: 'p-team',
-                      op: 'contains',
-                      value: { templatePropertyRef: 'tpl-team' },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        } as any);
-        valueRepo.findByPageId.mockResolvedValue([
-          {
-            pageId: 'row-1',
-            propertyId: 'tpl-team',
-            value: { type: 'relation', value: ['pg-a', 'pg-b'] },
-          },
-        ] as any);
-
-        await service.createRow(user, workspace, {
-          databaseId: 'db-1',
-          templateId: 'tpl-1',
-        } as any);
-
-        const arg = viewRepo.insertView.mock.calls[0][0];
-        expect(arg.config).toEqual({
-          filters: [
-            { propertyId: 'p-team', op: 'contains', value: 'pg-a' },
-            { propertyId: 'p-team', op: 'contains', value: 'pg-b' },
-          ],
-        });
-      });
-
-      it('drops a $ref filter when the row relation value is empty', async () => {
-        templateRepo.findById.mockResolvedValue({
-          id: 'tpl-1',
-          databaseId: 'db-1',
-          name: 'Project',
-          icon: null,
-          content: embedDoc,
-          propertyValues: null,
-          embedViews: {
-            'embed-1': [
-              {
-                name: 'Tasks',
-                type: 'table',
-                config: {
-                  filters: [
-                    {
-                      propertyId: 'p-team',
-                      op: 'contains',
-                      value: { templatePropertyRef: 'tpl-team' },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        } as any);
-        valueRepo.findByPageId.mockResolvedValue([]);
-
-        await service.createRow(user, workspace, {
-          databaseId: 'db-1',
-          templateId: 'tpl-1',
-        } as any);
-
-        expect(viewRepo.insertView.mock.calls[0][0].config).toEqual({
-          filters: [],
-        });
-      });
-
-      it('does not seed when content has no embed nodes', async () => {
-        templateRepo.findById.mockResolvedValue({
-          id: 'tpl-1',
-          databaseId: 'db-1',
-          name: 'Project',
-          icon: null,
-          content: { type: 'doc', content: [] },
-          propertyValues: null,
-          embedViews: {
-            'embed-1': [{ name: 'Tasks', type: 'table', config: {} }],
-          },
-        } as any);
-
-        await service.createRow(user, workspace, {
-          databaseId: 'db-1',
-          templateId: 'tpl-1',
-        } as any);
-
-        expect(viewRepo.insertView).not.toHaveBeenCalled();
-      });
-
-      it('does not seed when template has no embedViews', async () => {
-        templateRepo.findById.mockResolvedValue({
-          id: 'tpl-1',
-          databaseId: 'db-1',
-          name: 'Project',
-          icon: null,
-          content: embedDoc,
-          propertyValues: null,
-          embedViews: null,
-        } as any);
-
-        await service.createRow(user, workspace, {
-          databaseId: 'db-1',
-          templateId: 'tpl-1',
-        } as any);
-
-        expect(viewRepo.insertView).not.toHaveBeenCalled();
-      });
-
-      it('skips a malformed embed entry without failing the row', async () => {
-        templateRepo.findById.mockResolvedValue({
-          id: 'tpl-1',
-          databaseId: 'db-1',
-          name: 'Project',
-          icon: null,
-          content: embedDoc,
-          propertyValues: null,
-          embedViews: { 'embed-1': 'not-an-array' },
-        } as any);
-
-        const result = await service.createRow(user, workspace, {
-          databaseId: 'db-1',
-          templateId: 'tpl-1',
-        } as any);
-
-        expect(result).toEqual({ id: 'row-1' });
-        expect(viewRepo.insertView).not.toHaveBeenCalled();
       });
     });
 
