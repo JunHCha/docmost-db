@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseViewConfig,
@@ -16,6 +17,8 @@ import {
   sanitizeFilters,
   sanitizeSorts,
 } from "@/features/database/filters/sanitize.ts";
+import { resolveSelfRefFilters } from "@/features/database/filters/self-ref.ts";
+import { EmbedHostProvider } from "./embed-host-context.tsx";
 import { echoColumns } from "./table-view/view-columns";
 import { isDraftDirty } from "./view-draft";
 import {
@@ -158,20 +161,49 @@ export function DatabaseView({
       activeView
         ? {
             ...draft,
-            filters: sanitizeFilters(filters),
+            // Resolve "this page" relation refs to the host page id so the rows
+            // query receives a plain page id (live self-reference).
+            filters: resolveSelfRefFilters(sanitizeFilters(filters), pageId),
             sorts: sanitizeSorts(sorts),
           }
         : undefined,
-    [activeView, draft, filters, sorts],
+    [activeView, draft, filters, sorts, pageId],
   );
-  const rowsQuery = useDatabaseRowsQuery(databaseId, activeViewId, viewConfig);
+  // Debounce only the FILTERS that drive the rows query: a filter value typed
+  // character-by-character would otherwise fire a request (and a refetch) per
+  // keystroke, flickering the grid. Sorts/columns change by discrete clicks, so
+  // they stay immediate (debouncing them would add lag for no benefit). The
+  // toolbar/draft are always immediate; only the server query waits for typing.
+  const [debouncedFilters] = useDebouncedValue(viewConfig?.filters, 250);
+  const rowsQueryConfig = useMemo(
+    () =>
+      viewConfig ? { ...viewConfig, filters: debouncedFilters } : undefined,
+    [viewConfig, debouncedFilters],
+  );
+  const rowsQuery = useDatabaseRowsQuery(
+    databaseId,
+    activeViewId,
+    rowsQueryConfig,
+  );
 
   // The active view as the grid should render it RIGHT NOW: the saved view with
   // the unsaved draft config layered on so column order/width/visibility and
   // groupBy/dateProperty preview immediately.
   const draftView = useMemo(
-    () => (activeView ? { ...activeView, config: draft } : activeView),
-    [activeView, draft],
+    () =>
+      activeView
+        ? {
+            ...activeView,
+            // The grid reads filters from here to seed a new "+ Row" so it
+            // survives the view; resolve "this page" so a row added in an
+            // embedded self-referencing view is linked back to the host page.
+            config: {
+              ...draft,
+              filters: resolveSelfRefFilters(draft.filters ?? [], pageId),
+            },
+          }
+        : activeView,
+    [activeView, draft, pageId],
   );
 
   function changeFilters(next: IFilterCondition[]) {
@@ -259,11 +291,14 @@ export function DatabaseView({
   }
 
   return (
-    // data-database-grid marks the whole grid as owning its own drag-and-drop
-    // (column reorder, board cards) via pragmatic-drag-and-drop. When this view
-    // is embedded in a page, it lives inside the ProseMirror editor whose
-    // built-in dragstart handler would otherwise hijack those drags; the global
-    // drag-handle plugin reads this attribute to bow out (see drag-handle.ts).
+    // hostPageId lets relation filters offer a live "this page" reference,
+    // resolved to this embed's host page (undefined on the database's own page).
+    <EmbedHostProvider value={{ hostPageId: pageId }}>
+    {/* data-database-grid marks the whole grid as owning its own drag-and-drop
+        (column reorder, board cards) via pragmatic-drag-and-drop. When this view
+        is embedded in a page, it lives inside the ProseMirror editor whose
+        built-in dragstart handler would otherwise hijack those drags; the global
+        drag-handle plugin reads this attribute to bow out (see drag-handle.ts). */}
     <Stack gap="xs" ref={rootRef} data-database-grid>
       <Group justify="space-between" align="center">
         <ViewSwitcher
@@ -354,6 +389,7 @@ export function DatabaseView({
         />
       )}
     </Stack>
+    </EmbedHostProvider>
   );
 }
 

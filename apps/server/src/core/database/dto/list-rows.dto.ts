@@ -3,13 +3,17 @@ import {
   IsArray,
   IsIn,
   IsOptional,
+  IsString,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { FILTER_OPS, FilterOp } from '../utils/filter-ops';
 
 export class RowFilterDto {
-  @IsUUID()
+  // A property id (uuid) OR the Title pseudo-column sentinel (TITLE_FILTER_ID,
+  // which is not a uuid). Validated as a string here; the service checks it
+  // against the database's real properties (or the sentinel).
+  @IsString()
   propertyId: string;
 
   @IsIn(FILTER_OPS as unknown as string[])
@@ -22,7 +26,8 @@ export class RowFilterDto {
 }
 
 export class RowSortDto {
-  @IsUUID()
+  // See RowFilterDto.propertyId — also accepts the Title sentinel.
+  @IsString()
   propertyId: string;
 
   @IsIn(['asc', 'desc'])

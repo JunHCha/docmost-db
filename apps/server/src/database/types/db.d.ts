@@ -344,7 +344,6 @@ export interface DatabaseTemplates {
   content: Json | null;
   createdAt: Generated<Timestamp>;
   databaseId: string;
-  embedViews: Json | null;
   icon: string | null;
   id: Generated<string>;
   name: string;

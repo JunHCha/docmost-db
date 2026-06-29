@@ -88,6 +88,21 @@ describe("SortPopover", () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
+  it("offers Title as a sortable column", () => {
+    renderPopover([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByRole("textbox", { name: "Sort property" }));
+    expect(screen.getByText("Title")).toBeTruthy();
+  });
+
+  it("sorts by Title via its sentinel id", () => {
+    const { onChange } = renderPopover([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByRole("textbox", { name: "Sort property" }));
+    fireEvent.click(screen.getByText("Title"));
+    expect(onChange).toHaveBeenCalledWith([
+      { propertyId: "__title__", direction: "asc" },
+    ]);
+  });
+
   it("excludes properties already used by other sort rows from the property select", () => {
     // p1 is taken by the only row, so its property select offers only its own
     // value (p1) and the unused p2 — never a duplicate of another row.
@@ -112,8 +127,10 @@ describe("SortPopover", () => {
   });
 
   it("hides the Add sort action once every property is used", () => {
-    // Both properties are sorted on, so there is nothing left to add.
+    // Every property — both real ones plus the Title pseudo-column — is sorted
+    // on, so there is nothing left to add.
     renderPopover([
+      { propertyId: "__title__", direction: "asc" },
       { propertyId: "p1", direction: "asc" },
       { propertyId: "p2", direction: "asc" },
     ]);

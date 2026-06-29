@@ -8,6 +8,7 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
 }));
 
 import { FilterValueWidget } from "./filter-value-widgets";
+import { EmbedHostProvider } from "@/features/database/components/embed-host-context.tsx";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
 function prop(over: Partial<IDatabaseProperty>): IDatabaseProperty {
@@ -150,5 +151,76 @@ describe("FilterValueWidget", () => {
     fireEvent.click(screen.getByRole("textbox", { name: "Filter value" }));
     fireEvent.click(screen.getByText("Urgent"));
     expect(onChange).toHaveBeenCalledWith("o2");
+  });
+
+  // --- Live self-reference: "this page" for relation filters in an embed ---
+
+  const relationProp = prop({
+    type: "relation",
+    config: { targetDatabaseId: "td" },
+  });
+
+  function renderInEmbed(node: React.ReactNode, hostPageId = "host-1") {
+    return render(
+      <MantineProvider>
+        <EmbedHostProvider value={{ hostPageId }}>{node}</EmbedHostProvider>
+      </MantineProvider>,
+    );
+  }
+
+  it("does NOT offer 'this page' for a relation filter outside an embed", () => {
+    renderWidget(
+      <FilterValueWidget
+        property={relationProp}
+        op="contains"
+        value={null}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText("Filter value kind")).toBeNull();
+  });
+
+  it("offers the value-kind toggle for a relation filter inside an embed", () => {
+    renderInEmbed(
+      <FilterValueWidget
+        property={relationProp}
+        op="contains"
+        value={null}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Filter value kind" }),
+    ).toBeTruthy();
+  });
+
+  it("emits the { thisPage } symbol when 'This page' is picked", () => {
+    const onChange = vi.fn();
+    renderInEmbed(
+      <FilterValueWidget
+        property={relationProp}
+        op="contains"
+        value={null}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("textbox", { name: "Filter value kind" }));
+    fireEvent.click(screen.getByText("This page"));
+    expect(onChange).toHaveBeenCalledWith({ thisPage: true });
+  });
+
+  it("starts in 'this page' mode and hides the page picker for a thisPage value", () => {
+    renderInEmbed(
+      <FilterValueWidget
+        property={relationProp}
+        op="contains"
+        value={{ thisPage: true }}
+        onChange={vi.fn()}
+      />,
+    );
+    // Only the kind toggle is present — the relation page picker is hidden.
+    const selects = screen.getAllByRole("textbox");
+    expect(selects).toHaveLength(1);
+    expect(selects[0].getAttribute("aria-label")).toBe("Filter value kind");
   });
 });
