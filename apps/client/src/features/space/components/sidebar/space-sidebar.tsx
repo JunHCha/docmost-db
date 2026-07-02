@@ -8,10 +8,12 @@ import {
 } from "@mantine/core";
 import {
   IconArrowDown,
+  IconDatabase,
   IconDots,
   IconEye,
   IconEyeOff,
   IconFileExport,
+  IconFileDescription,
   IconHome,
   IconPlus,
   IconSearch,
@@ -73,7 +75,9 @@ export function SpaceSidebar() {
 
   const spaceRules = space?.membership?.permissions;
   const spaceAbility = useSpaceAbility(spaceRules);
-  const { handleCreate } = useTreeMutation(space?.id ?? "");
+  const { handleCreate, handleCreateDatabase } = useTreeMutation(
+    space?.id ?? "",
+  );
 
   if (!space) {
     return <></>;
@@ -81,6 +85,10 @@ export function SpaceSidebar() {
 
   function handleCreatePage() {
     handleCreate(null);
+  }
+
+  function handleCreateDatabasePage() {
+    handleCreateDatabase(null);
   }
 
   return (
@@ -201,16 +209,33 @@ export function SpaceSidebar() {
                 SpaceCaslAction.Manage,
                 SpaceCaslSubject.Page,
               ) && (
-                <Tooltip label={t("Create page")} withArrow position="right">
-                  <ActionIcon
-                    variant="default"
-                    size={18}
-                    onClick={handleCreatePage}
-                    aria-label={t("Create page")}
-                  >
-                    <IconPlus />
-                  </ActionIcon>
-                </Tooltip>
+                <Menu shadow="md" width={200} position="bottom-end" withArrow>
+                  <Menu.Target>
+                    <Tooltip label={t("Create")} withArrow position="right">
+                      <ActionIcon
+                        variant="default"
+                        size={18}
+                        aria-label={t("Create page or database")}
+                      >
+                        <IconPlus />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      leftSection={<IconFileDescription size={16} />}
+                      onClick={handleCreatePage}
+                    >
+                      {t("New page")}
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconDatabase size={16} />}
+                      onClick={handleCreateDatabasePage}
+                    >
+                      {t("New database")}
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
               )}
             </Group>
           </Group>

@@ -44,6 +44,7 @@ const TYPE_OPTIONS: { value: PropertyType; label: string }[] = [
   { value: "select", label: "Select" },
   { value: "multi_select", label: "Multi-select" },
   { value: "relation", label: "Relation" },
+  { value: "person", label: "Person" },
 ];
 
 interface ColumnHeaderProps {

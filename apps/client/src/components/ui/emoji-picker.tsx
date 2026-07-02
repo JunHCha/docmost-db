@@ -31,7 +31,7 @@ export interface EmojiPickerInterface {
   removeEmojiAction: () => void;
   readOnly: boolean;
   actionIconProps?: {
-    size?: string;
+    size?: string | number;
     variant?: string;
     c?: string;
     tabIndex?: number;

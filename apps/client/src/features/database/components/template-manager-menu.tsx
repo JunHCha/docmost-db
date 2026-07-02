@@ -40,7 +40,9 @@ export function TemplateManagerMenu({ databaseId }: TemplateManagerMenuProps) {
 
   function edit(templateId: string | null) {
     setListOpen(false);
-    open(databaseId, templateId, "modal");
+    // Modal host is temporarily disabled — open the template editor in the side
+    // panel instead of a centered modal.
+    open(databaseId, templateId, "aside");
   }
 
   return (

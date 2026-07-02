@@ -34,6 +34,7 @@ const OPS_BY_TYPE: Record<PropertyType, FilterOp[]> = {
   select: ["eq", "neq", ...EMPTY_OPS],
   multi_select: ["contains", "not_contains", ...EMPTY_OPS],
   relation: ["contains", "not_contains", ...EMPTY_OPS],
+  person: ["contains", "not_contains", ...EMPTY_OPS],
   checkbox: ["eq"],
 };
 

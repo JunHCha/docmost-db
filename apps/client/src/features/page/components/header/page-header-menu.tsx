@@ -311,12 +311,15 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
             </Menu.Item>
           )}
 
-          <Menu.Item
-            leftSection={<IconFileExport size={16} />}
-            onClick={openExportModal}
-          >
-            {t("Export")}
-          </Menu.Item>
+          {/* Export is unavailable for databases (no doc/markdown to export). */}
+          {page?.pageType !== "database" && (
+            <Menu.Item
+              leftSection={<IconFileExport size={16} />}
+              onClick={openExportModal}
+            >
+              {t("Export")}
+            </Menu.Item>
+          )}
 
           <Menu.Item
             leftSection={<IconPrinter size={16} />}

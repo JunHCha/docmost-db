@@ -15,6 +15,7 @@ const SINGULAR_OPS: Partial<Record<PropertyType, "eq">> = {
 const UNION_OPS: Partial<Record<PropertyType, "contains">> = {
   multi_select: "contains",
   relation: "contains",
+  person: "contains",
 };
 
 // Derive tagged {type,value} seeds keyed by propertyId from the active filters.

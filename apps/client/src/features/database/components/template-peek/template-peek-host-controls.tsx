@@ -1,10 +1,5 @@
 import { ActionIcon, Group, Tooltip } from "@mantine/core";
-import {
-  IconArrowUpRight,
-  IconLayoutSidebarRightExpand,
-  IconWindowMaximize,
-  IconX,
-} from "@tabler/icons-react";
+import { IconArrowUpRight, IconX } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTemplatePeek } from "./use-template-peek";
@@ -15,7 +10,7 @@ import { buildTemplatePageUrl } from "./template-peek.utils";
 export function TemplatePeekHostControls() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { databaseId, templateId, host, setHost, close } = useTemplatePeek();
+  const { databaseId, templateId, close } = useTemplatePeek();
 
   const goToPage = () => {
     if (!databaseId) return;
@@ -36,31 +31,8 @@ export function TemplatePeekHostControls() {
           <IconArrowUpRight size={16} />
         </ActionIcon>
       </Tooltip>
-      {host === "aside" ? (
-        <Tooltip label={t("Open in modal")} withArrow>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="sm"
-            onClick={() => setHost("modal")}
-            aria-label={t("Open in modal")}
-          >
-            <IconWindowMaximize size={16} />
-          </ActionIcon>
-        </Tooltip>
-      ) : (
-        <Tooltip label={t("Open in side panel")} withArrow>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="sm"
-            onClick={() => setHost("aside")}
-            aria-label={t("Open in side panel")}
-          >
-            <IconLayoutSidebarRightExpand size={16} />
-          </ActionIcon>
-        </Tooltip>
-      )}
+      {/* The aside↔modal toggle is temporarily hidden — the modal host is
+          disabled, so the template peek always stays in the side panel. */}
       <Tooltip label={t("Close")} withArrow>
         <ActionIcon
           variant="subtle"

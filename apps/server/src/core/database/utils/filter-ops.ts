@@ -38,6 +38,7 @@ const OPS_BY_TYPE: Record<PropertyType, FilterOp[]> = {
   select: ['eq', 'neq', ...EMPTY_OPS],
   multi_select: ['contains', 'not_contains', ...EMPTY_OPS],
   relation: ['contains', 'not_contains', ...EMPTY_OPS],
+  person: ['contains', 'not_contains', ...EMPTY_OPS],
   checkbox: ['eq'],
 };
 
@@ -114,8 +115,10 @@ export function assertFilterValueForType(
     case 'url':
     case 'select':
     case 'multi_select':
-    case 'relation': {
-      // multi_select/relation filter against a single id (contains/not_contains).
+    case 'relation':
+    case 'person': {
+      // multi_select/relation/person filter against a single id
+      // (contains/not_contains).
       if (typeof value !== 'string') return bad('a string');
       return value;
     }

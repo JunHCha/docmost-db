@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
-import { ActionIcon, rem } from "@mantine/core";
+import { ActionIcon, Menu, rem } from "@mantine/core";
 import {
   IconChevronDown,
   IconChevronRight,
@@ -275,37 +275,72 @@ function CreateNode({
   onExpandTree,
 }: CreateNodeProps) {
   const { t } = useTranslation();
-  const { handleCreate } = useTreeMutation(node.spaceId);
+  const { handleCreate, handleCreateDatabase } = useTreeMutation(node.spaceId);
 
-  async function handleClickCreate() {
+  // Expand + lazy-load the node's children before creating under it, so the new
+  // child lands in a materialized subtree. handleCreate/handleCreateDatabase
+  // read the latest tree imperatively (via useStore), so no setTimeout wait.
+  async function ensureExpanded() {
     if (node.hasChildren && !hasChildren) {
-      // Expand and lazy-load before creating a child. handleCreate reads the
-      // latest tree imperatively (via useStore) so we no longer need a
-      // setTimeout to wait for React to rerun the closure with fresh data.
       if (!isOpen) onToggle();
       await onExpandTree();
     } else if (!isOpen) {
       onToggle();
     }
+  }
+
+  async function handleClickCreatePage() {
+    await ensureExpanded();
     handleCreate(node.id);
   }
 
+  async function handleClickCreateDatabase() {
+    await ensureExpanded();
+    handleCreateDatabase(node.id);
+  }
+
   return (
-    <ActionIcon
-      variant="subtle"
-      color="gray"
-      className={classes.actionIcon}
-      aria-label={t("Create subpage of {{name}}", {
-        name: node.name || t("untitled"),
-      })}
-      tabIndex={-1}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleClickCreate();
-      }}
-    >
-      <IconPlus style={{ width: rem(20), height: rem(20) }} stroke={2} />
-    </ActionIcon>
+    <Menu shadow="md" width={200} position="bottom-start">
+      <Menu.Target>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          className={classes.actionIcon}
+          aria-label={t("Create page or database under {{name}}", {
+            name: node.name || t("untitled"),
+          })}
+          tabIndex={-1}
+          onClick={(e) => {
+            // Keep the row Link from navigating; Mantine still toggles the menu.
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <IconPlus style={{ width: rem(20), height: rem(20) }} stroke={2} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item
+          leftSection={<IconFileDescription size={16} />}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleClickCreatePage();
+          }}
+        >
+          {t("New subpage")}
+        </Menu.Item>
+        <Menu.Item
+          leftSection={<IconDatabase size={16} />}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleClickCreateDatabase();
+          }}
+        >
+          {t("Create database")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 }

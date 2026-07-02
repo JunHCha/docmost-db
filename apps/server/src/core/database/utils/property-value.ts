@@ -70,6 +70,14 @@ export function validateValueForType(
         throw bad(type, 'an array of page ids');
       }
       break;
+    case 'person':
+      // A person value holds workspace user ids (multi-person, like relation).
+      // Membership in the workspace is not checked here — that would need DB
+      // access; the picker only offers current members.
+      if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) {
+        throw bad(type, 'an array of user ids');
+      }
+      break;
   }
 
   return { type, value: v };

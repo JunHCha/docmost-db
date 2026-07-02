@@ -7,7 +7,6 @@ import { notifications } from "@mantine/notifications";
 import {
   IconArrowRight,
   IconCopy,
-  IconDatabase,
   IconDotsVertical,
   IconFileExport,
   IconLink,
@@ -48,7 +47,7 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
   const clipboard = useClipboard({ timeout: 500 });
   const { spaceSlug } = useParams();
   const { openDeleteModal } = useDeletePageModal();
-  const { handleDelete, handleCreateDatabase } = useTreeMutation(node.spaceId);
+  const { handleDelete } = useTreeMutation(node.spaceId);
   const [data, setData] = useAtom(treeDataAtom);
   const emit = useQueryEmit();
   const [exportOpened, { open: openExportModal, close: closeExportModal }] =
@@ -182,16 +181,19 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
             {isFavorited ? t("Remove from favorites") : t("Add to favorites")}
           </Menu.Item>
 
-          <Menu.Item
-            leftSection={<IconFileExport size={16} />}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              openExportModal();
-            }}
-          >
-            {t("Export page")}
-          </Menu.Item>
+          {/* Export is unavailable for databases (no doc/markdown to export). */}
+          {node.pageType !== "database" && (
+            <Menu.Item
+              leftSection={<IconFileExport size={16} />}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openExportModal();
+              }}
+            >
+              {t("Export page")}
+            </Menu.Item>
+          )}
 
           {canEdit && (
             <>
@@ -205,19 +207,6 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
               >
                 {t("Duplicate")}
               </Menu.Item>
-
-              {node.pageType !== "database" && (
-                <Menu.Item
-                  leftSection={<IconDatabase size={16} />}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleCreateDatabase(node.id);
-                  }}
-                >
-                  {t("Create database")}
-                </Menu.Item>
-              )}
 
               <Menu.Item
                 leftSection={<IconArrowRight size={16} />}

@@ -68,18 +68,19 @@ describe("TemplateManagerMenu", () => {
     expect(deleteMutate).toHaveBeenCalledWith({ templateId: "t1" });
   });
 
-  it("opens the peek for a new template (modal host)", async () => {
+  it("opens the peek for a new template in the side panel", async () => {
     renderMenu();
     openList();
     fireEvent.click(await screen.findByText("New template"));
-    expect(openPeek).toHaveBeenCalledWith("db1", null, "modal");
+    // Modal host is temporarily disabled, so templates open in the aside host.
+    expect(openPeek).toHaveBeenCalledWith("db1", null, "aside");
   });
 
-  it("opens an existing template in the peek (modal host)", async () => {
+  it("opens an existing template in the side panel", async () => {
     templatesHolder.value = [{ id: "t1", name: "Bug", icon: null }];
     renderMenu();
     openList();
     fireEvent.click(await screen.findByLabelText("Edit template Bug"));
-    expect(openPeek).toHaveBeenCalledWith("db1", "t1", "modal");
+    expect(openPeek).toHaveBeenCalledWith("db1", "t1", "aside");
   });
 });
