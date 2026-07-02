@@ -8,7 +8,8 @@ export type PropertyType =
   | "multi_select"
   | "checkbox"
   | "url"
-  | "relation";
+  | "relation"
+  | "person";
 
 export interface IPropertyValue {
   type: PropertyType;

@@ -9,6 +9,7 @@ import { DateCell } from "./date-cell";
 import { SelectCell } from "./select-cell";
 import { MultiSelectCell } from "./multi-select-cell";
 import { RelationCell } from "./relation-cell";
+import { PersonCell } from "./person-cell";
 
 // Read-only renderer for property types without a dedicated editor.
 // Stringifies the stored value so the data is at least visible.
@@ -35,6 +36,7 @@ const registry: Partial<Record<PropertyType, CellComponent>> = {
   select: SelectCell,
   multi_select: MultiSelectCell,
   relation: RelationCell,
+  person: PersonCell,
 };
 
 export function getCellComponent(type: PropertyType): CellComponent {
