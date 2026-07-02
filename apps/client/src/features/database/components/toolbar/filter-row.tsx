@@ -73,7 +73,7 @@ export function FilterRow({
       />
       <Select
         aria-label={t("Filter operator")}
-        data={ops.map((o) => ({ value: o.op, label: o.label }))}
+        data={ops.map((o) => ({ value: o.op, label: t(o.label) }))}
         value={condition.op}
         onChange={(op) => op && changeOp(op as IFilterCondition["op"])}
         comboboxProps={{ withinPortal: false }}

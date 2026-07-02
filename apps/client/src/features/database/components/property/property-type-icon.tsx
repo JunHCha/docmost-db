@@ -7,6 +7,7 @@ import {
   IconLink,
   IconList,
   IconSquareCheck,
+  IconUser,
   type IconProps,
 } from "@tabler/icons-react";
 import { ComponentType } from "react";
@@ -27,6 +28,7 @@ export const PROPERTY_TYPE_ICONS: Record<
   checkbox: IconSquareCheck,
   url: IconLink,
   relation: IconArrowsLeftRight,
+  person: IconUser,
 };
 
 interface PropertyTypeIconProps {

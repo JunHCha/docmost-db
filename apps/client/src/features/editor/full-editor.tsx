@@ -52,6 +52,9 @@ export interface FullEditorProps {
   creator?: PageUser;
   contributors?: IContributor[];
   canComment?: boolean;
+  // Clickable page icon rendered directly above the title (item 4). The routed
+  // page supplies it; peek/shared omit it.
+  pageIcon?: React.ReactNode;
   // Rendered between the title/byline and the document body — used by database
   // rows (#9) to show their properties Notion-style under the page title.
   belowTitle?: React.ReactNode;
@@ -72,6 +75,7 @@ export function FullEditor({
   creator,
   contributors,
   canComment,
+  pageIcon,
   belowTitle,
   embedded = false,
 }: FullEditorProps) {
@@ -109,6 +113,7 @@ export function FullEditor({
         <MemoizedFixedToolbar />
       )}
       <MemoizedDeletedPageBanner slugId={slugId} />
+      {pageIcon && <div className={classes.pageIcon}>{pageIcon}</div>}
       <MemoizedTitleEditor
         pageId={pageId}
         slugId={slugId}

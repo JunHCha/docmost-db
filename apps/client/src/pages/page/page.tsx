@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { DatabaseViewContainer } from "@/features/database/components/database-view-container.tsx";
 import { RowPropertiesPanel } from "@/features/database/components/row-properties-panel.tsx";
+import { PageIcon } from "@/features/page/components/page-icon.tsx";
 const MemoizedFullEditor = React.memo(FullEditor);
 const MemoizedPageHeader = React.memo(PageHeader);
 const MemoizedHistoryModal = React.memo(HistoryModal);
@@ -125,6 +126,16 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
             creator={page.creator}
             contributors={page.contributors}
             canComment={canComment}
+            // Clickable page icon above the title (item 4).
+            pageIcon={
+              <PageIcon
+                pageId={page.id}
+                spaceId={space.id}
+                icon={page.icon}
+                pageType={page.pageType}
+                editable={canEdit}
+              />
+            }
             // Renders nothing unless this doc is a database row (#9); shown
             // Notion-style under the title.
             belowTitle={<RowPropertiesPanel page={page} />}

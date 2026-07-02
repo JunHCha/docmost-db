@@ -67,4 +67,19 @@ describe('validateValueForType', () => {
       }).value,
     ).toEqual(['page-1', 'page-2']);
   });
+
+  it('accepts an array of user ids for person, rejects non-arrays', () => {
+    expect(
+      validateValueForType('person', {
+        type: 'person',
+        value: ['user-1', 'user-2'],
+      }).value,
+    ).toEqual(['user-1', 'user-2']);
+    expect(() =>
+      validateValueForType('person', { type: 'person', value: 'user-1' }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      validateValueForType('person', { type: 'person', value: [1, 2] }),
+    ).toThrow(BadRequestException);
+  });
 });

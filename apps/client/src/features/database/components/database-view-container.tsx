@@ -12,6 +12,7 @@ import { useDatabaseCollab } from "../hooks/use-database-collab";
 import { useDatabaseRealtime } from "../hooks/use-database-realtime";
 import { DatabaseCollabContext } from "../hooks/database-collab-context";
 import { DatabaseView } from "./database-view";
+import { PageIcon } from "@/features/page/components/page-icon.tsx";
 
 interface DatabaseViewContainerProps {
   page: IPage;
@@ -99,7 +100,17 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
 
   return (
     <DatabaseCollabContext.Provider value={collabValue}>
-      <Stack p="md" gap="xs">
+      {/* Top padding clears the fixed 45px page header (position: fixed) — the
+          doc editor uses a 48px top margin for the same reason; without it the
+          icon above the title is clipped by the header. */}
+      <Stack px="md" pb="md" pt={56} gap="xs">
+        <PageIcon
+          pageId={page.id}
+          spaceId={database?.spaceId ?? page.spaceId}
+          icon={page.icon}
+          pageType="database"
+          editable={page.permissions?.canEdit ?? true}
+        />
         <TextInput
           variant="unstyled"
           size="xl"

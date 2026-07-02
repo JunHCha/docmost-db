@@ -21,3 +21,14 @@
     }
 }
 
+/* Page icon above the title. Aligns the icon glyph to the same left line as the
+   title/body (.ProseMirror has padding-left: 3rem); the -4px offsets the glyph's
+   inset inside its (slightly larger) icon button so the glyph edge lines up. */
+.pageIcon {
+    padding-left: calc(3rem - 4px);
+
+    @media (max-width: $mantine-breakpoint-sm) {
+        padding-left: calc(1rem - 4px);
+    }
+}
+

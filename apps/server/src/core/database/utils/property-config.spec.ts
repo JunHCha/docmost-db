@@ -7,7 +7,7 @@ import {
 
 describe('property-config', () => {
   describe('type guards', () => {
-    it('accepts the 8 core types', () => {
+    it('accepts the 9 core types', () => {
       for (const t of [
         'text',
         'number',
@@ -17,6 +17,7 @@ describe('property-config', () => {
         'checkbox',
         'url',
         'relation',
+        'person',
       ]) {
         expect(isPropertyType(t)).toBe(true);
       }
@@ -32,6 +33,7 @@ describe('property-config', () => {
     it('drops config for plain types', () => {
       expect(normalizePropertyConfig('text', { junk: 1 })).toEqual({});
       expect(normalizePropertyConfig('checkbox', undefined)).toEqual({});
+      expect(normalizePropertyConfig('person', { junk: 1 })).toEqual({});
     });
 
     it('requires an options array for select', () => {
