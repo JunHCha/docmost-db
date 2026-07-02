@@ -73,16 +73,25 @@ async function renderOpenMenu(node: SpaceTreeNode) {
   await screen.findByText("Copy link");
 }
 
-describe("NodeMenu Create database visibility", () => {
-  it("shows Create database on a plain document node", async () => {
+describe("NodeMenu Create database moved to the + dropdown", () => {
+  it("no longer offers Create database on a plain document node", async () => {
+    // Create database lives on the sidebar / row '+' dropdown now; the dots
+    // menu must not duplicate it (item 2).
     await renderOpenMenu({ ...baseNode, pageType: "doc" });
-    expect(screen.getByText("Create database")).toBeTruthy();
+    expect(screen.queryByText("Create database")).toBeNull();
+  });
+});
+
+describe("NodeMenu Export visibility", () => {
+  it("shows Export page on a plain document node", async () => {
+    await renderOpenMenu({ ...baseNode, pageType: "doc" });
+    expect(screen.getByText("Export page")).toBeTruthy();
   });
 
-  it("hides Create database on a database node", async () => {
+  it("hides Export page on a database node (item 5)", async () => {
     await renderOpenMenu({ ...baseNode, pageType: "database" });
-    // The menu is open (Copy link is present) but Create database is gone.
-    expect(screen.queryByText("Create database")).toBeNull();
+    // The menu is open (Copy link is present) but Export is gone.
+    expect(screen.queryByText("Export page")).toBeNull();
   });
 });
 
