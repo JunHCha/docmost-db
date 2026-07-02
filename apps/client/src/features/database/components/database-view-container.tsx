@@ -12,6 +12,7 @@ import { useDatabaseCollab } from "../hooks/use-database-collab";
 import { useDatabaseRealtime } from "../hooks/use-database-realtime";
 import { DatabaseCollabContext } from "../hooks/database-collab-context";
 import { DatabaseView } from "./database-view";
+import { PageIcon } from "@/features/page/components/page-icon.tsx";
 
 interface DatabaseViewContainerProps {
   page: IPage;
@@ -100,6 +101,13 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
   return (
     <DatabaseCollabContext.Provider value={collabValue}>
       <Stack p="md" gap="xs">
+        <PageIcon
+          pageId={page.id}
+          spaceId={database?.spaceId ?? page.spaceId}
+          icon={page.icon}
+          pageType="database"
+          editable={page.permissions?.canEdit ?? true}
+        />
         <TextInput
           variant="unstyled"
           size="xl"
