@@ -11,6 +11,7 @@ export const PROPERTY_TYPES = [
   'checkbox',
   'url',
   'relation',
+  'person',
 ] as const;
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
@@ -82,6 +83,8 @@ export function normalizePropertyConfig(
     };
   }
 
-  // text / number / date / checkbox / url carry no config.
+  // text / number / date / checkbox / url / person carry no config.
+  // A person value is an array of workspace user ids (validated in
+  // property-value.ts), so no per-column configuration is needed.
   return {};
 }

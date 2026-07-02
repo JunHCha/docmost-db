@@ -230,8 +230,12 @@ export class DatabaseRepo {
       return sql<boolean>`(${v} is not null and ${v} <> '""'::jsonb and ${v} <> '[]'::jsonb and ${v} <> 'null'::jsonb)`;
     }
 
-    // multi_select / relation arrays: jsonb containment.
-    if (propertyType === 'multi_select' || propertyType === 'relation') {
+    // multi_select / relation / person arrays: jsonb containment.
+    if (
+      propertyType === 'multi_select' ||
+      propertyType === 'relation' ||
+      propertyType === 'person'
+    ) {
       const contains = sql<boolean>`(${v} @> ${sql.lit(JSON.stringify(value))}::jsonb)`;
       // not_contains intentionally matches rows with no value too (`${v} is
       // null`): under conventions.md §1 ("empty value = no value row"), a row
