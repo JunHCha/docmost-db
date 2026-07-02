@@ -4,6 +4,7 @@ import { usePageQuery } from "@/features/page/queries/page-query.ts";
 import { FullEditor } from "@/features/editor/full-editor.tsx";
 import { RowPropertiesPanel } from "@/features/database/components/row-properties-panel.tsx";
 import { DatabaseViewContainer } from "@/features/database/components/database-view-container.tsx";
+import { PageIcon } from "@/features/page/components/page-icon.tsx";
 
 interface RelationPagePeekProps {
   pageId: string;
@@ -53,6 +54,16 @@ export function RelationPagePeek({ pageId }: RelationPagePeekProps) {
       contributors={page.contributors}
       canComment={false}
       embedded
+      // Clickable page icon above the title, same as the routed page (item 4).
+      pageIcon={
+        <PageIcon
+          pageId={page.id}
+          spaceId={page.spaceId}
+          icon={page.icon}
+          pageType={page.pageType}
+          editable={canEdit}
+        />
+      }
       // Database-row properties shown Notion-style under the title (#9), editable.
       belowTitle={<RowPropertiesPanel page={page} />}
     />

@@ -52,7 +52,15 @@ export function PageIcon({
         onEmojiSelect={(emoji: { native: string }) => persistIcon(emoji.native)}
         icon={
           icon ? (
-            <span style={{ fontSize: size, lineHeight: 1 }}>{icon}</span>
+            <span
+              style={{
+                fontSize: size,
+                lineHeight: 1,
+                display: "inline-flex",
+              }}
+            >
+              {icon}
+            </span>
           ) : pageType === "database" ? (
             <IconDatabase size={size} stroke={1.5} />
           ) : (
@@ -61,7 +69,8 @@ export function PageIcon({
         }
         readOnly={!editable}
         removeEmojiAction={() => persistIcon(null)}
-        actionIconProps={{ size: "xl", c: "gray" }}
+        // Box a little larger than the glyph so tall emoji aren't clipped.
+        actionIconProps={{ size: size + 8, c: "gray" }}
       />
     </div>
   );

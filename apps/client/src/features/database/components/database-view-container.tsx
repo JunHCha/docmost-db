@@ -100,7 +100,10 @@ export function DatabaseViewContainer({ page }: DatabaseViewContainerProps) {
 
   return (
     <DatabaseCollabContext.Provider value={collabValue}>
-      <Stack p="md" gap="xs">
+      {/* Top padding clears the fixed 45px page header (position: fixed) — the
+          doc editor uses a 48px top margin for the same reason; without it the
+          icon above the title is clipped by the header. */}
+      <Stack px="md" pb="md" pt={56} gap="xs">
         <PageIcon
           pageId={page.id}
           spaceId={database?.spaceId ?? page.spaceId}

@@ -1,6 +1,6 @@
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import { Stack, Text, Anchor, ActionIcon } from "@mantine/core";
-import { IconFileDescription } from "@tabler/icons-react";
+import { IconDatabase, IconFileDescription } from "@tabler/icons-react";
 import { useGetSidebarPagesQuery } from "@/features/page/queries/page-query";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -38,6 +38,8 @@ export default function SubpagesView(props: NodeViewProps) {
         title: node.name,
         icon: node.icon,
         position: node.position,
+        // Shared tree nodes don't declare pageType; use it if present at runtime.
+        pageType: (node as { pageType?: string }).pageType,
       }));
     }
 
@@ -105,7 +107,13 @@ export default function SubpagesView(props: NodeViewProps) {
                   size={18}
                   style={{ verticalAlign: "text-bottom" }}
                 >
-                  <IconFileDescription size={18} />
+                  {/* Databases get the DB glyph so they read as databases, not
+                      plain docs, in the child-page list (mirrors the sidebar). */}
+                  {(page as { pageType?: string })?.pageType === "database" ? (
+                    <IconDatabase size={18} />
+                  ) : (
+                    <IconFileDescription size={18} />
+                  )}
                 </ActionIcon>
               )}
 

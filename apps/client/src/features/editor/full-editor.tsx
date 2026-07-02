@@ -113,7 +113,7 @@ export function FullEditor({
         <MemoizedFixedToolbar />
       )}
       <MemoizedDeletedPageBanner slugId={slugId} />
-      {pageIcon}
+      {pageIcon && <div className={classes.pageIcon}>{pageIcon}</div>}
       <MemoizedTitleEditor
         pageId={pageId}
         slugId={slugId}

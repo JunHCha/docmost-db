@@ -145,12 +145,15 @@ describe("RelationCell", () => {
     expect(screen.getByText("🚀")).toBeTruthy();
   });
 
-  it("opens the peek in the aside / modal host from the chip icons", () => {
+  it("opens the peek in the aside host from the chip icon", () => {
     renderCell({ type: "relation", value: ["r1"] });
     fireEvent.click(screen.getByLabelText("Open in side panel"));
     expect(openPeek).toHaveBeenCalledWith("r1", "aside");
-    fireEvent.click(screen.getByLabelText("Open in modal"));
-    expect(openPeek).toHaveBeenCalledWith("r1", "modal");
+  });
+
+  it("no longer offers the modal open affordance (modal host disabled)", () => {
+    renderCell({ type: "relation", value: ["r1"] });
+    expect(screen.queryByLabelText("Open in modal")).toBeNull();
   });
 
   it("opens the relation picker when the chip title is clicked", () => {
