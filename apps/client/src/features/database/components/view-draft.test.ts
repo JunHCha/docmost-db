@@ -87,6 +87,61 @@ describe("isDraftDirty", () => {
     expect(isDraftDirty(undefined, {})).toBe(false);
     expect(isDraftDirty({}, undefined)).toBe(false);
   });
+
+  // Postgres jsonb round-trips can reorder object keys; meaning-equal configs
+  // must never look dirty after a refresh (false "Save changes" bug).
+  it("ignores nested object key order in columns and filters", () => {
+    const saved = {
+      columns: [{ propertyId: "a", visible: true, width: 240 }],
+      filters: [{ propertyId: "p1", op: "eq" as const, value: "x" }],
+    };
+    const draft = {
+      columns: [{ width: 240, visible: true, propertyId: "a" }],
+      filters: [{ value: "x", op: "eq" as const, propertyId: "p1" }],
+    };
+    expect(isDraftDirty(draft, saved)).toBe(false);
+  });
+
+  it("treats null, undefined and absent top-level fields as equal", () => {
+    expect(isDraftDirty({ groupByPropertyId: null as any }, {})).toBe(false);
+    expect(
+      isDraftDirty({}, { groupByPropertyId: null as any }),
+    ).toBe(false);
+    expect(
+      isDraftDirty(
+        { datePropertyId: undefined },
+        { datePropertyId: null as any },
+      ),
+    ).toBe(false);
+  });
+
+  it("treats an empty array as equal to an absent field", () => {
+    expect(isDraftDirty({ filters: [] }, {})).toBe(false);
+    expect(isDraftDirty({}, { sorts: [] })).toBe(false);
+  });
+
+  it("strips null/undefined nested keys before comparing", () => {
+    const saved = { filters: [{ propertyId: "p1", op: "eq" as const }] };
+    const draft = {
+      filters: [{ propertyId: "p1", op: "eq" as const, value: undefined }],
+    };
+    expect(isDraftDirty(draft, saved)).toBe(false);
+  });
+
+  it("still detects real value differences after canonicalisation", () => {
+    expect(
+      isDraftDirty(
+        { columns: [{ propertyId: "a", visible: true, width: 240 }] },
+        { columns: [{ propertyId: "a", visible: true, width: 200 }] },
+      ),
+    ).toBe(true);
+    expect(
+      isDraftDirty(
+        { filters: [{ propertyId: "p1", op: "eq" as const, value: "x" }] },
+        {},
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("auto-created reverse relation column does not dirty sibling views (#111)", () => {
