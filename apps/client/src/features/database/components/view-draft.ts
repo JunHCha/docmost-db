@@ -12,10 +12,31 @@ const DRAFT_KEYS = [
   "datePropertyId",
 ] as const;
 
-// Stable JSON for a single field: arrays/objects are compared structurally,
-// undefined is normalised so { } and { x: undefined } look equal.
+// Canonical JSON: object keys sorted recursively, null/undefined entries
+// dropped. Postgres jsonb round-trips reorder keys and the server may echo
+// null where the client wrote undefined — both must compare equal, otherwise
+// a refresh shows a false "Save changes" (#draft-robustness).
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort()) {
+      const v = (value as Record<string, unknown>)[key];
+      if (v === undefined || v === null) continue;
+      out[key] = canonicalize(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+// Stable string for a single top-level field. null / undefined / absent and
+// the empty array all mean "not set" for every DRAFT_KEY, so they normalise
+// to the same sentinel.
 function normalize(value: unknown): string {
-  return value === undefined ? "∅" : JSON.stringify(value);
+  if (value === undefined || value === null) return "∅";
+  if (Array.isArray(value) && value.length === 0) return "∅";
+  return JSON.stringify(canonicalize(value));
 }
 
 // A draft is dirty when any editable field differs from the saved config. Used
