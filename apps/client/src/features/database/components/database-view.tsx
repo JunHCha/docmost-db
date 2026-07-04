@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseViewConfig,
@@ -117,12 +118,20 @@ export function DatabaseView({
     : "";
   const storageKeyRef = useRef(storageKey);
   storageKeyRef.current = storageKey;
+  // The saved config the current draft was seeded from, tagged with its view so
+  // the remote-change effect below never compares across a tab switch. Only the
+  // paths that (re)seed the draft move this anchor.
+  const seededConfigRef = useRef<{
+    viewId: string;
+    config: IDatabaseViewConfig;
+  } | null>(null);
   useEffect(() => {
     // Tab switch / mount. Never clobber an in-memory dirty draft mid-edit.
     if (isDraftDirty(draftRef.current, savedConfigRef.current)) return;
     const saved = savedConfigRef.current ?? {};
     const key = storageKeyRef.current;
     const stored = key ? readViewDraft(key) : null;
+    seededConfigRef.current = { viewId: activeViewId, config: saved };
     // Restore a persisted draft only if it is still based on the CURRENT saved
     // config (baseline matches) and actually differs from it. A moved baseline
     // means the server changed underneath, so drop the stale draft — the user
@@ -134,11 +143,56 @@ export function DatabaseView({
     ) {
       setDraft(stored.draft);
     } else {
-      if (stored && key) clearViewDraft(key);
+      if (stored && key) {
+        clearViewDraft(key);
+        // Only a draft that really held unsaved edits warrants telling the
+        // user something was lost; an already-clean leftover drops silently.
+        if (isDraftDirty(stored.draft, saved)) {
+          notifications.show({
+            message: t(
+              "Someone edited this view. Your unsaved draft was discarded.",
+            ),
+            color: "yellow",
+          });
+        }
+      }
       setDraft(saved);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeViewId]);
+
+  // Detect the saved config moving underneath a mounted view (another user's
+  // save, or a normalised refetch echo). Without this, a clean draft kept its
+  // old seed and the dirty flag flipped on even though the user edited nothing.
+  const overwriteWarnedViewIdsRef = useRef(new Set<string>());
+  useEffect(() => {
+    const seeded = seededConfigRef.current;
+    if (!activeView || !seeded || seeded.viewId !== activeView.id) return;
+    const saved = activeView.config ?? {};
+    if (!isDraftDirty(seeded.config, saved)) return; // no remote change
+    const draftWasClean = !isDraftDirty(draftRef.current, seeded.config);
+    seededConfigRef.current = { viewId: activeView.id, config: saved };
+    if (!isDraftDirty(draftRef.current, saved)) return; // our own save echo
+    if (draftWasClean) {
+      // Nothing of the user's to lose — follow the server copy.
+      setDraft(saved);
+      notifications.show({
+        message: t(
+          "Someone edited this view. It has been updated to the latest version.",
+        ),
+        color: "blue",
+      });
+    } else if (!overwriteWarnedViewIdsRef.current.has(activeView.id)) {
+      // Keep the unsaved edits, but say so once — not on every echo.
+      overwriteWarnedViewIdsRef.current.add(activeView.id);
+      notifications.show({
+        message: t(
+          "Someone edited this view. Saving will overwrite their changes.",
+        ),
+        color: "yellow",
+      });
+    }
+  }, [activeView, t]);
 
   const filters = useMemo(() => draft.filters ?? [], [draft.filters]);
   const sorts = useMemo(() => draft.sorts ?? [], [draft.sorts]);

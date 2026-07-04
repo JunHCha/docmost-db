@@ -161,7 +161,10 @@ function renderView(
     embedId?: string;
   }> = {},
 ) {
-  const ui = (
+  // Build a FRESH element per (re)render: reusing the same element reference
+  // makes React bail out of the update, so a changed viewsQuery mock (a remote
+  // edit / refetch echo) would never reach the mounted component.
+  const makeUi = () => (
     <MantineProvider>
       <DatabaseView
         databaseId={props.databaseId ?? "db1"}
@@ -172,10 +175,8 @@ function renderView(
       />
     </MantineProvider>
   );
-  const result = render(ui);
-  // Re-render the same tree so a changed viewsQuery mock (a remote edit /
-  // refetch echo) flows into the mounted component.
-  return { ...result, rerenderView: () => result.rerender(ui) };
+  const result = render(makeUi());
+  return { ...result, rerenderView: () => result.rerender(makeUi()) };
 }
 
 describe("DatabaseView", () => {
