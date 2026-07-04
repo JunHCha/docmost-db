@@ -6,6 +6,11 @@ const propertiesQuery = vi.fn();
 const rowsQuery = vi.fn();
 const viewsQuery = vi.fn();
 const updateViewMutate = vi.fn();
+const notificationsShow = vi.fn();
+
+vi.mock("@mantine/notifications", () => ({
+  notifications: { show: (...a: unknown[]) => notificationsShow(...a) },
+}));
 
 vi.mock("@mantine/hooks", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@mantine/hooks")>();
@@ -156,7 +161,7 @@ function renderView(
     embedId?: string;
   }> = {},
 ) {
-  return render(
+  const ui = (
     <MantineProvider>
       <DatabaseView
         databaseId={props.databaseId ?? "db1"}
@@ -165,8 +170,12 @@ function renderView(
         initialViewId={props.initialViewId}
         embedId={props.embedId}
       />
-    </MantineProvider>,
+    </MantineProvider>
   );
+  const result = render(ui);
+  // Re-render the same tree so a changed viewsQuery mock (a remote edit /
+  // refetch echo) flows into the mounted component.
+  return { ...result, rerenderView: () => result.rerender(ui) };
 }
 
 describe("DatabaseView", () => {
@@ -177,6 +186,7 @@ describe("DatabaseView", () => {
     sortClicks = 0;
     rowsQuery.mockReset();
     updateViewMutate.mockReset();
+    notificationsShow.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     viewsQuery.mockReturnValue({ data: [makeView("v1", "Grid", true)] });
     propertiesQuery.mockReturnValue({ data: [], isLoading: false });
@@ -296,6 +306,98 @@ describe("DatabaseView", () => {
     renderView();
     expect(screen.queryByText("Save changes")).toBeNull();
     expect(localStorage.getItem(key)).toBeNull();
+    // The user is told their unsaved draft was lost to a remote edit.
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Someone edited this view. Your unsaved draft was discarded.",
+      }),
+    );
+  });
+
+  it("adopts a remote config change while clean — no false Save changes", () => {
+    const { rerenderView } = renderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    // Another user saves a sort into this view while we merely look at it.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "asc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    // The draft reseeds to the new saved config instead of going dirty.
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Someone edited this view. It has been updated to the latest version.",
+      }),
+    );
+  });
+
+  it("keeps a dirty draft on a remote change and warns only once per view", () => {
+    const { rerenderView } = renderView();
+    fireEvent.click(screen.getByTestId("change-filters")); // dirty draft
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "asc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    // The unsaved edit survives; the user is warned that saving overwrites.
+    expect(screen.getByText("Save changes")).toBeTruthy();
+    expect(notificationsShow).toHaveBeenCalledTimes(1);
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Someone edited this view. Saving will overwrite their changes.",
+      }),
+    );
+    // A further remote change to the same view does not spam another warning.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "desc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    expect(notificationsShow).toHaveBeenCalledTimes(1);
+    // Saving still persists the preserved draft.
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    );
+  });
+
+  it("ignores a server echo that only reorders object keys — no dirty, no noise", () => {
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+        }),
+      ],
+    });
+    const { rerenderView } = renderView();
+    // A jsonb round-trip echoes the same filter with reordered keys.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          filters: [{ value: "x", op: "eq", propertyId: "p1" }],
+        }),
+      ],
+    });
+    rerenderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(notificationsShow).not.toHaveBeenCalled();
   });
 
   it("keeps repeated sort edits consistent — no mid-sequence divergence (bug1)", () => {
