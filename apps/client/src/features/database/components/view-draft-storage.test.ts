@@ -4,6 +4,7 @@ import {
   readViewDraft,
   viewDraftStorageKey,
   writeViewDraft,
+  VIEW_DRAFT_STORAGE_VERSION,
 } from "./view-draft-storage";
 
 describe("view-draft-storage", () => {
@@ -29,7 +30,11 @@ describe("view-draft-storage", () => {
     const baseline = { sorts: [] };
     const draft = { sorts: [{ propertyId: "p1", direction: "asc" as const }] };
     writeViewDraft(key, baseline, draft);
-    expect(readViewDraft(key)).toEqual({ baseline, draft });
+    expect(readViewDraft(key)).toEqual({
+      version: VIEW_DRAFT_STORAGE_VERSION,
+      baseline,
+      draft,
+    });
     clearViewDraft(key);
     expect(readViewDraft(key)).toBeNull();
   });
@@ -41,5 +46,42 @@ describe("view-draft-storage", () => {
     expect(readViewDraft(key)).toBeNull();
     localStorage.setItem(key, JSON.stringify({ baseline: {} })); // no draft
     expect(readViewDraft(key)).toBeNull();
+  });
+
+  // A deploy can change the config shape; a draft persisted by an older build
+  // must be dropped rather than restored as a false "unsaved change".
+  it("drops a legacy payload without a version field", () => {
+    const key = viewDraftStorageKey("db1", undefined, "v1");
+    localStorage.setItem(
+      key,
+      JSON.stringify({ baseline: {}, draft: { sorts: [] } }),
+    );
+    expect(readViewDraft(key)).toBeNull();
+  });
+
+  it("drops a payload written under a different version", () => {
+    const key = viewDraftStorageKey("db1", undefined, "v1");
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: VIEW_DRAFT_STORAGE_VERSION + 1,
+        baseline: {},
+        draft: { sorts: [] },
+      }),
+    );
+    expect(readViewDraft(key)).toBeNull();
+  });
+
+  it("round-trips a payload written under the current version", () => {
+    const key = viewDraftStorageKey("db1", undefined, "v1");
+    const baseline = {};
+    const draft = { titleWidth: 300 };
+    writeViewDraft(key, baseline, draft);
+    const stored = readViewDraft(key);
+    expect(stored?.draft).toEqual(draft);
+    expect(stored?.baseline).toEqual(baseline);
+    expect(
+      JSON.parse(localStorage.getItem(key) as string).version,
+    ).toBe(VIEW_DRAFT_STORAGE_VERSION);
   });
 });
