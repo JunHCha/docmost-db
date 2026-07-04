@@ -140,7 +140,10 @@ vi.mock("./toolbar/view-toolbar", () => ({
 }));
 
 import { DatabaseView } from "./database-view";
-import { viewDraftStorageKey } from "./view-draft-storage";
+import {
+  viewDraftStorageKey,
+  VIEW_DRAFT_STORAGE_VERSION,
+} from "./view-draft-storage";
 
 // Note: no MemoryRouter — DatabaseView must mount without any route context,
 // which is exactly what the inline embed (issue #24) needs.
@@ -261,6 +264,7 @@ describe("DatabaseView", () => {
     localStorage.setItem(
       viewDraftStorageKey("db1", undefined, "v1"),
       JSON.stringify({
+        version: VIEW_DRAFT_STORAGE_VERSION,
         baseline: {},
         draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
       }),
@@ -284,6 +288,7 @@ describe("DatabaseView", () => {
     localStorage.setItem(
       key,
       JSON.stringify({
+        version: VIEW_DRAFT_STORAGE_VERSION,
         baseline: {},
         draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
       }),

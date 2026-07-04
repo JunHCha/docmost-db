@@ -9,9 +9,15 @@ import { IDatabaseViewConfig } from "@/features/database/types/database.types.ts
 // else edited, or a save on another device), the stored draft is stale and the
 // caller drops it — server-latest wins, so an old edit never clobbers it.
 export interface StoredViewDraft {
+  version: number;
   baseline: IDatabaseViewConfig;
   draft: IDatabaseViewConfig;
 }
+
+// Bump whenever the persisted config shape changes across a deploy. A stored
+// draft from another version is dropped on read instead of restored, so an
+// old build's draft can never surface as a false "unsaved change".
+export const VIEW_DRAFT_STORAGE_VERSION = 2;
 
 // One slot per (database, embed scope, view). The embed scope segment keeps an
 // inline embed's draft distinct from the original database's (issue #39 scope).
@@ -31,6 +37,7 @@ export function readViewDraft(key: string): StoredViewDraft | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredViewDraft;
     if (!parsed || typeof parsed !== "object" || !parsed.draft) return null;
+    if (parsed.version !== VIEW_DRAFT_STORAGE_VERSION) return null;
     return parsed;
   } catch {
     return null;
@@ -43,7 +50,10 @@ export function writeViewDraft(
   draft: IDatabaseViewConfig,
 ): void {
   try {
-    localStorage.setItem(key, JSON.stringify({ baseline, draft }));
+    localStorage.setItem(
+      key,
+      JSON.stringify({ version: VIEW_DRAFT_STORAGE_VERSION, baseline, draft }),
+    );
   } catch {
     // Best-effort: a full/disabled store just means no cross-navigation restore.
   }
