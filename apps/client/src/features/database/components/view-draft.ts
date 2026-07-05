@@ -1,4 +1,5 @@
 import { IDatabaseViewConfig } from "@/features/database/types/database.types.ts";
+import { isTitleFilterId } from "@/features/database/filters/title-filter.ts";
 
 // The view-config fields the toolbar/column UI can edit and that deferred-save
 // persists in one batch. Equality and reseed only consider these — server-only
@@ -47,4 +48,41 @@ export function isDraftDirty(
 ): boolean {
   if (!draft || !saved) return false;
   return DRAFT_KEYS.some((k) => normalize(draft[k]) !== normalize(saved[k]));
+}
+
+// Strip config refs to properties that no longer exist — a peer can delete a
+// property between the edit and Save, and persisting the dead ref would break
+// the rows query (or fail the save) for everyone. Run at save time against the
+// live property list so the payload is always consistent with the schema. The
+// Title sentinel is not a property and an empty propertyId is an in-progress
+// filter row; both always survive.
+export function pruneUnknownPropertyRefs(
+  config: IDatabaseViewConfig,
+  knownPropertyIds: ReadonlySet<string>,
+): { config: IDatabaseViewConfig; dropped: boolean } {
+  const knows = (id: string | undefined): boolean =>
+    !id || isTitleFilterId(id) || knownPropertyIds.has(id);
+  const pruned: IDatabaseViewConfig = { ...config };
+  let dropped = false;
+  if (config.columns?.some((c) => !knows(c.propertyId))) {
+    pruned.columns = config.columns.filter((c) => knows(c.propertyId));
+    dropped = true;
+  }
+  if (config.filters?.some((f) => !knows(f.propertyId))) {
+    pruned.filters = config.filters.filter((f) => knows(f.propertyId));
+    dropped = true;
+  }
+  if (config.sorts?.some((s) => !knows(s.propertyId))) {
+    pruned.sorts = config.sorts.filter((s) => knows(s.propertyId));
+    dropped = true;
+  }
+  if (config.groupByPropertyId && !knows(config.groupByPropertyId)) {
+    pruned.groupByPropertyId = undefined;
+    dropped = true;
+  }
+  if (config.datePropertyId && !knows(config.datePropertyId)) {
+    pruned.datePropertyId = undefined;
+    dropped = true;
+  }
+  return { config: pruned, dropped };
 }

@@ -183,7 +183,9 @@ describe("DatabaseView", () => {
     notificationsShow.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     viewsQuery.mockReturnValue({ data: [makeView("v1", "Grid", true)] });
-    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    // p1 exists by default so drafts referencing it survive the save-time
+    // prune of refs to deleted properties.
+    propertiesQuery.mockReturnValue({ data: oneProperty, isLoading: false });
   });
 
   it("mounts from raw ids — no page, no title input, no route", () => {
@@ -259,6 +261,46 @@ describe("DatabaseView", () => {
     fireEvent.click(screen.getByText("Discard"));
     expect(updateViewMutate).not.toHaveBeenCalled();
     expect(screen.queryByText("Save changes")).toBeNull();
+  });
+
+  it("prunes refs to a deleted property on Save and tells the user", () => {
+    const { rerenderView } = renderView();
+    fireEvent.click(screen.getByTestId("change-filters")); // filter on p1
+    // p1 is deleted by a peer before the user saves.
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    rerenderView();
+    fireEvent.click(screen.getByText("Save changes"));
+    // The dead ref never reaches the server; the user is told something was
+    // left out rather than the save failing.
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({ filters: [] }),
+      }),
+    );
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Some changes referred to deleted properties and were left out.",
+      }),
+    );
+  });
+
+  it("skips pruning while the property list has not loaded", () => {
+    const { rerenderView } = renderView();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    // Without a live property list there is nothing to prune against — the
+    // draft must go through untouched rather than being emptied.
+    propertiesQuery.mockReturnValue({ data: undefined, isLoading: false });
+    rerenderView();
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    );
   });
 
   it("adopts a remote config change while clean — no false Save changes", () => {

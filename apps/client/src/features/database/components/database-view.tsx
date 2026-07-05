@@ -21,7 +21,7 @@ import {
 import { resolveSelfRefFilters } from "@/features/database/filters/self-ref.ts";
 import { EmbedHostProvider } from "./embed-host-context.tsx";
 import { echoColumns } from "./table-view/view-columns";
-import { isDraftDirty } from "./view-draft";
+import { isDraftDirty, pruneUnknownPropertyRefs } from "./view-draft";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
 import { CalendarView } from "./calendar-view/calendar-view";
@@ -281,10 +281,31 @@ export function DatabaseView({
   }
 
   // Persist the whole draft on demand. Success leaves dirty=false because the
-  // views cache then echoes this exact config (draft === saved).
+  // views cache then echoes this exact config (draft === saved). A failed save
+  // keeps the dirty draft in memory (no echo arrives), so the user can retry or
+  // Discard after the mutation's own error notice.
   function saveChanges() {
     if (!activeView || !dirty) return;
-    updateView.mutate({ viewId: activeView.id, config: draft });
+    // A peer may have deleted a property between the edit and Save; strip refs
+    // to properties missing from the live list so the payload stays consistent
+    // with the schema instead of persisting dead refs (or failing). Skipped
+    // while the list hasn't loaded — no basis to prune against.
+    const { config, dropped } = propertiesQuery.data
+      ? pruneUnknownPropertyRefs(
+          draft,
+          new Set(propertiesQuery.data.map((p) => p.id)),
+        )
+      : { config: draft, dropped: false };
+    if (dropped) {
+      notifications.show({
+        message: t(
+          "Some changes referred to deleted properties and were left out.",
+        ),
+        color: "yellow",
+      });
+    }
+    setDraft(config);
+    updateView.mutate({ viewId: activeView.id, config });
   }
 
   // Discard unsaved edits back to the last saved config.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isDraftDirty } from "./view-draft";
+import { isDraftDirty, pruneUnknownPropertyRefs } from "./view-draft";
 import { resolveColumns } from "./table-view/view-columns";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
 
@@ -187,5 +187,67 @@ describe("auto-created reverse relation column does not dirty sibling views (#11
     // the config, trailing the configured columns by position.
     const resolved = resolveColumns(properties, savedColumns);
     expect(resolved.map((c) => c.property.id)).toEqual(["a", "b", "rev"]);
+  });
+});
+
+describe("pruneUnknownPropertyRefs", () => {
+  const known = new Set(["p1", "p2"]);
+
+  it("returns the config untouched when every ref is known", () => {
+    const config = {
+      columns: [{ propertyId: "p1", visible: true }],
+      filters: [{ propertyId: "p2", op: "eq" as const, value: "x" }],
+      sorts: [{ propertyId: "p1", direction: "asc" as const }],
+      groupByPropertyId: "p2",
+      datePropertyId: "p1",
+      titleWidth: 300,
+    };
+    const { config: pruned, dropped } = pruneUnknownPropertyRefs(config, known);
+    expect(dropped).toBe(false);
+    expect(pruned).toEqual(config);
+  });
+
+  it("drops filter/sort/column entries pointing at a deleted property", () => {
+    const { config: pruned, dropped } = pruneUnknownPropertyRefs(
+      {
+        columns: [
+          { propertyId: "p1", visible: true },
+          { propertyId: "gone", visible: false },
+        ],
+        filters: [{ propertyId: "gone", op: "eq" as const, value: "x" }],
+        sorts: [
+          { propertyId: "gone", direction: "asc" as const },
+          { propertyId: "p2", direction: "desc" as const },
+        ],
+      },
+      known,
+    );
+    expect(dropped).toBe(true);
+    expect(pruned.columns).toEqual([{ propertyId: "p1", visible: true }]);
+    expect(pruned.filters).toEqual([]);
+    expect(pruned.sorts).toEqual([{ propertyId: "p2", direction: "desc" as const }]);
+  });
+
+  it("unsets groupBy/dateProperty refs to a deleted property", () => {
+    const { config: pruned, dropped } = pruneUnknownPropertyRefs(
+      { groupByPropertyId: "gone", datePropertyId: "gone" },
+      known,
+    );
+    expect(dropped).toBe(true);
+    expect(pruned.groupByPropertyId).toBeUndefined();
+    expect(pruned.datePropertyId).toBeUndefined();
+  });
+
+  it("keeps the Title sentinel and in-progress rows without a property", () => {
+    const config = {
+      filters: [
+        { propertyId: "__title__", op: "contains" as const, value: "plan" },
+        { propertyId: "", op: "eq" as const },
+      ],
+      sorts: [{ propertyId: "__title__", direction: "asc" as const }],
+    };
+    const { config: pruned, dropped } = pruneUnknownPropertyRefs(config, known);
+    expect(dropped).toBe(false);
+    expect(pruned).toEqual(config);
   });
 });
