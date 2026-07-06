@@ -303,6 +303,30 @@ describe("DatabaseView", () => {
     );
   });
 
+  it("seeds the draft when views resolve async — no phantom dirty on refresh", () => {
+    // Cold mount (hard refresh): the views query has no data on first render,
+    // so the draft boots as {}. When the view then arrives with a non-empty
+    // saved config, it must SEED the draft — mistaking the unseeded {} for an
+    // unsaved edit left the draft empty forever and showed a phantom
+    // "Save changes" prompt with the view's filters not applied.
+    viewsQuery.mockReturnValue({ data: undefined });
+    const { rerenderView } = renderView();
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p1", direction: "asc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(notificationsShow).not.toHaveBeenCalled();
+    // The seeded draft actually carries the saved config (sorts reach the
+    // toolbar undebounced — the filters path would lag behind the 250ms
+    // rows-query debounce).
+    expect(screen.getByTestId("toolbar-sorts").textContent).toContain("p1");
+  });
+
   it("adopts a remote config change while clean — no false Save changes", () => {
     const { rerenderView } = renderView();
     expect(screen.queryByText("Save changes")).toBeNull();

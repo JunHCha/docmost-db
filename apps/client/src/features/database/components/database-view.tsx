@@ -118,8 +118,18 @@ export function DatabaseView({
     config: IDatabaseViewConfig;
   } | null>(null);
   useEffect(() => {
-    // Tab switch / mount. Never clobber an in-memory dirty draft mid-edit.
-    if (isDraftDirty(draftRef.current, savedConfigRef.current)) return;
+    // Tab switch / mount. Preserve the draft only when the USER dirtied it for
+    // THIS view — i.e. it diverged from the config it was seeded from. Guarding
+    // against the INCOMING saved config instead mistook the not-yet-seeded {}
+    // for an unsaved edit whenever views resolved async (any hard refresh with
+    // a cold cache) and never seeded, showing a phantom "Save changes" prompt.
+    const seeded = seededConfigRef.current;
+    if (
+      seeded?.viewId === activeViewId &&
+      isDraftDirty(draftRef.current, seeded.config)
+    ) {
+      return;
+    }
     const saved = savedConfigRef.current ?? {};
     seededConfigRef.current = { viewId: activeViewId, config: saved };
     setDraft(saved);
