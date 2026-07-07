@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseViewConfig,
@@ -20,13 +21,7 @@ import {
 import { resolveSelfRefFilters } from "@/features/database/filters/self-ref.ts";
 import { EmbedHostProvider } from "./embed-host-context.tsx";
 import { echoColumns } from "./table-view/view-columns";
-import { isDraftDirty } from "./view-draft";
-import {
-  clearViewDraft,
-  readViewDraft,
-  viewDraftStorageKey,
-  writeViewDraft,
-} from "./view-draft-storage";
+import { isDraftDirty, pruneUnknownPropertyRefs } from "./view-draft";
 import { TableView } from "./table-view/table-view";
 import { BoardView } from "./board-view/board-view";
 import { CalendarView } from "./calendar-view/calendar-view";
@@ -110,48 +105,73 @@ export function DatabaseView({
   savedConfigRef.current = activeView?.config;
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  // localStorage slot for this view scope; "" until a view is resolved. Read in
-  // the reseed effect through a ref so it stays current without being a dep.
-  const storageKey = activeViewId
-    ? viewDraftStorageKey(databaseId, embedId, activeViewId)
-    : "";
-  const storageKeyRef = useRef(storageKey);
-  storageKeyRef.current = storageKey;
+  // The saved config the current draft was seeded from, tagged with its view so
+  // the remote-change effect below never compares across a tab switch. Only the
+  // paths that (re)seed the draft move this anchor.
+  //
+  // Unsaved edits are deliberately VOLATILE: they live in React state only, so
+  // a refresh or navigation drops them. Persisting drafts (localStorage) proved
+  // fragile — stale restores after saves/deploys kept resurrecting phantom
+  // "Save changes" prompts — so the survive-refresh scenario was retired.
+  const seededConfigRef = useRef<{
+    viewId: string;
+    config: IDatabaseViewConfig;
+  } | null>(null);
   useEffect(() => {
-    // Tab switch / mount. Never clobber an in-memory dirty draft mid-edit.
-    if (isDraftDirty(draftRef.current, savedConfigRef.current)) return;
-    const saved = savedConfigRef.current ?? {};
-    const key = storageKeyRef.current;
-    const stored = key ? readViewDraft(key) : null;
-    // Restore a persisted draft only if it is still based on the CURRENT saved
-    // config (baseline matches) and actually differs from it. A moved baseline
-    // means the server changed underneath, so drop the stale draft — the user
-    // chose server-latest-wins.
+    // Tab switch / mount. Preserve the draft only when the USER dirtied it for
+    // THIS view — i.e. it diverged from the config it was seeded from. Guarding
+    // against the INCOMING saved config instead mistook the not-yet-seeded {}
+    // for an unsaved edit whenever views resolved async (any hard refresh with
+    // a cold cache) and never seeded, showing a phantom "Save changes" prompt.
+    const seeded = seededConfigRef.current;
     if (
-      stored &&
-      !isDraftDirty(stored.baseline, saved) &&
-      isDraftDirty(stored.draft, saved)
+      seeded?.viewId === activeViewId &&
+      isDraftDirty(draftRef.current, seeded.config)
     ) {
-      setDraft(stored.draft);
-    } else {
-      if (stored && key) clearViewDraft(key);
-      setDraft(saved);
+      return;
     }
+    const saved = savedConfigRef.current ?? {};
+    seededConfigRef.current = { viewId: activeViewId, config: saved };
+    setDraft(saved);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeViewId]);
+
+  // Detect the saved config moving underneath a mounted view (another user's
+  // save, or a normalised refetch echo). Without this, a clean draft kept its
+  // old seed and the dirty flag flipped on even though the user edited nothing.
+  const overwriteWarnedViewIdsRef = useRef(new Set<string>());
+  useEffect(() => {
+    const seeded = seededConfigRef.current;
+    if (!activeView || !seeded || seeded.viewId !== activeView.id) return;
+    const saved = activeView.config ?? {};
+    if (!isDraftDirty(seeded.config, saved)) return; // no remote change
+    const draftWasClean = !isDraftDirty(draftRef.current, seeded.config);
+    seededConfigRef.current = { viewId: activeView.id, config: saved };
+    if (!isDraftDirty(draftRef.current, saved)) return; // our own save echo
+    if (draftWasClean) {
+      // Nothing of the user's to lose — follow the server copy.
+      setDraft(saved);
+      notifications.show({
+        message: t(
+          "Someone edited this view. It has been updated to the latest version.",
+        ),
+        color: "blue",
+      });
+    } else if (!overwriteWarnedViewIdsRef.current.has(activeView.id)) {
+      // Keep the unsaved edits, but say so once — not on every echo.
+      overwriteWarnedViewIdsRef.current.add(activeView.id);
+      notifications.show({
+        message: t(
+          "Someone edited this view. Saving will overwrite their changes.",
+        ),
+        color: "yellow",
+      });
+    }
+  }, [activeView, t]);
 
   const filters = useMemo(() => draft.filters ?? [], [draft.filters]);
   const sorts = useMemo(() => draft.sorts ?? [], [draft.sorts]);
   const dirty = isDraftDirty(draft, activeView?.config);
-
-  // Mirror a dirty draft to localStorage so navigating away and back restores
-  // the unsaved edits; clear the slot once the draft is saved or reverted
-  // (dirty=false), which also covers the post-save server echo (#92 follow-up).
-  useEffect(() => {
-    if (!storageKey) return;
-    if (dirty) writeViewDraft(storageKey, activeView?.config ?? {}, draft);
-    else clearViewDraft(storageKey);
-  }, [storageKey, dirty, draft, activeView?.config]);
 
   // The rows query gets a sanitized copy of the DRAFT: in-progress rows (an
   // added filter without a value yet) are dropped so they don't blank the grid.
@@ -271,10 +291,31 @@ export function DatabaseView({
   }
 
   // Persist the whole draft on demand. Success leaves dirty=false because the
-  // views cache then echoes this exact config (draft === saved).
+  // views cache then echoes this exact config (draft === saved). A failed save
+  // keeps the dirty draft in memory (no echo arrives), so the user can retry or
+  // Discard after the mutation's own error notice.
   function saveChanges() {
     if (!activeView || !dirty) return;
-    updateView.mutate({ viewId: activeView.id, config: draft });
+    // A peer may have deleted a property between the edit and Save; strip refs
+    // to properties missing from the live list so the payload stays consistent
+    // with the schema instead of persisting dead refs (or failing). Skipped
+    // while the list hasn't loaded — no basis to prune against.
+    const { config, dropped } = propertiesQuery.data
+      ? pruneUnknownPropertyRefs(
+          draft,
+          new Set(propertiesQuery.data.map((p) => p.id)),
+        )
+      : { config: draft, dropped: false };
+    if (dropped) {
+      notifications.show({
+        message: t(
+          "Some changes referred to deleted properties and were left out.",
+        ),
+        color: "yellow",
+      });
+    }
+    setDraft(config);
+    updateView.mutate({ viewId: activeView.id, config });
   }
 
   // Discard unsaved edits back to the last saved config.

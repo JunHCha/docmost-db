@@ -6,6 +6,11 @@ const propertiesQuery = vi.fn();
 const rowsQuery = vi.fn();
 const viewsQuery = vi.fn();
 const updateViewMutate = vi.fn();
+const notificationsShow = vi.fn();
+
+vi.mock("@mantine/notifications", () => ({
+  notifications: { show: (...a: unknown[]) => notificationsShow(...a) },
+}));
 
 vi.mock("@mantine/hooks", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@mantine/hooks")>();
@@ -140,7 +145,6 @@ vi.mock("./toolbar/view-toolbar", () => ({
 }));
 
 import { DatabaseView } from "./database-view";
-import { viewDraftStorageKey } from "./view-draft-storage";
 
 // Note: no MemoryRouter — DatabaseView must mount without any route context,
 // which is exactly what the inline embed (issue #24) needs.
@@ -153,7 +157,10 @@ function renderView(
     embedId?: string;
   }> = {},
 ) {
-  return render(
+  // Build a FRESH element per (re)render: reusing the same element reference
+  // makes React bail out of the update, so a changed viewsQuery mock (a remote
+  // edit / refetch echo) would never reach the mounted component.
+  const makeUi = () => (
     <MantineProvider>
       <DatabaseView
         databaseId={props.databaseId ?? "db1"}
@@ -162,21 +169,23 @@ function renderView(
         initialViewId={props.initialViewId}
         embedId={props.embedId}
       />
-    </MantineProvider>,
+    </MantineProvider>
   );
+  const result = render(makeUi());
+  return { ...result, rerenderView: () => result.rerender(makeUi()) };
 }
 
 describe("DatabaseView", () => {
   beforeEach(() => {
-    // Deferred-save persists dirty drafts to localStorage (#92); clear it so a
-    // draft from one test can't restore into the next and skew dirty state.
-    localStorage.clear();
     sortClicks = 0;
     rowsQuery.mockReset();
     updateViewMutate.mockReset();
+    notificationsShow.mockReset();
     rowsQuery.mockReturnValue({ data: [], isLoading: false });
     viewsQuery.mockReturnValue({ data: [makeView("v1", "Grid", true)] });
-    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    // p1 exists by default so drafts referencing it survive the save-time
+    // prune of refs to deleted properties.
+    propertiesQuery.mockReturnValue({ data: oneProperty, isLoading: false });
   });
 
   it("mounts from raw ids — no page, no title input, no route", () => {
@@ -254,25 +263,74 @@ describe("DatabaseView", () => {
     expect(screen.queryByText("Save changes")).toBeNull();
   });
 
-  it("silently restores a persisted dirty draft when its baseline still matches (#92)", () => {
-    // A draft stored before navigating away; baseline === the current saved
-    // config ({}), so on return it is restored and the actions reappear without
-    // any new edit.
-    localStorage.setItem(
-      viewDraftStorageKey("db1", undefined, "v1"),
-      JSON.stringify({
-        baseline: {},
-        draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
+  it("prunes refs to a deleted property on Save and tells the user", () => {
+    const { rerenderView } = renderView();
+    fireEvent.click(screen.getByTestId("change-filters")); // filter on p1
+    // p1 is deleted by a peer before the user saves.
+    propertiesQuery.mockReturnValue({ data: [], isLoading: false });
+    rerenderView();
+    fireEvent.click(screen.getByText("Save changes"));
+    // The dead ref never reaches the server; the user is told something was
+    // left out rather than the save failing.
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({ filters: [] }),
       }),
     );
-    renderView();
-    expect(screen.getByText("Save changes")).toBeTruthy();
-    expect(screen.getByText("Discard")).toBeTruthy();
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Some changes referred to deleted properties and were left out.",
+      }),
+    );
   });
 
-  it("drops a persisted draft whose baseline no longer matches the saved config (#92)", () => {
-    // Server config moved on (now carries a sort) since the draft was stored, so
-    // the stale draft is discarded — server-latest wins — and the slot cleared.
+  it("skips pruning while the property list has not loaded", () => {
+    const { rerenderView } = renderView();
+    fireEvent.click(screen.getByTestId("change-filters"));
+    // Without a live property list there is nothing to prune against — the
+    // draft must go through untouched rather than being emptied.
+    propertiesQuery.mockReturnValue({ data: undefined, isLoading: false });
+    rerenderView();
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    );
+  });
+
+  it("seeds the draft when views resolve async — no phantom dirty on refresh", () => {
+    // Cold mount (hard refresh): the views query has no data on first render,
+    // so the draft boots as {}. When the view then arrives with a non-empty
+    // saved config, it must SEED the draft — mistaking the unseeded {} for an
+    // unsaved edit left the draft empty forever and showed a phantom
+    // "Save changes" prompt with the view's filters not applied.
+    viewsQuery.mockReturnValue({ data: undefined });
+    const { rerenderView } = renderView();
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p1", direction: "asc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(notificationsShow).not.toHaveBeenCalled();
+    // The seeded draft actually carries the saved config (sorts reach the
+    // toolbar undebounced — the filters path would lag behind the 250ms
+    // rows-query debounce).
+    expect(screen.getByTestId("toolbar-sorts").textContent).toContain("p1");
+  });
+
+  it("adopts a remote config change while clean — no false Save changes", () => {
+    const { rerenderView } = renderView();
+    expect(screen.queryByText("Save changes")).toBeNull();
+    // Another user saves a sort into this view while we merely look at it.
     viewsQuery.mockReturnValue({
       data: [
         makeView("v1", "Grid", true, {
@@ -280,17 +338,79 @@ describe("DatabaseView", () => {
         }),
       ],
     });
-    const key = viewDraftStorageKey("db1", undefined, "v1");
-    localStorage.setItem(
-      key,
-      JSON.stringify({
-        baseline: {},
-        draft: { filters: [{ propertyId: "p1", op: "eq", value: "o1" }] },
+    rerenderView();
+    // The draft reseeds to the new saved config instead of going dirty.
+    expect(screen.queryByText("Save changes")).toBeNull();
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Someone edited this view. It has been updated to the latest version.",
       }),
     );
-    renderView();
+  });
+
+  it("keeps a dirty draft on a remote change and warns only once per view", () => {
+    const { rerenderView } = renderView();
+    fireEvent.click(screen.getByTestId("change-filters")); // dirty draft
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "asc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    // The unsaved edit survives; the user is warned that saving overwrites.
+    expect(screen.getByText("Save changes")).toBeTruthy();
+    expect(notificationsShow).toHaveBeenCalledTimes(1);
+    expect(notificationsShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Someone edited this view. Saving will overwrite their changes.",
+      }),
+    );
+    // A further remote change to the same view does not spam another warning.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          sorts: [{ propertyId: "p9", direction: "desc" }],
+        }),
+      ],
+    });
+    rerenderView();
+    expect(notificationsShow).toHaveBeenCalledTimes(1);
+    // Saving still persists the preserved draft.
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(updateViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewId: "v1",
+        config: expect.objectContaining({
+          filters: [{ propertyId: "p1", op: "eq", value: "o1" }],
+        }),
+      }),
+    );
+  });
+
+  it("ignores a server echo that only reorders object keys — no dirty, no noise", () => {
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          filters: [{ propertyId: "p1", op: "eq", value: "x" }],
+        }),
+      ],
+    });
+    const { rerenderView } = renderView();
+    // A jsonb round-trip echoes the same filter with reordered keys.
+    viewsQuery.mockReturnValue({
+      data: [
+        makeView("v1", "Grid", true, {
+          filters: [{ value: "x", op: "eq", propertyId: "p1" }],
+        }),
+      ],
+    });
+    rerenderView();
     expect(screen.queryByText("Save changes")).toBeNull();
-    expect(localStorage.getItem(key)).toBeNull();
+    expect(notificationsShow).not.toHaveBeenCalled();
   });
 
   it("keeps repeated sort edits consistent — no mid-sequence divergence (bug1)", () => {
