@@ -42,7 +42,7 @@ import { BaseViewDraftBanner } from "@/ee/base/components/base-view-draft-banner
 import { BaseEmbedTitle } from "@/ee/base/components/base-embed-title";
 import { BaseTableSkeleton } from "@/ee/base/components/base-table-skeleton";
 import { ViewRenderer } from "@/ee/base/components/views/view-renderer";
-import { RowDetailModal } from "@/ee/base/components/row-detail-modal/row-detail-modal";
+import { RowDetailHost } from "@/ee/base/components/row-detail-modal/row-detail-host";
 import { useRowDetailModal } from "@/ee/base/hooks/use-row-detail-modal";
 import { BaseEditableProvider } from "@/ee/base/context/base-editable";
 import { RowExpandProvider } from "@/ee/base/context/row-expand";
@@ -486,7 +486,7 @@ export function BaseView({
             {kanbanBand}
             {viewRenderer(null)}
           </RowExpandProvider>
-          <RowDetailModal
+          <RowDetailHost
             base={base}
             rows={rows}
             openRowId={openRowId}
@@ -510,7 +510,7 @@ export function BaseView({
             </>,
           )}
         </RowExpandProvider>
-        <RowDetailModal
+        <RowDetailHost
           base={base}
           rows={rows}
           openRowId={openRowId}
@@ -530,7 +530,7 @@ export function BaseView({
             {viewRenderer(null)}
           </RowExpandProvider>
         </div>
-        <RowDetailModal
+        <RowDetailHost
           base={base}
           rows={rows}
           openRowId={openRowId}
@@ -558,7 +558,7 @@ export function BaseView({
           </RowExpandProvider>
         </div>
       </div>
-      <RowDetailModal
+      <RowDetailHost
         base={base}
         rows={rows}
         openRowId={openRowId}

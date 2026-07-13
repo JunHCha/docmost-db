@@ -10,7 +10,8 @@ import {
   Text,
   ScrollArea,
 } from "@mantine/core";
-import { IconPlus, IconChevronRight } from "@tabler/icons-react";
+import { IconPlus, IconChevronRight, IconDatabase } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   BasePropertyType,
@@ -18,6 +19,8 @@ import {
   TypeOptions,
 } from "@/ee/base/types/base.types";
 import { useCreatePropertyMutation } from "@/ee/base/queries/base-property-query";
+import { useBaseQuery } from "@/ee/base/queries/base-query";
+import { listBases } from "@/ee/base/services/base-service";
 import { PropertyTypePicker } from "./property-type-picker";
 import { PropertyOptions } from "./property-options";
 import {
@@ -27,6 +30,7 @@ import {
 } from "@/ee/base/property-types/property-type.registry";
 import { FormulaEditor } from "../formula/formula-editor";
 import classes from "@/ee/base/styles/grid.module.css";
+import cellClasses from "@/ee/base/styles/cells.module.css";
 
 type CreatePropertyPopoverProps = {
   pageId: string;
@@ -37,7 +41,7 @@ type CreatePropertyPopoverProps = {
   renderTarget?: (open: () => void) => React.ReactElement;
 };
 
-type Panel = "typePicker" | "configure" | "confirmDiscard";
+type Panel = "typePicker" | "relationTarget" | "configure" | "confirmDiscard";
 
 const noop = () => {};
 
@@ -138,8 +142,43 @@ export function CreatePropertyPopover({ pageId, properties, onPropertyCreated, r
   const handleTypeSelect = useCallback((type: BasePropertyType) => {
     setSelectedType(type);
     setTypeOptions(defaultTypeOptionsFor(type));
-    setPanel("configure");
+    // Relation needs a target base before it can be created.
+    setPanel(type === "relation" ? "relationTarget" : "configure");
   }, []);
+
+  // Same-space bases for the relation target step (self-relation allowed).
+  const { data: base } = useBaseQuery(pageId);
+  const spaceId = base?.spaceId;
+  const { data: baseList, isLoading: basesLoading } = useQuery({
+    queryKey: ["bases", "list", spaceId],
+    queryFn: () => listBases(spaceId!),
+    enabled: opened && panel === "relationTarget" && !!spaceId,
+    staleTime: 15_000,
+  });
+  const relationTargets = useMemo(
+    () => (baseList?.items ?? []).filter((b) => !!b.pageId),
+    [baseList],
+  );
+
+  const handleRelationTargetSelect = useCallback(
+    (targetPageId: string) => {
+      createPropertyMutation.mutate(
+        {
+          pageId,
+          name: name.trim() || fallbackName,
+          type: "relation",
+          typeOptions: { targetPageId } as TypeOptions,
+        },
+        {
+          onSuccess: (created) => {
+            onPropertyCreated?.(created);
+          },
+        },
+      );
+      handleClose();
+    },
+    [pageId, name, fallbackName, createPropertyMutation, handleClose, onPropertyCreated],
+  );
 
   useEffect(() => {
     if (panel === "configure") {
@@ -180,7 +219,7 @@ export function CreatePropertyPopover({ pageId, properties, onPropertyCreated, r
         e.stopPropagation();
         if (panel === "confirmDiscard") {
           handleCancelDiscard();
-        } else if (panel === "configure") {
+        } else if (panel === "configure" || panel === "relationTarget") {
           handleBackToTypePicker();
         } else {
           handleClose();
@@ -286,6 +325,56 @@ export function CreatePropertyPopover({ pageId, properties, onPropertyCreated, r
                   onSelect={handleTypeSelect}
                   showSearch
                 />
+              </ScrollArea.Autosize>
+            </Stack>
+          )}
+          {panel === "relationTarget" && (
+            <Stack gap={0} p={4}>
+              <UnstyledButton onClick={handleBackToTypePicker} py={6} px="sm">
+                <Group gap={8} wrap="nowrap">
+                  <IconChevronRight
+                    size={14}
+                    style={{ transform: "rotate(180deg)" }}
+                  />
+                  <Text size="xs" fw={600} c="dimmed">
+                    {t("Select a base to link")}
+                  </Text>
+                </Group>
+              </UnstyledButton>
+              <ScrollArea.Autosize
+                mah="min(60vh, 400px)"
+                scrollbarSize={6}
+                offsetScrollbars
+              >
+                {basesLoading && (
+                  <Text size="xs" c="dimmed" px="sm" py={6}>
+                    {t("Loading…")}
+                  </Text>
+                )}
+                {!basesLoading && relationTargets.length === 0 && (
+                  <Text size="xs" c="dimmed" px="sm" py={6}>
+                    {t("No bases found")}
+                  </Text>
+                )}
+                {relationTargets.map((b) => (
+                  <UnstyledButton
+                    key={b.id}
+                    className={cellClasses.menuItem}
+                    onClick={() => handleRelationTargetSelect(b.pageId!)}
+                  >
+                    <Group gap={8} wrap="nowrap" style={{ flex: 1 }}>
+                      {b.icon ? (
+                        <span>{b.icon}</span>
+                      ) : (
+                        <IconDatabase size={14} />
+                      )}
+                      <Text size="sm" truncate>
+                        {b.name}
+                        {b.pageId === pageId ? ` (${t("This base")})` : ""}
+                      </Text>
+                    </Group>
+                  </UnstyledButton>
+                ))}
               </ScrollArea.Autosize>
             </Stack>
           )}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { referenceStoreAtomFamily, mergeReferences } from "@/ee/base/atoms/reference-store-atom";
 import { useResolvedPages, type ResolvedPage } from "@/ee/base/queries/base-page-resolver-query";
-import type { RowReferences, UserRef } from "@/ee/base/types/base.types";
+import type { RowReferences, RowRef, UserRef } from "@/ee/base/types/base.types";
 import useCurrentUser from "@/features/user/hooks/use-current-user";
 
 export function useHydrateReferences(
@@ -30,6 +30,21 @@ export function useHydrateUsers(pageId: string): (users: UserRef[]) => void {
       const map: Record<string, UserRef> = {};
       for (const u of users) map[u.id] = u;
       setStore((prev) => mergeReferences(prev, { users: map, pages: {} }));
+    },
+    [setStore],
+  );
+}
+
+// Imperatively merges resolved rows on pick so a just-selected relation
+// target resolves without a rows-page refetch.
+export function useHydrateRows(pageId: string): (rows: RowRef[]) => void {
+  const setStore = useSetAtom(referenceStoreAtomFamily(pageId));
+  return useCallback(
+    (rows: RowRef[]) => {
+      if (rows.length === 0) return;
+      const map: Record<string, RowRef> = {};
+      for (const r of rows) map[r.id] = r;
+      setStore((prev) => mergeReferences(prev, { users: {}, pages: {}, rows: map }));
     },
     [setStore],
   );

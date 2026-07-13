@@ -71,6 +71,13 @@ const CHOICE_TYPES = new Set<BasePropertyType>([
   "status",
 ]);
 
+// Relation can't be converted to (the server pairs relation properties at
+// creation and rejects type changes into or out of relation with a 400).
+const CHANGE_TYPE_EXCLUDED = new Set<BasePropertyType>([
+  ...NON_USER_TARGET_TYPES,
+  "relation",
+]);
+
 function typeOptionsForConversion(
   source: IBaseProperty,
   target: BasePropertyType,
@@ -331,7 +338,7 @@ export function PropertyMenuContent({
             <PropertyTypePicker
               onSelect={handleTypeSelect}
               currentType={property.type}
-              excludeTypes={NON_USER_TARGET_TYPES}
+              excludeTypes={CHANGE_TYPE_EXCLUDED}
               showSearch
             />
           </ScrollArea.Autosize>
@@ -552,7 +559,8 @@ function MainPanel({
           </Text>
         </Group>
       )}
-      {!isSystem && !isPending && !property.isPrimary && (
+      {/* Relation type is locked: the server rejects converting it. */}
+      {!isSystem && !isPending && !property.isPrimary && property.type !== "relation" && (
         <UnstyledButton
           className={cellClasses.menuItem}
           onClick={onChangeType}

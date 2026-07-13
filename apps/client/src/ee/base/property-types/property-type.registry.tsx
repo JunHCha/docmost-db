@@ -16,6 +16,7 @@ import {
   IconClockEdit,
   IconUserEdit,
   IconMathFunction,
+  IconRelationOneToMany,
 } from "@tabler/icons-react";
 import type {
   BasePropertyType,
@@ -34,6 +35,7 @@ import { CellEmail } from "@/ee/base/components/cells/cell-email";
 import { CellPerson } from "@/ee/base/components/cells/cell-person";
 import { CellFile } from "@/ee/base/components/cells/cell-file";
 import { CellPage } from "@/ee/base/components/cells/cell-page";
+import { CellRelation } from "@/ee/base/components/cells/cell-relation";
 import { CellCreatedAt } from "@/ee/base/components/cells/cell-created-at";
 import { CellLastEditedAt } from "@/ee/base/components/cells/cell-last-edited-at";
 import { CellLastEditedBy } from "@/ee/base/components/cells/cell-last-edited-by";
@@ -154,6 +156,16 @@ export const PROPERTY_TYPE_REGISTRY: Record<
     isSystem: true,
     hasOptions: false,
   },
+  relation: {
+    type: "relation",
+    cellComponent: CellRelation,
+    icon: IconRelationOneToMany,
+    labelKey: "Relation",
+    filterOperators: ["any", "none", "isEmpty", "isNotEmpty"],
+    filterInput: "text",
+    isSystem: false,
+    hasOptions: false,
+  },
   page: {
     type: "page",
     cellComponent: CellPage,
@@ -245,7 +257,7 @@ export const DEFAULT_FILTER_OPERATORS = ["eq", "neq", "isEmpty", "isNotEmpty"];
 
 export const PROPERTY_PICKER_ORDER: BasePropertyType[] = [
   "text", "longText", "number", "select", "status", "multiSelect", "date",
-  "person", "file", "formula", "page", "checkbox", "url", "email",
+  "person", "file", "formula", "relation", "page", "checkbox", "url", "email",
   "createdAt", "lastEditedAt", "lastEditedBy",
 ];
 

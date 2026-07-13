@@ -134,6 +134,7 @@ export function DetailField({ property, row, readOnly, onUpdate }: DetailFieldPr
     case "person":
     case "file":
     case "page":
+    case "relation":
       return <FieldCellAdapter {...fieldProps} />;
     default:
       // createdAt, lastEditedAt, lastEditedBy, formula and future types.

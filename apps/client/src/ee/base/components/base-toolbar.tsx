@@ -27,6 +27,7 @@ import { ViewFilterConfigPopover } from "@/ee/base/components/views/view-filter-
 import { ViewPropertyVisibility } from "@/ee/base/components/views/view-property-visibility";
 import { KanbanGroupByPicker } from "@/ee/base/components/kanban/kanban-group-by-picker";
 import { KanbanCardProperties } from "@/ee/base/components/kanban/kanban-card-properties";
+import { TemplateMenu } from "@/ee/base/components/templates/template-menu";
 import { useTranslation } from "react-i18next";
 import classes from "@/ee/base/styles/grid.module.css";
 import toolbarClasses from "@/ee/base/styles/base-toolbar.module.css";
@@ -144,6 +145,8 @@ export function BaseToolbar({
       />
 
       <div className={classes.toolbarRight}>
+        <TemplateMenu base={base} pageId={base.id} />
+
         <Tooltip label={t("Export CSV")}>
           <ActionIcon
             variant="subtle"

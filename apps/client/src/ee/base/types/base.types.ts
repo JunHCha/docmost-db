@@ -1,9 +1,12 @@
 import type { ResolvedPage } from "@/ee/base/queries/base-page-resolver-query";
 
 export type UserRef = { id: string; name: string | null; avatarUrl: string | null };
+// Target row of a relation cell; title is the target base's primary cell text.
+export type RowRef = { id: string; pageId: string; title: string | null };
 export type RowReferences = {
   users: Record<string, UserRef>;
   pages: Record<string, ResolvedPage>;
+  rows?: Record<string, RowRef>;
 };
 
 export type BasePropertyType =
@@ -23,7 +26,8 @@ export type BasePropertyType =
   | 'lastEditedAt'
   | 'lastEditedBy'
   | 'formula'
-  | 'longText';
+  | 'longText'
+  | 'relation';
 
 export type BaseViewType = 'table' | 'kanban' | 'calendar';
 
@@ -89,6 +93,13 @@ export type PersonTypeOptions = {
 
 export type PageTypeOptions = Record<string, never>;
 
+// Two-way relation to another base; the server mirrors values onto the
+// related property identified by relatedPropertyId.
+export type RelationTypeOptions = {
+  targetPageId: string;
+  relatedPropertyId?: string | null;
+};
+
 export type TypeOptions =
   | SelectTypeOptions
   | NumberTypeOptions
@@ -99,6 +110,7 @@ export type TypeOptions =
   | EmailTypeOptions
   | PersonTypeOptions
   | PageTypeOptions
+  | RelationTypeOptions
   | Record<string, unknown>;
 
 export type IBaseProperty = {
@@ -316,6 +328,8 @@ export type ReorderPropertyInput = {
 export type CreateRowInput = {
   pageId: string;
   cells?: Record<string, unknown>;
+  // Fork: apply a base template's cell presets (explicit cells win over the template).
+  templateId?: string;
   afterRowId?: string;
   position?: string;
   requestId?: string;
@@ -404,3 +418,38 @@ export type {
   ErrorCode as FormulaErrorCode,
 } from "@docmost/base-formula/client";
 export { isErrorCell as isFormulaErrorCell } from "@docmost/base-formula/client";
+
+// --- Base templates (fork): named cell presets applied at row creation ---
+
+export type IBaseTemplate = {
+  id: string;
+  pageId: string;
+  name: string;
+  icon: string | null;
+  cells: Record<string, unknown>;
+  position: string;
+  workspaceId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateTemplateInput = {
+  pageId: string;
+  name: string;
+  icon?: string;
+  cells?: Record<string, unknown>;
+};
+
+export type UpdateTemplateInput = {
+  templateId: string;
+  pageId: string;
+  name?: string;
+  icon?: string | null;
+  cells?: Record<string, unknown>;
+  position?: string;
+};
+
+export type DeleteTemplateInput = {
+  templateId: string;
+  pageId: string;
+};

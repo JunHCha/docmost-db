@@ -5,7 +5,7 @@ import type { RowReferences } from "@/ee/base/types/base.types";
 // Per-base normalized store of resolved reference entities, hydrated from each
 // rows-page `references`. Keyed by pageId, matching base-atoms.ts.
 export const referenceStoreAtomFamily = atomFamily((_pageId: string) =>
-  atom<RowReferences>({ users: {}, pages: {} }),
+  atom<RowReferences>({ users: {}, pages: {}, rows: {} }),
 );
 
 export function mergeReferences(
@@ -16,5 +16,6 @@ export function mergeReferences(
   return {
     users: { ...prev.users, ...next.users },
     pages: { ...prev.pages, ...next.pages },
+    rows: { ...prev.rows, ...next.rows },
   };
 }

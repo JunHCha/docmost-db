@@ -5,6 +5,23 @@
   background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
 }
 
+/* Fork: side-panel (Notion peek) shell. Same interior as the modal — only
+   the wrapper differs: full height, docked right, no overlay. Width comes
+   from the Drawer size prop (clamp(360px, 420px, 40vw)); the min/max here
+   are a guard if that var ever fails to resolve. */
+.panelContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  min-width: 360px;
+  max-width: 40vw;
+  border-radius: 0;
+  border-left: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5));
+  box-shadow: -8px 0 24px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.45));
+  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+}
+
 .topBar {
   display: flex;
   align-items: center;

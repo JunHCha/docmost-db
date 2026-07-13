@@ -195,3 +195,36 @@ export async function setDefaultView(
   const req = await api.post<IBaseView>("/bases/views/set-default", body);
   return req.data;
 }
+
+// --- Templates (fork) ---
+// Deferred import (valid at module top level): this section is append-only
+// to avoid conflicting with concurrent work on the file's head.
+import type {
+  IBaseTemplate,
+  CreateTemplateInput,
+  UpdateTemplateInput,
+  DeleteTemplateInput,
+} from "@/ee/base/types/base.types";
+
+export async function listTemplates(pageId: string): Promise<IBaseTemplate[]> {
+  const req = await api.post<IBaseTemplate[]>("/bases/templates", { pageId });
+  return req.data;
+}
+
+export async function createTemplate(
+  data: CreateTemplateInput,
+): Promise<IBaseTemplate> {
+  const req = await api.post<IBaseTemplate>("/bases/templates/create", data);
+  return req.data;
+}
+
+export async function updateTemplate(
+  data: UpdateTemplateInput,
+): Promise<IBaseTemplate> {
+  const req = await api.post<IBaseTemplate>("/bases/templates/update", data);
+  return req.data;
+}
+
+export async function deleteTemplate(data: DeleteTemplateInput): Promise<void> {
+  await api.post("/bases/templates/delete", data);
+}
