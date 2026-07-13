@@ -1,6 +1,11 @@
 services:
   docmost:
-    image: docmost/docmost:latest
+    # Build this fork from the local source (Dockerfile) instead of pulling the
+    # upstream docmost/docmost:latest image from Docker Hub.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: docmost-db:local
     depends_on:
       - db
       - redis

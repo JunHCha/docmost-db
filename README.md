@@ -1,4 +1,97 @@
 <div align="center">
+    <h1><b>Docmost-db</b></h1>
+    <p>
+        A fork of <a href="https://github.com/docmost/docmost"><strong>Docmost</strong></a> that adds Notion-style <b>database</b> features.
+        <br />
+        <a href="./README.ko.md">한국어</a>
+    </p>
+</div>
+<br />
+
+> [!NOTE]
+> **This is a fork.**
+> Built on top of [`docmost/docmost`](https://github.com/docmost/docmost), it aims to bring Notion-style database views (Table / Board) and row filtering, sorting, and bulk editing into wiki pages.
+> For original Docmost usage and self-hosting, see the [official docs](https://docmost.com/docs). The [upstream README](#upstream-docmost) below is preserved as-is.
+
+## Dev: QA quick start
+
+Lots of UI work happens across several git worktrees in parallel, so QA means
+constantly switching *which* worktree's dev web is live. The dev stack is
+single-port (client `:5173` → proxies `/api` to server `:3000`), so only one can
+run at a time. One command handles the switch:
+
+```bash
+./dev-up.sh            # make THIS worktree the live QA dev web → http://localhost:5173
+./dev-up.sh --migrate  # ...also apply new migrations
+./dev-up.sh --clean    # ...also wipe Vite cache (fixes stale-serving)
+./dev-up.sh --down     # stop the live dev (frees the ports)
+```
+
+Run it from whatever worktree you want to QA. It reuses the shared Postgres /
+Redis (`docker-compose.dev.yml`) if already healthy, tears down whatever dev was
+live, builds `@docmost/editor-ext`, starts `pnpm dev` detached, and waits until
+both client and server are actually up before returning. See `./dev-up.sh --help`.
+
+## What this fork adds
+
+A lightweight database that can be embedded in wiki pages, built incrementally:
+
+- **Database / Table view** — persistence, multiple views, view switcher, column visibility & width
+- **Board (Kanban) view** — grouping by Select/Status columns, card drag & drop
+- **Row filter / sort** — server-side filter & sort API + a filter/sort builder toolbar
+- **Row multi-select** — gutter checkboxes for multi-select & bulk delete
+
+> ⚠️ Experimental, work in progress. Not recommended for production use.
+>
+> Inspired by an [issue](https://github.com/docmost/docmost/issues/78)
+
+## What does it look like
+
+**Page embeded preview**
+<img width="1647" height="1312" alt="image" src="https://github.com/user-attachments/assets/85369aaf-a06c-4359-b261-0c9a681bd9df" />
+
+**Board (Kanban) view** — columns grouped by the `Status` property, property tags on cards, per-column count + "+ New"; dragging a card to another column updates its status value.
+
+<img width="1258" alt="Board (Kanban) view" src="https://github.com/user-attachments/assets/e63c0814-aea6-474e-a83f-127aa5fbc363" />
+
+**Table view** — the default grid view (Title + Status columns); the same data toggles between Table and Board tabs.
+
+<img width="1252" alt="Table view" src="https://github.com/user-attachments/assets/421b706c-aa00-48be-b27c-5f6fdfaafa61" />
+
+**Filter / sort builder toolbar** — Filter & Sort buttons with active-count badges; per-type value widgets and drag-to-reorder sorts.
+
+<img width="1266" alt="Filter / sort builder toolbar" src="https://github.com/user-attachments/assets/e4c665b8-6ca5-4a80-aeac-b811c48ddd68" />
+
+## QA & bug reports
+
+Bugs found while QA-ing this fork are tracked in the **[Docmost-db QA board](https://github.com/users/JunHCha/projects/3)**.
+
+- Found a bug? Open one with the [🐞 QA Bug Report](https://github.com/JunHCha/docmost-db/issues/new?template=qa_bug_report.yml) template.
+- New issues are labeled `bug` and `qa`, and their progress is tracked on the QA board.
+
+## Quick start (development)
+
+```bash
+# Install dependencies (pnpm via corepack)
+corepack enable
+pnpm install
+
+# Start dev Postgres/Redis
+docker compose -f docker-compose.dev.yml up -d
+
+# Run dev servers
+pnpm dev
+```
+
+For upstream Docmost self-hosting and deployment, follow the [official docs](https://docmost.com/docs/self-hosting/development).
+
+---
+
+# Upstream (Docmost)
+
+The section below preserves the README of the fork's upstream, [`docmost/docmost`](https://github.com/docmost/docmost).
+
+<div align="center">
     <h1><b>Docmost</b></h1>
     <p>
         Open-source collaborative wiki and documentation software.
