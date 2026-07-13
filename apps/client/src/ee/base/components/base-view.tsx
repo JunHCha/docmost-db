@@ -7,6 +7,7 @@ import { notifications } from "@mantine/notifications";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { useBaseQuery } from "@/ee/base/queries/base-query";
+import { ensureRowPage } from "@/ee/base/services/base-service";
 import { useBaseSocket } from "@/ee/base/hooks/use-base-socket";
 import {
   FilterGroup,
@@ -347,6 +348,23 @@ export function BaseView({
     updateViewMutation,
   ]);
 
+  // Fork: rows are backed by document pages — lazy-create then navigate.
+  const spaceSlug = page?.space?.slug;
+  const handleOpenRowAsPage = useCallback(
+    async (rowId: string) => {
+      try {
+        const rowPage = await ensureRowPage(rowId, pageId);
+        navigate(buildPageUrl(spaceSlug, rowPage.slugId, rowPage.title));
+      } catch {
+        notifications.show({
+          message: t("Failed to load base"),
+          color: "red",
+        });
+      }
+    },
+    [pageId, spaceSlug, navigate, t],
+  );
+
   const { openRowId, openRow, closeRow } = useRowDetailModal(pageId);
   // openRow's identity tracks searchParams; rows subscribe to the expand
   // context, so hand them a stable wrapper instead.
@@ -492,6 +510,7 @@ export function BaseView({
             openRowId={openRowId}
             onClose={closeRow}
             onNavigate={handleRowNavigate}
+          onOpenAsPage={editable ? handleOpenRowAsPage : undefined}
           />
         </BaseEditableProvider>
       );
@@ -516,6 +535,7 @@ export function BaseView({
           openRowId={openRowId}
           onClose={closeRow}
           onNavigate={handleRowNavigate}
+          onOpenAsPage={editable ? handleOpenRowAsPage : undefined}
         />
       </BaseEditableProvider>
     );
@@ -536,6 +556,7 @@ export function BaseView({
           openRowId={openRowId}
           onClose={closeRow}
           onNavigate={handleRowNavigate}
+          onOpenAsPage={editable ? handleOpenRowAsPage : undefined}
         />
       </BaseEditableProvider>
     );
@@ -564,6 +585,7 @@ export function BaseView({
         openRowId={openRowId}
         onClose={closeRow}
         onNavigate={handleRowNavigate}
+          onOpenAsPage={editable ? handleOpenRowAsPage : undefined}
       />
     </BaseEditableProvider>
   );

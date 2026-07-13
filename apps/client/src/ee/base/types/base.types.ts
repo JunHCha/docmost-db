@@ -141,6 +141,8 @@ export type IBaseRow = {
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
+  // Fork: backing document page (lazy-created on first open)
+  rowPageId?: string | null;
 };
 
 export type ViewSortConfig = {

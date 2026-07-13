@@ -228,3 +228,27 @@ export async function updateTemplate(
 export async function deleteTemplate(data: DeleteTemplateInput): Promise<void> {
   await api.post("/bases/templates/delete", data);
 }
+
+// --- Row document pages (fork) ---
+// Rows are backed by lazily-created document pages; the page title mirrors
+// the row's primary cell.
+
+export type RowPageRef = { id: string; slugId: string; title: string | null };
+
+export async function ensureRowPage(
+  rowId: string,
+  pageId: string,
+): Promise<RowPageRef> {
+  const req = await api.post<RowPageRef>("/bases/rows/ensure-page", {
+    rowId,
+    pageId,
+  });
+  return req.data;
+}
+
+export async function resolveRowPage(
+  pageId: string,
+): Promise<{ row: IBaseRow | null; basePageId?: string }> {
+  const req = await api.post("/bases/rows/resolve-page", { pageId });
+  return req.data;
+}

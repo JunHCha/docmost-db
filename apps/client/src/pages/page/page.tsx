@@ -15,6 +15,10 @@ import { Button } from "@mantine/core";
 import { Link } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { BaseView } from "@/ee/base/components/base-view";
+import {
+  RowPropertiesSection,
+  useRowPageResolveQuery,
+} from "@/ee/base/components/row-page/row-properties-section";
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { Feature } from "@/ee/features";
 import { getPageTitle } from "@/features/page/page.utils";
@@ -60,6 +64,12 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
 
   const hasBases = useHasFeature(Feature.BASES);
   const canEdit = !page?.deletedAt && (page?.permissions?.canEdit ?? false);
+  // Fork: pages backing a base row show their row properties under the
+  // title. Only nested pages can be row pages, so gate the lookup.
+  const { data: rowPage } = useRowPageResolveQuery(
+    page?.id,
+    hasBases && !!page && !page.isBase && !!page.parentPageId,
+  );
   const canComment =
     canEdit ||
     (space?.settings?.comments?.allowViewerComments === true);
@@ -176,6 +186,15 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
           creator={page.creator}
           contributors={page.contributors}
           canComment={canComment}
+          belowTitle={
+            rowPage?.row && rowPage.basePageId ? (
+              <RowPropertiesSection
+                basePageId={rowPage.basePageId}
+                rowId={rowPage.row.id}
+                editable={hasBases && canEdit}
+              />
+            ) : undefined
+          }
         />
         <MemoizedHistoryModal pageId={page.id} />
       </div>

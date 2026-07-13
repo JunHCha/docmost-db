@@ -53,6 +53,9 @@ export interface FullEditorProps {
   creator?: PageUser;
   contributors?: IContributor[];
   canComment?: boolean;
+  /** Fork: slot under the title/byline — base row pages mount their
+   *  property panel here. */
+  belowTitle?: React.ReactNode;
 }
 
 export function FullEditor({
@@ -65,6 +68,7 @@ export function FullEditor({
   creator,
   contributors,
   canComment,
+  belowTitle,
 }: FullEditorProps) {
   const [user] = useAtom(userAtom);
   const fullPageWidth = user.settings?.preferences?.fullPageWidth;
@@ -109,6 +113,7 @@ export function FullEditor({
         contributors={contributors}
         readOnly={!editable}
       />
+      {belowTitle}
       <MemoizedPageEditor
         pageId={pageId}
         editable={editable}

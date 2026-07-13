@@ -483,6 +483,17 @@ export class PageRepo {
       )
       .whereRef('child.parentPageId', '=', 'pages.id')
       .where('child.deletedAt', 'is', null)
+      // Fork: base-row document pages are hidden from the tree, so they
+      // must not produce an expand chevron on their base either.
+      .where(({ not, exists, selectFrom }) =>
+        not(
+          exists(
+            selectFrom('baseRows')
+              .select('baseRows.id')
+              .whereRef('baseRows.rowPageId', '=', 'child.id'),
+          ),
+        ),
+      )
       .limit(1)
       .as('hasChildren');
   }

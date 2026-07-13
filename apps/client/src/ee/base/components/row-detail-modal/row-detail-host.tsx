@@ -1,6 +1,7 @@
 import { Tooltip } from "@mantine/core";
 import {
   IconArrowsMaximize,
+  IconFileDescription,
   IconLayoutSidebarRight,
 } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
@@ -47,20 +48,34 @@ export function RowDetailHost(props: RowDetailCommonProps) {
   const label =
     mode === "panel" ? t("Open as modal") : t("Open as side panel");
   const modeToggle = (
-    <Tooltip label={label} openDelay={400}>
-      <button
-        type="button"
-        className={classes.iconButton}
-        onClick={toggleMode}
-        aria-label={label}
-      >
-        {mode === "panel" ? (
-          <IconArrowsMaximize size={16} />
-        ) : (
-          <IconLayoutSidebarRight size={16} />
-        )}
-      </button>
-    </Tooltip>
+    <>
+      {props.onOpenAsPage && props.openRowId && (
+        <Tooltip label={t("Open as page")} openDelay={400}>
+          <button
+            type="button"
+            className={classes.iconButton}
+            onClick={() => props.onOpenAsPage!(props.openRowId!)}
+            aria-label={t("Open as page")}
+          >
+            <IconFileDescription size={16} />
+          </button>
+        </Tooltip>
+      )}
+      <Tooltip label={label} openDelay={400}>
+        <button
+          type="button"
+          className={classes.iconButton}
+          onClick={toggleMode}
+          aria-label={label}
+        >
+          {mode === "panel" ? (
+            <IconArrowsMaximize size={16} />
+          ) : (
+            <IconLayoutSidebarRight size={16} />
+          )}
+        </button>
+      </Tooltip>
+    </>
   );
 
   if (mode === "modal") {

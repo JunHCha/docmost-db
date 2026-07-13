@@ -246,6 +246,15 @@ export class PageService {
         this.logger.warn(`Failed to queue add-page-watchers: ${err.message}`),
       );
 
+    // Fork: pages backing a base row mirror their title into the row's
+    // primary cell (BaseRowService listens; no-op for ordinary pages).
+    if (updatePageDto.title !== undefined) {
+      this.eventEmitter.emit('base.row-page.title-updated', {
+        pageId: page.id,
+        title: updatePageDto.title ?? null,
+      });
+    }
+
     if (
       updatePageDto.content &&
       updatePageDto.operation &&
@@ -309,7 +318,18 @@ export class PageService {
       ])
       .select((eb) => this.pageRepo.withHasChildren(eb))
       .where('deletedAt', 'is', null)
-      .where('spaceId', '=', spaceId);
+      .where('spaceId', '=', spaceId)
+      // Fork: pages backing base rows never appear in the sidebar tree —
+      // they are reached through their base's grid.
+      .where(({ not, exists, selectFrom }) =>
+        not(
+          exists(
+            selectFrom('baseRows')
+              .select('baseRows.id')
+              .whereRef('baseRows.rowPageId', '=', 'pages.id'),
+          ),
+        ),
+      );
 
     if (pageId) {
       query = query.where('parentPageId', '=', pageId);

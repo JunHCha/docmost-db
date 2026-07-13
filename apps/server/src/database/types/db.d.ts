@@ -153,6 +153,7 @@ export interface BaseRows {
   lastUpdatedById: string | null;
   pageId: string;
   position: string;
+  rowPageId: string | null;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
 }

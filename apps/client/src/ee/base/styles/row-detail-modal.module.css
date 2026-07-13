@@ -10,12 +10,15 @@
    from the Drawer size prop (clamp(360px, 420px, 40vw)); the min/max here
    are a guard if that var ever fails to resolve. */
 .panelContent {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   max-height: 100%;
-  min-width: 360px;
-  max-width: 40vw;
+  /* Width is user-resizable via the left-edge handle (Drawer size prop);
+     these bounds only guard against out-of-range stored values. */
+  min-width: 320px;
+  max-width: min(900px, 70vw);
   border-radius: 0;
   border-left: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5));
   box-shadow: -8px 0 24px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.45));
@@ -461,4 +464,25 @@
   font-weight: 500;
   color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
   box-shadow: 0 1px 0 light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5));
+}
+
+/* Fork: left-edge drag handle for resizing the row side panel. */
+.panelResizeHandle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+  touch-action: none;
+}
+
+.panelResizeHandle:hover,
+.panelResizeHandle:active {
+  background: light-dark(
+    var(--mantine-color-blue-2),
+    var(--mantine-color-blue-8)
+  );
+  opacity: 0.6;
 }

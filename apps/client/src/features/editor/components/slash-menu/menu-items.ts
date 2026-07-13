@@ -59,6 +59,7 @@ import {
   YoutubeIcon,
 } from "@/components/icons";
 import { insertBaseEmbedBlock } from "@/features/editor/components/base-embed/insert-base-embed";
+import { openLinkedBasePicker } from "@/features/editor/components/base-embed/linked-base-picker";
 
 const CommandGroups: SlashMenuGroupedItemsType = {
   basic: [
@@ -379,6 +380,16 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       requiresBases: true,
       command: ({ editor, range }: CommandProps) => {
         insertBaseEmbedBlock(editor, { range, template: "kanban" });
+      },
+    },
+    {
+      title: "Base (Linked)",
+      description: "Embed a view of an existing base",
+      searchTerms: ["base", "linked", "embed", "view", "database", "table"],
+      icon: IconTable,
+      requiresBases: true,
+      command: ({ editor, range }: CommandProps) => {
+        openLinkedBasePicker(editor, range);
       },
     },
     {

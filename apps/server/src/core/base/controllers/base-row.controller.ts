@@ -19,6 +19,7 @@ import {
   DeleteRowDto,
   DeleteRowsDto,
   ListRowsDto,
+  PageIdDto,
   ReorderRowDto,
   RowInfoDto,
   UpdateRowDto,
@@ -80,10 +81,11 @@ export class BaseRowController {
   async delete(@Body() dto: DeleteRowDto, @AuthUser() user: User) {
     const page = await this.baseService.findBasePage(dto.pageId);
     await this.pageAccessService.validateCanEdit(page, user);
-    await this.baseRowService.delete(page, {
-      rowIds: [dto.rowId],
-      requestId: dto.requestId,
-    });
+    await this.baseRowService.delete(
+      page,
+      { rowIds: [dto.rowId], requestId: dto.requestId },
+      user.id,
+    );
   }
 
   @HttpCode(HttpStatus.OK)
@@ -91,7 +93,33 @@ export class BaseRowController {
   async deleteMany(@Body() dto: DeleteRowsDto, @AuthUser() user: User) {
     const page = await this.baseService.findBasePage(dto.pageId);
     await this.pageAccessService.validateCanEdit(page, user);
-    await this.baseRowService.delete(page, dto);
+    await this.baseRowService.delete(page, dto, user.id);
+  }
+
+  // Fork: rows are backed by document pages, lazy-created on first open.
+  @HttpCode(HttpStatus.OK)
+  @Post('ensure-page')
+  async ensurePage(@Body() dto: RowInfoDto, @AuthUser() user: User) {
+    const page = await this.baseService.findBasePage(dto.pageId);
+    await this.pageAccessService.validateCanEdit(page, user);
+    const rowPage = await this.baseRowService.ensureRowPage(
+      page,
+      dto.rowId,
+      user,
+    );
+    return { id: rowPage.id, slugId: rowPage.slugId, title: rowPage.title };
+  }
+
+  // Fork: reverse lookup for the page route ("is this page a row?").
+  // Returns { row: null } instead of 404 to avoid client error noise.
+  @HttpCode(HttpStatus.OK)
+  @Post('resolve-page')
+  async resolvePage(@Body() dto: PageIdDto, @AuthUser() user: User) {
+    const resolved = await this.baseRowService.resolveByPage(dto.pageId);
+    if (!resolved.row) return { row: null };
+    const basePage = await this.baseService.findBasePage(resolved.basePageId);
+    await this.pageAccessService.validateCanView(basePage, user);
+    return resolved;
   }
 
   @HttpCode(HttpStatus.OK)

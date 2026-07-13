@@ -1312,5 +1312,9 @@
   "Set as default": "기본 뷰로 설정",
   "Template name": "템플릿 이름",
   "Template options": "템플릿 옵션",
-  "This base": "이 베이스"
+  "This base": "이 베이스",
+  "Base (Linked)": "베이스 (연결)",
+  "Embed a view of an existing base": "기존 베이스의 뷰를 임베드합니다",
+  "Link a base": "베이스 연결",
+  "Search bases": "베이스 검색"
 }

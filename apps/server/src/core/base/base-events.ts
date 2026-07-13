@@ -110,6 +110,8 @@ export function serializeRow(row: BaseRow) {
     workspaceId: row.workspaceId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    // Fork: backing document page (lazy-created on first open)
+    rowPageId: row.rowPageId ?? null,
   };
 }
 

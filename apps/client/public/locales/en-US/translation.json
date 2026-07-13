@@ -1312,5 +1312,9 @@
   "Set as default": "Set as default",
   "Template name": "Template name",
   "Template options": "Template options",
-  "This base": "This base"
+  "This base": "This base",
+  "Base (Linked)": "Base (Linked)",
+  "Embed a view of an existing base": "Embed a view of an existing base",
+  "Link a base": "Link a base",
+  "Search bases": "Search bases"
 }

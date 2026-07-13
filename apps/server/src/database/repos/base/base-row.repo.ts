@@ -59,6 +59,32 @@ export class BaseRowRepo {
       .executeTakeFirst();
   }
 
+  async findByRowPageId(
+    rowPageId: string,
+    trx?: KyselyTransaction,
+  ): Promise<BaseRow | undefined> {
+    const db = dbOrTx(this.db, trx);
+    return db
+      .selectFrom('baseRows')
+      .selectAll()
+      .where('rowPageId', '=', rowPageId)
+      .where('deletedAt', 'is', null)
+      .executeTakeFirst();
+  }
+
+  async setRowPageId(
+    rowId: string,
+    rowPageId: string,
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    await db
+      .updateTable('baseRows')
+      .set({ rowPageId, updatedAt: new Date() })
+      .where('id', '=', rowId)
+      .execute();
+  }
+
   async findLiveByIds(
     pageId: string,
     rowIds: string[],

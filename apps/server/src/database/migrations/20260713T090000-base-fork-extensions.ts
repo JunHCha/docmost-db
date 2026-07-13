@@ -54,6 +54,22 @@ export async function up(db: Kysely<any>): Promise<void> {
       WHERE is_default = true AND orphaned_at IS NULL
   `.execute(db);
 
+  // Rows can be backed by a document page (lazy-created on first open).
+  // The page lives under the base page but is hidden from the sidebar
+  // tree; its title mirrors the row's primary cell.
+  await db.schema
+    .alterTable('base_rows')
+    .addColumn('row_page_id', 'uuid', (col) =>
+      col.references('pages.id').onDelete('set null'),
+    )
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS base_rows_row_page_unique
+      ON base_rows (row_page_id)
+      WHERE row_page_id IS NOT NULL
+  `.execute(db);
+
   await db.schema
     .createTable('base_templates')
     .ifNotExists()
@@ -88,6 +104,9 @@ export async function up(db: Kysely<any>): Promise<void> {
 
 export async function down(db: Kysely<any>): Promise<void> {
   await db.schema.dropTable('base_templates').execute();
+
+  await sql`DROP INDEX IF EXISTS base_rows_row_page_unique`.execute(db);
+  await db.schema.alterTable('base_rows').dropColumn('row_page_id').execute();
 
   await sql`DROP INDEX IF EXISTS base_views_one_default_per_scope`.execute(db);
   await sql`DROP INDEX IF EXISTS idx_base_views_orphaned_at`.execute(db);

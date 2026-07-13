@@ -44,6 +44,8 @@ export type RowDetailCommonProps = {
   openRowId: string | null;
   onClose: () => void;
   onNavigate: (rowId: string) => void;
+  /** Fork: open the row's backing document page (lazy-created). */
+  onOpenAsPage?: (rowId: string) => void;
 };
 
 type UseRowDetailStateOptions = RowDetailCommonProps & {

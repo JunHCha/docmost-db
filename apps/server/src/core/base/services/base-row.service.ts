@@ -1,15 +1,18 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
-import { BaseProperty, BaseRow, Page } from '@docmost/db/types/entity.types';
+import { BaseProperty, BaseRow, Page, User } from '@docmost/db/types/entity.types';
 import { BasePropertyRepo } from '@docmost/db/repos/base/base-property.repo';
 import { BaseRowRepo, ListRowsResult } from '@docmost/db/repos/base/base-row.repo';
 import { BaseTemplateRepo } from '@docmost/db/repos/base/base-template.repo';
+import { PageRepo } from '@docmost/db/repos/page/page.repo';
+import { PageService } from '../../page/services/page.service';
 import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
 import { EventName } from '../../../common/events/event.contants';
 import { serializeRow } from '../base-events';
@@ -31,15 +34,104 @@ export type ForkRowReferences = RowReferences & {
 
 @Injectable()
 export class BaseRowService {
+  private readonly logger = new Logger(BaseRowService.name);
+
   constructor(
     @InjectKysely() private readonly db: KyselyDB,
     private readonly baseRowRepo: BaseRowRepo,
     private readonly basePropertyRepo: BasePropertyRepo,
     private readonly baseTemplateRepo: BaseTemplateRepo,
+    private readonly pageRepo: PageRepo,
+    private readonly pageService: PageService,
     private readonly relationService: BaseRelationService,
     private readonly formulaService: BaseFormulaService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private primaryOf(properties: BaseProperty[]): BaseProperty | undefined {
+    return properties.find((p) => p.isPrimary) ?? properties[0];
+  }
+
+  private primaryText(
+    properties: BaseProperty[],
+    row: BaseRow,
+  ): string | undefined {
+    const primary = this.primaryOf(properties);
+    const value = primary
+      ? ((row.cells as any)?.[primary.id] ?? undefined)
+      : undefined;
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  // Rows are backed by a document page, lazy-created on first open. The
+  // page hangs under the base page (hidden from the sidebar tree) and its
+  // title mirrors the row's primary cell.
+  async ensureRowPage(
+    basePage: Page,
+    rowId: string,
+    user: User,
+  ): Promise<Page> {
+    const row = await this.info(basePage, rowId);
+    if (row.rowPageId) {
+      const existing = await this.pageRepo.findById(row.rowPageId);
+      if (existing && !existing.deletedAt) return existing;
+    }
+    const properties = await this.basePropertyRepo.findLiveByPageId(
+      basePage.id,
+    );
+    const rowPage = await this.pageService.create(
+      user.id,
+      basePage.workspaceId,
+      {
+        title: this.primaryText(properties, row),
+        parentPageId: basePage.id,
+        spaceId: basePage.spaceId,
+      } as any,
+    );
+    await this.baseRowRepo.setRowPageId(row.id, rowPage.id);
+    return rowPage;
+  }
+
+  // Reverse lookup for the page route: is this page a row's document?
+  async resolveByPage(
+    pageId: string,
+  ): Promise<{ row: ReturnType<typeof serializeRow> | null; basePageId?: string }> {
+    const row = await this.baseRowRepo.findByRowPageId(pageId);
+    if (!row) return { row: null };
+    return { row: serializeRow(row), basePageId: row.pageId };
+  }
+
+  // Emitted by PageService.update when any page title changes; mirrors the
+  // new title into the backing row's primary cell.
+  @OnEvent('base.row-page.title-updated')
+  async onRowPageTitleUpdated(payload: {
+    pageId: string;
+    title: string | null;
+  }): Promise<void> {
+    try {
+      const row = await this.baseRowRepo.findByRowPageId(payload.pageId);
+      if (!row) return;
+      const properties = await this.basePropertyRepo.findLiveByPageId(
+        row.pageId,
+      );
+      const primary = this.primaryOf(properties);
+      if (!primary) return;
+      const current = (row.cells as any)?.[primary.id] ?? null;
+      const next = payload.title || null;
+      if (current === next) return;
+      await this.baseRowRepo.setCellValue(row.id, primary.id, next);
+      this.eventEmitter.emit(EventName.BASE_ROW_UPDATED, {
+        operation: 'base:row:updated',
+        pageId: row.pageId,
+        rowId: row.id,
+        updatedCells: { [primary.id]: next },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `row-page title sync failed: ${(err as any)?.message}`,
+      );
+    }
+  }
 
   private propertyMap(properties: BaseProperty[]): Map<string, BaseProperty> {
     return new Map(properties.map((p) => [p.id, p]));
@@ -190,6 +282,24 @@ export class BaseRowService {
       Object.keys(normalized),
     );
 
+    // Grid -> page title mirror when the primary cell changed.
+    const primary = this.primaryOf(properties);
+    if (
+      primary &&
+      updated.rowPageId &&
+      Object.prototype.hasOwnProperty.call(normalized, primary.id)
+    ) {
+      const title = normalized[primary.id];
+      await this.db
+        .updateTable('pages')
+        .set({
+          title: typeof title === 'string' ? title : null,
+          updatedAt: new Date(),
+        })
+        .where('id', '=', updated.rowPageId)
+        .execute();
+    }
+
     this.eventEmitter.emit(EventName.BASE_ROW_UPDATED, {
       operation: 'base:row:updated',
       pageId: page.id,
@@ -203,6 +313,7 @@ export class BaseRowService {
   async delete(
     page: Page,
     dto: { rowIds: string[]; requestId?: string },
+    userId?: string,
   ): Promise<void> {
     const rows = await this.baseRowRepo.findLiveByIds(page.id, dto.rowIds);
     if (rows.length === 0) return;
@@ -222,6 +333,22 @@ export class BaseRowService {
       page.id,
       rows.map((r) => r.id),
     );
+
+    // Backing pages follow their rows into the trash.
+    for (const row of rows) {
+      if (!row.rowPageId) continue;
+      try {
+        await this.pageRepo.removePage(
+          row.rowPageId,
+          userId ?? row.lastUpdatedById ?? row.creatorId,
+          page.workspaceId,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `failed to trash row page ${row.rowPageId}: ${(err as any)?.message}`,
+        );
+      }
+    }
 
     if (rows.length === 1) {
       this.eventEmitter.emit(EventName.BASE_ROW_DELETED, {
