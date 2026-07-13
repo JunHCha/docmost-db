@@ -33,6 +33,7 @@ import {
 import { FastifyReply } from 'fastify';
 import { EnvironmentService } from '../../../integrations/environment/environment.service';
 import { LicenseCheckService } from '../../../integrations/environment/license-check.service';
+import { FORK_BUILTIN_FEATURES } from '../../../common/features';
 import { CheckHostnameDto } from '../dto/check-hostname.dto';
 import { RemoveWorkspaceUserDto } from '../dto/remove-workspace-user.dto';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
@@ -75,7 +76,12 @@ export class WorkspaceController {
     return {
       cloud: this.environmentService.isCloud(),
       tier: this.licenseCheckService.resolveTier(licenseKey, plan),
-      features: this.licenseCheckService.resolveFeatures(licenseKey, plan),
+      features: [
+        ...new Set([
+          ...this.licenseCheckService.resolveFeatures(licenseKey, plan),
+          ...FORK_BUILTIN_FEATURES,
+        ]),
+      ],
     };
   }
 

@@ -26,3 +26,7 @@ export const Feature = {
 } as const;
 
 export type FeatureKey = (typeof Feature)[keyof typeof Feature];
+
+// Fork: features shipped in open core, entitled without a license.
+// Bases run on the fork's own backend (core/base), not the ee submodule.
+export const FORK_BUILTIN_FEATURES: FeatureKey[] = [Feature.BASES];

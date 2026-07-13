@@ -12,11 +12,12 @@ export class BaseRealtimeBridge {
 
   protected loadServiceClass(): any {
     try {
+      // Fork: base realtime lives in open core, not the ee submodule.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('../ee/base/realtime/base-ws.service').BaseWsService;
+      return require('../core/base/realtime/base-ws.service').BaseWsService;
     } catch {
       this.logger.debug(
-        'Base realtime requested but enterprise module not bundled in this build',
+        'Base realtime requested but base module not bundled in this build',
       );
       return null;
     }
