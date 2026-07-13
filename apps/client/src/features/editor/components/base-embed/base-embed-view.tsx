@@ -50,11 +50,25 @@ function applyExtension(wrapper: HTMLDivElement) {
   );
 }
 
-export function BaseEmbedView({ node, editor, deleteNode }: NodeViewProps) {
+export function BaseEmbedView({
+  node,
+  editor,
+  deleteNode,
+  updateAttributes,
+}: NodeViewProps) {
   const { t } = useTranslation();
   const pageId = node.attrs.pageId as string | null;
   const pendingKey = node.attrs.pendingKey as string | null;
+  const embedId = node.attrs.embedId as string | null;
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  // Legacy embeds predate per-embed view scoping; mint their embedId once
+  // (idempotent — the attr persists with the document afterwards).
+  useEffect(() => {
+    if (!embedId && !pendingKey && pageId && editor.isEditable) {
+      updateAttributes({ embedId: crypto.randomUUID() });
+    }
+  }, [embedId, pendingKey, pageId, editor.isEditable, updateAttributes]);
   const hasBases = useHasFeature(Feature.BASES);
   const [menuOpen, setMenuOpen] = useState(false);
   // Suppress the query while the slash command awaits the server-assigned
@@ -132,6 +146,8 @@ export function BaseEmbedView({ node, editor, deleteNode }: NodeViewProps) {
       <BaseView
         pageId={pageId}
         embedded
+        embedId={embedId ?? undefined}
+        sourcePageId={(editor.storage as any)?.pageId ?? undefined}
         editable={hasBases && editor.isEditable && (base?.permissions?.canEdit ?? false)}
       />
     );

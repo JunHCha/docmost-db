@@ -72,9 +72,9 @@ export class BaseService {
     user: User,
     workspace: Workspace,
     dto: {
-      name: string;
+      name?: string;
       icon?: string;
-      pageId?: string;
+      parentPageId?: string;
       spaceId: string;
       template?: 'kanban';
     },
@@ -85,7 +85,7 @@ export class BaseService {
       {
         title: dto.name,
         icon: dto.icon,
-        parentPageId: dto.pageId,
+        parentPageId: dto.parentPageId,
         spaceId: dto.spaceId,
       } as any,
       undefined,
@@ -114,20 +114,22 @@ export class BaseService {
     return updated;
   }
 
-  // Every base starts with a primary Name property; the kanban template
-  // adds a Status property and a kanban view grouped by it.
+  // Every base starts with a primary Title property and one empty row
+  // (matching the shape the embed-insert skeleton mimics client-side).
+  // The default template adds two text columns; the kanban template adds
+  // a Status property and a kanban view grouped by it.
   private async seedSchema(
     page: Page,
     user: User,
     template?: 'kanban',
   ): Promise<void> {
-    const namePosition = generateJitteredKeyBetween(null, null);
+    let position = generateJitteredKeyBetween(null, null);
     await this.basePropertyRepo.insert({
       id: generateBasePropertyId(),
       pageId: page.id,
-      name: 'Name',
+      name: 'Title',
       type: 'text',
-      position: namePosition,
+      position,
       typeOptions: {} as any,
       isPrimary: true,
       workspaceId: page.workspaceId,
@@ -143,20 +145,44 @@ export class BaseService {
         pageId: page.id,
         name: 'Status',
         type: 'status',
-        position: generateJitteredKeyBetween(namePosition, null),
+        position: generateJitteredKeyBetween(position, null),
         typeOptions: {
           choices,
           choiceOrder: choices.map((c) => c.id),
+          defaultValue: choices[0].id,
         } as any,
         isPrimary: false,
         workspaceId: page.workspaceId,
       });
       await this.baseViewService.create(page, user, {
-        name: 'Board',
+        name: 'Kanban',
         type: 'kanban',
         config: { groupByPropertyId: status.id },
       });
+    } else {
+      for (const name of ['Text 1', 'Text 2']) {
+        position = generateJitteredKeyBetween(position, null);
+        await this.basePropertyRepo.insert({
+          id: generateBasePropertyId(),
+          pageId: page.id,
+          name,
+          type: 'text',
+          position,
+          typeOptions: {} as any,
+          isPrimary: false,
+          workspaceId: page.workspaceId,
+        });
+      }
     }
+
+    await this.baseRowRepo.insert({
+      pageId: page.id,
+      cells: {} as any,
+      position: generateJitteredKeyBetween(null, null),
+      creatorId: user.id,
+      lastUpdatedById: user.id,
+      workspaceId: page.workspaceId,
+    });
   }
 
   async info(

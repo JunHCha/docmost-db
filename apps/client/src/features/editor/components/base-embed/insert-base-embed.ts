@@ -29,10 +29,11 @@ export async function insertBaseEmbedBlock(
   if (!parentPageId) return;
 
   const pendingKey = uuid7();
+  const embedId = uuid7();
 
   const chain = editor.chain().focus();
   if (opts.range) chain.deleteRange(opts.range);
-  chain.insertBaseEmbed({ pageId: null, pendingKey }).run();
+  chain.insertBaseEmbed({ pageId: null, pendingKey, embedId }).run();
 
   try {
     const res = await api.post<{ id: string }>("/bases/create", {
@@ -48,6 +49,7 @@ export async function insertBaseEmbedBlock(
         tr.setNodeMarkup(pos, undefined, {
           pageId: res.data.id,
           pendingKey: null,
+          embedId,
         });
         return true;
       })

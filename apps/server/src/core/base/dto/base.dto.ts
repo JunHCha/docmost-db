@@ -17,10 +17,10 @@ export class PageIdDto {
 }
 
 export class CreateBaseDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(500)
-  name: string;
+  name?: string;
 
   @IsOptional()
   @IsString()
@@ -30,12 +30,19 @@ export class CreateBaseDto {
   @IsString()
   icon?: string;
 
+  // Either spaceId (top-level base) or parentPageId/pageId (inline embed
+  // under a host page) must be present.
   @IsOptional()
   @IsUUID()
   pageId?: string;
 
+  @IsOptional()
   @IsUUID()
-  spaceId: string;
+  parentPageId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  spaceId?: string;
 
   @IsOptional()
   @IsIn(['kanban'])

@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { BaseView, Page, User } from '@docmost/db/types/entity.types';
 import { BaseViewRepo, ViewScope } from '@docmost/db/repos/base/base-view.repo';
 import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
@@ -266,5 +266,21 @@ export class BaseViewService {
   ): Promise<void> {
     await this.baseViewRepo.softDeleteOrphans(sourcePageId, liveEmbedIds);
     await this.baseViewRepo.restoreOrphans(sourcePageId, liveEmbedIds);
+  }
+
+  // Emitted by PersistenceExtension on document save (decoupled from the
+  // collaboration module via the event bus).
+  @OnEvent('base.embeds.reconcile')
+  async onEmbedsReconcile(payload: {
+    sourcePageId: string;
+    embedIds: string[];
+  }): Promise<void> {
+    try {
+      await this.reconcileEmbedViews(payload.sourcePageId, payload.embedIds);
+    } catch (err) {
+      this.logger.warn(
+        `embed view reconcile failed: ${(err as any)?.message}`,
+      );
+    }
   }
 }

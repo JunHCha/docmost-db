@@ -21,6 +21,8 @@ import {
   IconTable,
   IconLink,
   IconLayoutKanban,
+  IconLock,
+  IconStar,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
@@ -39,6 +41,7 @@ import { ViewCreateMenu } from "@/ee/base/components/views/view-create-menu";
 import {
   useUpdateViewMutation,
   useDeleteViewMutation,
+  useSetDefaultViewMutation,
 } from "@/ee/base/queries/base-view-query";
 import { useTranslation } from "react-i18next";
 import cellClasses from "@/ee/base/styles/cells.module.css";
@@ -57,6 +60,9 @@ type ViewTabsProps = {
   canAddView?: boolean;
   /** Standalone base-page link for a view, used by "Copy link to view". */
   getViewShareUrl?: (viewId: string) => string | null;
+  // Fork: view scoping
+  embedId?: string;
+  sourcePageId?: string;
 };
 
 export function ViewTabs({
@@ -68,6 +74,8 @@ export function ViewTabs({
   base,
   canAddView,
   getViewShareUrl,
+  embedId,
+  sourcePageId,
 }: ViewTabsProps) {
   const { t } = useTranslation();
   const editable = useBaseEditable();
@@ -76,6 +84,7 @@ export function ViewTabs({
 
   const updateViewMutation = useUpdateViewMutation();
   const deleteViewMutation = useDeleteViewMutation();
+  const setDefaultViewMutation = useSetDefaultViewMutation();
 
   const orderedViews = useMemo(
     () =>
@@ -111,7 +120,12 @@ export function ViewTabs({
           lowerPos && upperPos && lowerPos === upperPos
             ? generateJitteredKeyBetween(lowerPos, null)
             : generateJitteredKeyBetween(lowerPos, upperPos);
-        updateViewMutation.mutate({ viewId: sourceId, pageId, position });
+        updateViewMutation.mutate({
+          viewId: sourceId,
+          pageId,
+          position,
+          embedId,
+        });
       } catch {
         // Position computation failed; skip the reorder.
       }
@@ -136,10 +150,11 @@ export function ViewTabs({
         viewId: editingViewId,
         pageId,
         name: trimmed,
+        embedId,
       });
     }
     setEditingViewId(null);
-  }, [editingViewId, editingName, views, pageId, updateViewMutation]);
+  }, [editingViewId, editingName, views, pageId, embedId, updateViewMutation]);
 
   const handleRenameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -155,16 +170,42 @@ export function ViewTabs({
     [handleRenameCommit],
   );
 
+  // Personal views can always go; a scope keeps at least one shared view.
+  const sharedCount = useMemo(
+    () => orderedViews.filter((v) => !v.ownerUserId).length,
+    [orderedViews],
+  );
+  const canDeleteView = useCallback(
+    (view: IBaseView) => (view.ownerUserId ? true : sharedCount > 1),
+    [sharedCount],
+  );
+
   const handleDelete = useCallback(
     (viewId: string) => {
-      if (orderedViews.length <= 1) return;
-      deleteViewMutation.mutate({ viewId, pageId });
+      const view = orderedViews.find((v) => v.id === viewId);
+      if (!view || !canDeleteView(view)) return;
+      deleteViewMutation.mutate({ viewId, pageId, embedId });
       if (viewId === activeViewId) {
         const remaining = orderedViews.filter((v) => v.id !== viewId);
-        onViewChange(remaining[0].id);
+        if (remaining[0]) onViewChange(remaining[0].id);
       }
     },
-    [orderedViews, pageId, activeViewId, deleteViewMutation, onViewChange],
+    [
+      orderedViews,
+      canDeleteView,
+      pageId,
+      embedId,
+      activeViewId,
+      deleteViewMutation,
+      onViewChange,
+    ],
+  );
+
+  const handleSetDefault = useCallback(
+    (viewId: string) => {
+      setDefaultViewMutation.mutate({ viewId, pageId, embedId });
+    },
+    [pageId, embedId, setDefaultViewMutation],
   );
 
   return (
@@ -176,7 +217,7 @@ export function ViewTabs({
           isActive={view.id === activeViewId}
           isEditing={view.id === editingViewId}
           editingName={editingName}
-          canDelete={orderedViews.length > 1}
+          canDelete={canDeleteView(view)}
           reorderEnabled={editable && orderedViews.length > 1}
           onReorder={handleReorder}
           onClick={() => onViewChange(view.id)}
@@ -185,11 +226,17 @@ export function ViewTabs({
           onRenameCommit={handleRenameCommit}
           onRenameKeyDown={handleRenameKeyDown}
           onDelete={() => handleDelete(view.id)}
+          onSetDefault={() => handleSetDefault(view.id)}
           getViewShareUrl={getViewShareUrl}
         />
       ))}
       {canAddView && base && (
-        <ViewCreateMenu base={base} pageId={pageId} />
+        <ViewCreateMenu
+          base={base}
+          pageId={pageId}
+          embedId={embedId}
+          sourcePageId={sourcePageId}
+        />
       )}
     </Group>
   );
@@ -209,6 +256,7 @@ function ViewTab({
   onRenameCommit,
   onRenameKeyDown,
   onDelete,
+  onSetDefault,
   getViewShareUrl,
 }: {
   view: IBaseView;
@@ -224,6 +272,7 @@ function ViewTab({
   onRenameCommit: () => void;
   onRenameKeyDown: (e: React.KeyboardEvent) => void;
   onDelete: () => void;
+  onSetDefault: () => void;
   getViewShareUrl?: (viewId: string) => string | null;
 }) {
   const { t } = useTranslation();
@@ -361,6 +410,9 @@ function ViewTab({
               <Text size="sm" lh={1.2} c={isActive ? undefined : "dimmed"}>
                 {view.name}
               </Text>
+              {view.ownerUserId ? (
+                <IconLock size={12} opacity={0.6} />
+              ) : null}
             </Group>
           </UnstyledButton>
         </Popover.Target>
@@ -377,6 +429,20 @@ function ViewTab({
               <Group gap={8} wrap="nowrap">
                 <IconPencil size={14} />
                 <Text size="sm">{t("Rename")}</Text>
+              </Group>
+            </UnstyledButton>
+          )}
+          {(editable || view.ownerUserId) && !view.isDefault && (
+            <UnstyledButton
+              className={cellClasses.menuItem}
+              onClick={() => {
+                setMenuOpened(false);
+                onSetDefault();
+              }}
+            >
+              <Group gap={8} wrap="nowrap">
+                <IconStar size={14} />
+                <Text size="sm">{t("Set as default")}</Text>
               </Group>
             </UnstyledButton>
           )}

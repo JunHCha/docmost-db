@@ -168,3 +168,18 @@ export function createYdocFromJson(prosemirrorJson: any): Buffer | null {
   }
   return null;
 }
+
+// Fork: collect base-embed block ids from a document for embed-view
+// orphan reconcile (base_views.embed_id lifecycle).
+export function collectBaseEmbedIds(prosemirrorJson: any): string[] {
+  const ids = new Set<string>();
+  const walk = (node: any) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'base' && typeof node.attrs?.embedId === 'string') {
+      ids.add(node.attrs.embedId);
+    }
+    if (Array.isArray(node.content)) node.content.forEach(walk);
+  };
+  walk(prosemirrorJson);
+  return [...ids];
+}

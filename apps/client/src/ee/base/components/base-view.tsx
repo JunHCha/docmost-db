@@ -22,7 +22,10 @@ import {
   useUpdateRowMutation,
   useReorderRowMutation,
 } from "@/ee/base/queries/base-row-query";
-import { useUpdateViewMutation } from "@/ee/base/queries/base-view-query";
+import {
+  useBaseViewsQuery,
+  useUpdateViewMutation,
+} from "@/ee/base/queries/base-view-query";
 import {
   activeViewIdAtomFamily,
   editingCellAtomFamily,
@@ -58,9 +61,21 @@ type BaseViewProps = {
    *  embedded ANDs that with the host editor's editability. */
   editable?: boolean;
   titleSlot?: React.ReactNode;
+  /** Fork: per-embed view scope. When set, views come from the embed's own
+   *  scope (seeded from the base's shared views on first load). */
+  embedId?: string;
+  /** Host page id recorded on embed-scoped views for orphan reconcile. */
+  sourcePageId?: string;
 };
 
-export function BaseView({ pageId, embedded, editable = true, titleSlot }: BaseViewProps) {
+export function BaseView({
+  pageId,
+  embedded,
+  editable = true,
+  titleSlot,
+  embedId,
+  sourcePageId,
+}: BaseViewProps) {
   const { t } = useTranslation();
   // Subscribe so other clients' edits, schema changes, and async-job completions reconcile into cache.
   useBaseSocket(pageId);
@@ -95,16 +110,23 @@ export function BaseView({ pageId, embedded, editable = true, titleSlot }: BaseV
     focusedCellAtomFamily(pageId),
   ) as unknown as [FocusedCell, (val: FocusedCell) => void];
 
-  const views = useMemo(
-    () =>
-      [...(base?.views ?? [])].sort((a, b) =>
-        a.position < b.position ? -1 : a.position > b.position ? 1 : 0,
-      ),
-    [base?.views],
-  );
+  // Embed scopes read their own views query; the base page uses the views
+  // embedded in /bases/info.
+  const { data: scopedViews, isLoading: scopedViewsLoading } =
+    useBaseViewsQuery(embedId ? pageId : undefined, embedId, sourcePageId);
+  const views = useMemo(() => {
+    const source = embedId ? (scopedViews ?? []) : (base?.views ?? []);
+    return [...source].sort((a, b) =>
+      a.position < b.position ? -1 : a.position > b.position ? 1 : 0,
+    );
+  }, [embedId, scopedViews, base?.views]);
   const activeView = useMemo(() => {
     if (!views.length) return undefined;
-    return views.find((v) => v.id === activeViewId) ?? views[0];
+    return (
+      views.find((v) => v.id === activeViewId) ??
+      views.find((v) => v.isDefault) ??
+      views[0]
+    );
   }, [views, activeViewId]);
 
   const { data: currentUser } = useCurrentUser();
@@ -309,6 +331,7 @@ export function BaseView({ pageId, embedded, editable = true, titleSlot }: BaseV
         viewId: activeView.id,
         pageId: base.id,
         config,
+        embedId: activeView.embedId ?? undefined,
       });
       resetDraft();
       notifications.show({ message: t("View updated for everyone") });
@@ -373,7 +396,11 @@ export function BaseView({ pageId, embedded, editable = true, titleSlot }: BaseV
     [editable, pageId, reorderRow],
   );
 
-  if (baseLoading || (!isKanban && rowsLoading)) {
+  if (
+    baseLoading ||
+    (!!embedId && scopedViewsLoading) ||
+    (!isKanban && rowsLoading)
+  ) {
     return <BaseTableSkeleton />;
   }
   if (baseError) {
@@ -412,6 +439,8 @@ export function BaseView({ pageId, embedded, editable = true, titleSlot }: BaseV
       onDraftFiltersChange={handleDraftFiltersChange}
       onExpand={embedded ? handleExpand : undefined}
       getViewShareUrl={getViewShareUrl}
+      embedId={embedId}
+      sourcePageId={sourcePageId}
     />
   );
 

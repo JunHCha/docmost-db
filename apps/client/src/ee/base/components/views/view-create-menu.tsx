@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAtom } from "jotai";
-import { Menu, ActionIcon, Tooltip } from "@mantine/core";
+import { Menu, ActionIcon, Tooltip, Switch } from "@mantine/core";
 import { IconPlus, IconTable, IconLayoutKanban, IconArrowLeft } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { IBase } from "@/ee/base/types/base.types";
@@ -13,12 +13,21 @@ type Panel = "types" | "groupBy";
 type ViewCreateMenuProps = {
   base: IBase;
   pageId: string;
+  // Fork: view scoping
+  embedId?: string;
+  sourcePageId?: string;
 };
 
-export function ViewCreateMenu({ base, pageId }: ViewCreateMenuProps) {
+export function ViewCreateMenu({
+  base,
+  pageId,
+  embedId,
+  sourcePageId,
+}: ViewCreateMenuProps) {
   const { t } = useTranslation();
   const [opened, setOpened] = useState(false);
   const [panel, setPanel] = useState<Panel>("types");
+  const [personal, setPersonal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const createViewMutation = useCreateViewMutation();
   const [, setActiveViewId] = useAtom(
@@ -32,17 +41,32 @@ export function ViewCreateMenu({ base, pageId }: ViewCreateMenuProps) {
   const close = useCallback(() => {
     setOpened(false);
     setPanel("types");
+    setPersonal(false);
   }, []);
 
   const submitView = useCallback(
     (input: { name: string; type: "table" | "kanban"; config?: Record<string, unknown> }) => {
       createViewMutation.mutate(
-        { pageId, ...input },
+        {
+          pageId,
+          ...input,
+          embedId,
+          sourcePageId: embedId ? sourcePageId : undefined,
+          visibility: personal ? "personal" : "shared",
+        },
         { onSuccess: (created) => setActiveViewId(created.id) },
       );
       close();
     },
-    [pageId, createViewMutation, setActiveViewId, close],
+    [
+      pageId,
+      embedId,
+      sourcePageId,
+      personal,
+      createViewMutation,
+      setActiveViewId,
+      close,
+    ],
   );
 
   const handleCreateTable = useCallback(() => {
@@ -110,6 +134,21 @@ export function ViewCreateMenu({ base, pageId }: ViewCreateMenuProps) {
             </Menu.Item>
             <Menu.Item leftSection={<IconLayoutKanban size={14} />} onClick={handleBoardClick}>
               {t("Kanban")}
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              closeMenuOnClick={false}
+              onClick={() => setPersonal((p) => !p)}
+              rightSection={
+                <Switch
+                  size="xs"
+                  checked={personal}
+                  onChange={(e) => setPersonal(e.currentTarget.checked)}
+                  aria-label={t("Personal view (only visible to you)")}
+                />
+              }
+            >
+              {t("Personal")}
             </Menu.Item>
           </>
         )}

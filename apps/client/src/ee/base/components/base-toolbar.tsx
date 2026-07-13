@@ -44,6 +44,9 @@ type BaseToolbarProps = {
   onDraftFiltersChange: (filter: FilterGroup | undefined) => void;
   onExpand?: () => void;
   getViewShareUrl?: (viewId: string) => string | null;
+  // Fork: view scoping
+  embedId?: string;
+  sourcePageId?: string;
 };
 
 export function BaseToolbar({
@@ -59,6 +62,8 @@ export function BaseToolbar({
   onDraftFiltersChange,
   onExpand,
   getViewShareUrl,
+  embedId,
+  sourcePageId,
 }: BaseToolbarProps) {
   const { t } = useTranslation();
   const [sortOpened, setSortOpened] = useState(false);
@@ -134,6 +139,8 @@ export function BaseToolbar({
         base={base}
         canAddView={canAddView}
         getViewShareUrl={getViewShareUrl}
+        embedId={embedId}
+        sourcePageId={sourcePageId}
       />
 
       <div className={classes.toolbarRight}>

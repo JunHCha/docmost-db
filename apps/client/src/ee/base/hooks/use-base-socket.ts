@@ -365,6 +365,8 @@ export function useBaseSocket(pageId: string | undefined): void {
         case "base:view:deleted": {
           // Schema/metadata events only affect properties/views, not cell data.
           queryClient.invalidateQueries({ queryKey: ["bases", pageId] });
+          // Fork: embed-scoped view lists live under their own key.
+          queryClient.invalidateQueries({ queryKey: ["base-views", pageId] });
           break;
         }
         default:

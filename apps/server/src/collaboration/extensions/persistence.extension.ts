@@ -17,9 +17,11 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { QueueJob, QueueName } from '../../integrations/queue/constants';
 import { Queue } from 'bullmq';
 import {
+  collectBaseEmbedIds,
   extractMentions,
   extractUserMentions,
 } from '../../common/helpers/prosemirror/utils';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { isDeepStrictEqual } from 'node:util';
 import {
   IPageHistoryJob,
@@ -47,6 +49,7 @@ export class PersistenceExtension implements Extension {
     @InjectQueue(QueueName.NOTIFICATION_QUEUE) private notificationQueue: Queue,
     private readonly collabHistory: CollabHistoryService,
     private readonly transclusionService: TransclusionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async onLoadDocument(data: onLoadDocumentPayload) {
@@ -181,6 +184,14 @@ export class PersistenceExtension implements Extension {
       );
 
       await this.syncTransclusion(pageId, page.workspaceId, tiptapJson);
+
+      // Fork: embed views of blocks removed from this document get orphaned
+      // (soft), re-appearing blocks restored. Decoupled from BaseModule via
+      // the event bus (BaseViewService listens).
+      this.eventEmitter.emit('base.embeds.reconcile', {
+        sourcePageId: pageId,
+        embedIds: collectBaseEmbedIds(tiptapJson),
+      });
     }
 
     if (page) {

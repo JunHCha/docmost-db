@@ -19,6 +19,7 @@ import {
   CreateViewInput,
   UpdateViewInput,
   DeleteViewInput,
+  SetDefaultViewInput,
   UpdatePropertyResult,
   FilterNode,
   ViewSortConfig,
@@ -163,15 +164,34 @@ export async function createView(data: CreateViewInput): Promise<IBaseView> {
 }
 
 export async function updateView(data: UpdateViewInput): Promise<IBaseView> {
-  const req = await api.post<IBaseView>("/bases/views/update", data);
+  // embedId only targets client caches; the server identifies the view by id.
+  const { embedId: _embedId, ...body } = data;
+  const req = await api.post<IBaseView>("/bases/views/update", body);
   return req.data;
 }
 
 export async function deleteView(data: DeleteViewInput): Promise<void> {
-  await api.post("/bases/views/delete", data);
+  const { embedId: _embedId, ...body } = data;
+  await api.post("/bases/views/delete", body);
 }
 
-export async function listViews(pageId: string): Promise<IBaseView[]> {
-  const req = await api.post<IBaseView[]>("/bases/views", { pageId });
+export async function listViews(
+  pageId: string,
+  embedId?: string | null,
+  sourcePageId?: string | null,
+): Promise<IBaseView[]> {
+  const req = await api.post<IBaseView[]>("/bases/views", {
+    pageId,
+    ...(embedId ? { embedId } : {}),
+    ...(embedId && sourcePageId ? { sourcePageId } : {}),
+  });
+  return req.data;
+}
+
+export async function setDefaultView(
+  data: SetDefaultViewInput,
+): Promise<IBaseView> {
+  const { embedId: _embedId, ...body } = data;
+  const req = await api.post<IBaseView>("/bases/views/set-default", body);
   return req.data;
 }

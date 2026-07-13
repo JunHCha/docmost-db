@@ -359,7 +359,12 @@ export function useBaseTable(
       persistTimerRef.current = null;
       const config = buildLayoutConfigPatch(table);
       updateViewMutation.mutate(
-        { viewId: activeView.id, pageId: base.id, config },
+        {
+          viewId: activeView.id,
+          pageId: base.id,
+          config,
+          embedId: activeView.embedId ?? undefined,
+        },
         {
           onSettled: () => {
             // Only clear if no new debounce was scheduled while in flight.

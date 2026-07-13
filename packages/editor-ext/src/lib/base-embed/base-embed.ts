@@ -11,6 +11,7 @@ declare module '@tiptap/core' {
       insertBaseEmbed: (attrs: {
         pageId: string | null;
         pendingKey?: string | null;
+        embedId?: string | null;
       }) => ReturnType;
     };
   }
@@ -48,6 +49,15 @@ export const BaseEmbed = Node.create<BaseEmbedOptions>({
         parseHTML: (el) => el.getAttribute('data-page-id'),
         renderHTML: (attrs) =>
           attrs.pageId ? { 'data-page-id': attrs.pageId } : {},
+      },
+      // Fork: stable per-block id scoping this embed's saved views
+      // (base_views.embed_id). Minted at insert; legacy nodes get one
+      // backfilled on first editable mount.
+      embedId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-embed-id'),
+        renderHTML: (attrs) =>
+          attrs.embedId ? { 'data-embed-id': attrs.embedId } : {},
       },
       // Transient marker set when the slash command inserts the embed
       // before the server has assigned a pageId. The view renders a

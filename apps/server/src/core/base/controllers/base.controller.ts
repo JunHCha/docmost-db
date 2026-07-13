@@ -48,11 +48,29 @@ export class BaseController {
     @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
   ) {
-    const ability = await this.spaceAbility.createForUser(user, dto.spaceId);
+    // The editor's inline-embed path sends parentPageId only; the space
+    // path sends spaceId. Resolve the space from the parent when needed.
+    const parentPageId = dto.parentPageId ?? dto.pageId;
+    let spaceId = dto.spaceId;
+    if (!spaceId) {
+      if (!parentPageId) {
+        throw new NotFoundException('spaceId or parentPageId is required');
+      }
+      const parent = await this.pageRepo.findById(parentPageId);
+      if (!parent || parent.deletedAt) {
+        throw new NotFoundException('parent page not found');
+      }
+      spaceId = parent.spaceId;
+    }
+    const ability = await this.spaceAbility.createForUser(user, spaceId);
     if (ability.cannot(SpaceCaslAction.Edit, SpaceCaslSubject.Page)) {
       throw new ForbiddenException();
     }
-    const page = await this.baseService.create(user, workspace, dto);
+    const page = await this.baseService.create(user, workspace, {
+      ...dto,
+      parentPageId,
+      spaceId,
+    });
     return this.baseService.info(page, user, {
       canEdit: true,
       hasRestriction: false,

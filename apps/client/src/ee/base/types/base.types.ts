@@ -231,6 +231,11 @@ export type IBaseView = {
   creatorId: string;
   createdAt: string;
   updatedAt: string;
+  // Fork: 4-quadrant view scoping — (original|embed) x (shared|personal)
+  embedId?: string | null;
+  ownerUserId?: string | null;
+  sourcePageId?: string | null;
+  isDefault?: boolean;
 };
 
 export type IBase = {
@@ -348,6 +353,10 @@ export type CreateViewInput = {
   name: string;
   type?: BaseViewType;
   config?: ViewConfig;
+  // Fork: view scoping
+  embedId?: string;
+  sourcePageId?: string;
+  visibility?: "shared" | "personal";
 };
 
 export type UpdateViewInput = {
@@ -357,11 +366,20 @@ export type UpdateViewInput = {
   type?: BaseViewType;
   config?: ViewConfigPatch;
   position?: string;
+  // Fork: cache-targeting only (not sent to the server)
+  embedId?: string | null;
 };
 
 export type DeleteViewInput = {
   viewId: string;
   pageId: string;
+  embedId?: string | null;
+};
+
+export type SetDefaultViewInput = {
+  viewId: string;
+  pageId: string;
+  embedId?: string | null;
 };
 
 export type UpdatePropertyResult = {
