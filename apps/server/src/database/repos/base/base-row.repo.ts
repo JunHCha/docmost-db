@@ -196,10 +196,13 @@ export class BaseRowRepo {
     trx?: KyselyTransaction,
   ): Promise<BaseRow | undefined> {
     const db = dbOrTx(this.db, trx);
+    // Pass the patch as a raw object: the jsonb function signature makes the
+    // driver serialize it as JSON. A pre-stringified value would get
+    // double-encoded into a jsonb *string*, which jsonb_set_many ignores.
     return db
       .updateTable('baseRows')
       .set({
-        cells: sql`jsonb_set_many(cells, ${JSON.stringify(cellPatch)}::jsonb)`,
+        cells: sql`jsonb_set_many(cells, ${cellPatch})`,
         lastUpdatedById: userId,
         updatedAt: new Date(),
       })
@@ -277,11 +280,11 @@ export class BaseRowRepo {
     trx?: KyselyTransaction,
   ): Promise<void> {
     const db = dbOrTx(this.db, trx);
-    const patch = JSON.stringify({ [propertyId]: value ?? null });
+    const patch = { [propertyId]: value ?? null };
     await db
       .updateTable('baseRows')
       .set({
-        cells: sql`jsonb_set_many(cells, ${patch}::jsonb)`,
+        cells: sql`jsonb_set_many(cells, ${patch})`,
         updatedAt: new Date(),
       })
       .where('id', '=', rowId)
