@@ -5,6 +5,7 @@ import {
   Attachments,
   BaseProperties,
   BaseRows,
+  BaseTemplates,
   BaseViews,
   Comments,
   Groups,
@@ -256,3 +257,8 @@ export type UpdatableBaseRow = Updateable<Omit<BaseRows, 'id'>>;
 export type BaseView = Selectable<BaseViews>;
 export type InsertableBaseView = Insertable<BaseViews>;
 export type UpdatableBaseView = Updateable<Omit<BaseViews, 'id'>>;
+
+// Base Template
+export type BaseTemplate = Selectable<BaseTemplates>;
+export type InsertableBaseTemplate = Insertable<BaseTemplates>;
+export type UpdatableBaseTemplate = Updateable<Omit<BaseTemplates, 'id'>>;

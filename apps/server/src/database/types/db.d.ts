@@ -157,14 +157,31 @@ export interface BaseRows {
   workspaceId: string;
 }
 
-export interface BaseViews {
-  config: Generated<Json>;
+export interface BaseTemplates {
+  cells: Generated<Json>;
   createdAt: Generated<Timestamp>;
-  creatorId: string | null;
+  icon: string | null;
   id: Generated<string>;
   name: string;
   pageId: string;
   position: string;
+  updatedAt: Generated<Timestamp>;
+  workspaceId: string;
+}
+
+export interface BaseViews {
+  config: Generated<Json>;
+  createdAt: Generated<Timestamp>;
+  creatorId: string | null;
+  embedId: string | null;
+  id: Generated<string>;
+  isDefault: Generated<boolean>;
+  name: string;
+  orphanedAt: Timestamp | null;
+  ownerUserId: string | null;
+  pageId: string;
+  position: string;
+  sourcePageId: string | null;
   type: Generated<string>;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
@@ -647,6 +664,7 @@ export interface DB {
   backlinks: Backlinks;
   baseProperties: BaseProperties;
   baseRows: BaseRows;
+  baseTemplates: BaseTemplates;
   baseViews: BaseViews;
   billing: Billing;
   comments: Comments;
