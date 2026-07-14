@@ -11,6 +11,7 @@ function handlers() {
     scrollThreshold: 100,
     excludedTags: [],
     customNodes: ["databaseView"],
+    atomNodes: [],
   });
   const dom = plugin.props.handleDOMEvents as {
     dragstart: (view: any, event: any) => boolean | void;

@@ -74,7 +74,6 @@ export class DatabaseRowService {
           ? { content: template.content as object, format: 'json' as const }
           : {}),
       },
-      'doc',
     );
 
     // Merge preset values for the new row: the template's values take priority,
