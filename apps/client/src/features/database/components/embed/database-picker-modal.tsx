@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useListDatabasesQuery } from "@/features/database/queries/database-query.ts";
 import { useRefetchOnOpen } from "@/features/database/hooks/use-refetch-on-open.ts";
 import { ListFetchSplash } from "@/features/database/components/common/list-fetch-splash.tsx";
+import classes from "./database-picker-modal.module.css";
 
 interface DatabasePickerModalProps {
   opened: boolean;
@@ -80,6 +81,7 @@ export function DatabasePickerModal({
               <UnstyledButton
                 key={db.id}
                 onClick={() => chooseDatabase(db.id)}
+                className={classes.item}
                 p="xs"
               >
                 <Group gap="xs" wrap="nowrap">

@@ -1,0 +1,16 @@
+.item {
+    display: block;
+    width: 100%;
+    border-radius: var(--mantine-radius-sm);
+
+    /* Gate hover styles to mouse-capable devices so touch browsers don't get a
+       sticky :hover shade on first tap (mirrors the sidebar tree convention). */
+    @media (hover: hover) {
+        &:hover {
+            background-color: light-dark(
+                var(--mantine-color-gray-1),
+                var(--mantine-color-dark-4)
+            );
+        }
+    }
+}
