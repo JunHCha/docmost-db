@@ -298,4 +298,16 @@ describe("MultiSelectCell", () => {
     );
     expect(setMutate).not.toHaveBeenCalled();
   });
+
+  it("floors the dropdown to a minimum width so a narrow column/panel can't cramp it", () => {
+    renderCell({ type: "multi_select", value: [] });
+    fireEvent.click(screen.getByLabelText("Tags"));
+    // width defaults to "target"; a min-width floor keeps options legible in a
+    // narrow column or empty side-panel value (bug: cramped multi_select dropdown).
+    const dropdown = document.querySelector(
+      "[class*='Combobox-dropdown']",
+    ) as HTMLElement | null;
+    expect(dropdown).toBeTruthy();
+    expect(dropdown!.style.minWidth).toBe("240px");
+  });
 });

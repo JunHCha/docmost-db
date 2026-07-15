@@ -159,7 +159,11 @@ export function RelationCell({
           </Group>
         </div>
       </Combobox.Target>
-      <Combobox.Dropdown>
+      {/* Combobox width defaults to "target"; a narrow grid column or an empty
+          side-panel value would otherwise collapse the dropdown. A min-width
+          floor keeps rows legible while still growing to the target when it is
+          wider (bug: cramped relation dropdown). */}
+      <Combobox.Dropdown style={{ minWidth: 240 }}>
         <Combobox.Search
           value={search}
           onChange={(e) => setSearch(e.currentTarget.value)}

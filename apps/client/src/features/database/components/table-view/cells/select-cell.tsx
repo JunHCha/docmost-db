@@ -170,7 +170,11 @@ export function SelectCell({
           )}
         </UnstyledButton>
       </Combobox.Target>
-      <Combobox.Dropdown>
+      {/* Combobox width defaults to "target"; a narrow grid column or an empty
+          side-panel value would otherwise collapse the dropdown. A min-width
+          floor keeps options legible while still growing to the target when it
+          is wider (bug: cramped select dropdown). */}
+      <Combobox.Dropdown style={{ minWidth: 240 }}>
         {editing ? (
           <OptionEditPanel
             option={editing}

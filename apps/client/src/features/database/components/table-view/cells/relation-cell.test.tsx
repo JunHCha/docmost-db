@@ -233,4 +233,16 @@ describe("RelationCell", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
     expect(clearMutate).not.toHaveBeenCalled();
   });
+
+  it("floors the dropdown to a minimum width so a narrow column/panel can't cramp it", () => {
+    renderCell(undefined);
+    fireEvent.click(screen.getByLabelText("Projects"));
+    // width defaults to "target"; a min-width floor keeps rows legible in a
+    // narrow column or empty side-panel value (bug: cramped relation dropdown).
+    const dropdown = document.querySelector(
+      "[class*='Combobox-dropdown']",
+    ) as HTMLElement | null;
+    expect(dropdown).toBeTruthy();
+    expect(dropdown!.style.minWidth).toBe("240px");
+  });
 });
