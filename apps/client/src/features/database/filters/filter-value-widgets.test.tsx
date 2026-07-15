@@ -7,6 +7,17 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDatabaseRowsQuery: () => ({ data: [] }),
 }));
 
+vi.mock("@/features/workspace/queries/workspace-query.ts", () => ({
+  useWorkspaceMembersQuery: () => ({
+    data: {
+      items: [
+        { id: "u1", name: "Alice", email: "alice@example.com" },
+        { id: "u2", name: "Bob", email: "bob@example.com" },
+      ],
+    },
+  }),
+}));
+
 import { FilterValueWidget } from "./filter-value-widgets";
 import { EmbedHostProvider } from "@/features/database/components/embed-host-context.tsx";
 import { IDatabaseProperty } from "@/features/database/types/database.types.ts";
@@ -115,7 +126,7 @@ describe("FilterValueWidget", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter value" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter value" }));
     fireEvent.click(screen.getByText("Done"));
     expect(onChange).toHaveBeenCalledWith("o1");
   });
@@ -148,9 +159,40 @@ describe("FilterValueWidget", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter value" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter value" }));
     fireEvent.click(screen.getByText("Urgent"));
     expect(onChange).toHaveBeenCalledWith("o2");
+  });
+
+  it("renders a member select for person and emits the picked user id", () => {
+    const onChange = vi.fn();
+    renderWidget(
+      <FilterValueWidget
+        property={prop({ type: "person" })}
+        op="contains"
+        value={null}
+        onChange={onChange}
+      />,
+    );
+    // A person filter fills its value from the workspace members, not free text.
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter value" }));
+    fireEvent.click(screen.getByText("Bob"));
+    expect(onChange).toHaveBeenCalledWith("u2");
+  });
+
+  it("shows the picked member's name for a person filter value", () => {
+    renderWidget(
+      <FilterValueWidget
+        property={prop({ type: "person" })}
+        op="contains"
+        value="u1"
+        onChange={vi.fn()}
+      />,
+    );
+    const input = screen.getByRole("combobox", {
+      name: "Filter value",
+    }) as HTMLInputElement;
+    expect(input.value).toBe("Alice");
   });
 
   // --- Live self-reference: "this page" for relation filters in an embed ---
@@ -190,7 +232,7 @@ describe("FilterValueWidget", () => {
       />,
     );
     expect(
-      screen.getByRole("textbox", { name: "Filter value kind" }),
+      screen.getByRole("combobox", { name: "Filter value kind" }),
     ).toBeTruthy();
   });
 
@@ -204,7 +246,7 @@ describe("FilterValueWidget", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter value kind" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter value kind" }));
     fireEvent.click(screen.getByText("This page"));
     expect(onChange).toHaveBeenCalledWith({ thisPage: true });
   });
@@ -219,7 +261,7 @@ describe("FilterValueWidget", () => {
       />,
     );
     // Only the kind toggle is present — the relation page picker is hidden.
-    const selects = screen.getAllByRole("textbox");
+    const selects = screen.getAllByRole("combobox");
     expect(selects).toHaveLength(1);
     expect(selects[0].getAttribute("aria-label")).toBe("Filter value kind");
   });
