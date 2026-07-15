@@ -56,7 +56,7 @@ function renderRow(
 describe("FilterRow", () => {
   it("changing the property resets to the first operator of the new type", () => {
     const { onChange } = renderRow({ propertyId: "p1", op: "eq", value: "o1" });
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter property" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter property" }));
     fireEvent.click(screen.getByText("Price"));
     // number's first op is eq; value is reset.
     expect(onChange).toHaveBeenCalledWith({
@@ -68,14 +68,14 @@ describe("FilterRow", () => {
 
   it("offers only the operators valid for the property type", () => {
     renderRow({ propertyId: "p2", op: "gte", value: 100 });
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter operator" }));
     expect(screen.getByText("Greater than or equal")).toBeTruthy();
     expect(screen.queryByText("Contains")).toBeNull();
   });
 
   it("emits the chosen operator", () => {
     const { onChange } = renderRow({ propertyId: "p2", op: "gte", value: 100 });
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter operator" }));
     fireEvent.click(screen.getByText("Less than"));
     expect(onChange).toHaveBeenCalledWith({
       propertyId: "p2",
@@ -92,7 +92,7 @@ describe("FilterRow", () => {
   it("drops a stale value when switching to an empty op", () => {
     // p1 (select) with a chosen value -> switch op to Is empty: value must be gone.
     const { onChange } = renderRow({ propertyId: "p1", op: "eq", value: "o1" });
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter operator" }));
     fireEvent.click(screen.getByText("Is empty"));
     expect(onChange).toHaveBeenCalledWith({ propertyId: "p1", op: "is_empty" });
     // No lingering value key in the emitted condition.
@@ -101,7 +101,7 @@ describe("FilterRow", () => {
 
   it("keeps the value when switching between value ops", () => {
     const { onChange } = renderRow({ propertyId: "p2", op: "gte", value: 100 });
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter operator" }));
     fireEvent.click(screen.getByText("Less than"));
     expect(onChange).toHaveBeenCalledWith({
       propertyId: "p2",
@@ -118,7 +118,7 @@ describe("FilterRow", () => {
 
   it("offers Title as a filterable column and emits its sentinel id", () => {
     const { onChange } = renderRow({ propertyId: "p1", op: "eq", value: "o1" });
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter property" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter property" }));
     fireEvent.click(screen.getByText("Title"));
     // Title behaves as a text column: first text op (eq), value reset.
     expect(onChange).toHaveBeenCalledWith({

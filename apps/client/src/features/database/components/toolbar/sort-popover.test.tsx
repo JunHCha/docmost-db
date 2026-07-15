@@ -75,7 +75,7 @@ describe("SortPopover", () => {
 
   it("toggles a sort direction", () => {
     const { onChange } = renderPopover([{ propertyId: "p1", direction: "asc" }]);
-    fireEvent.click(screen.getByRole("textbox", { name: "Sort direction" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort direction" }));
     fireEvent.click(screen.getByText("Descending"));
     expect(onChange).toHaveBeenCalledWith([
       { propertyId: "p1", direction: "desc" },
@@ -90,13 +90,13 @@ describe("SortPopover", () => {
 
   it("offers Title as a sortable column", () => {
     renderPopover([{ propertyId: "p1", direction: "asc" }]);
-    fireEvent.click(screen.getByRole("textbox", { name: "Sort property" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort property" }));
     expect(screen.getByText("Title")).toBeTruthy();
   });
 
   it("sorts by Title via its sentinel id", () => {
     const { onChange } = renderPopover([{ propertyId: "p1", direction: "asc" }]);
-    fireEvent.click(screen.getByRole("textbox", { name: "Sort property" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort property" }));
     fireEvent.click(screen.getByText("Title"));
     expect(onChange).toHaveBeenCalledWith([
       { propertyId: "__title__", direction: "asc" },
@@ -107,7 +107,7 @@ describe("SortPopover", () => {
     // p1 is taken by the only row, so its property select offers only its own
     // value (p1) and the unused p2 — never a duplicate of another row.
     renderPopover([{ propertyId: "p1", direction: "asc" }]);
-    fireEvent.click(screen.getByRole("textbox", { name: "Sort property" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort property" }));
     expect(screen.getByRole("option", { name: "Status" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Price" })).toBeTruthy();
   });
@@ -118,7 +118,7 @@ describe("SortPopover", () => {
       { propertyId: "p1", direction: "asc" },
       { propertyId: "p2", direction: "asc" },
     ]);
-    const propertySelects = screen.getAllByRole("textbox", {
+    const propertySelects = screen.getAllByRole("combobox", {
       name: "Sort property",
     });
     fireEvent.click(propertySelects[0]);

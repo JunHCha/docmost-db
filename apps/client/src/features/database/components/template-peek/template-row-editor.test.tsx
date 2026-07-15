@@ -21,7 +21,9 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
   useUpdateTemplateMutation: () => ({ mutate: updateMutate }),
   useSetValueMutation: () => ({ mutate: setValueMutate }),
   useClearValueMutation: () => ({ mutate: clearValueMutate }),
-  useDatabaseRowsQuery: () => ({ data: rowsData }),
+  // relation-cell reads refetch off this query and hands it to useRefetchOnOpen,
+  // so the stub must expose a callable refetch (else "refetch is not a function").
+  useDatabaseRowsQuery: () => ({ data: rowsData, refetch: vi.fn() }),
   useDatabaseInfoByIdQuery: () => ({ data: dbInfoData }),
   useDefaultViewId: () => "v1",
   useUpdatePropertyMutation: () => ({

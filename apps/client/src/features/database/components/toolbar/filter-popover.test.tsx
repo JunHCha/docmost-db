@@ -66,7 +66,7 @@ describe("FilterPopover", () => {
     const { onChange } = renderPopover([
       { propertyId: "p1", op: "eq", value: "o1" },
     ]);
-    fireEvent.click(screen.getByRole("textbox", { name: "Filter operator" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter operator" }));
     fireEvent.click(screen.getByText("Is not"));
     expect(onChange).toHaveBeenCalledWith([
       { propertyId: "p1", op: "neq", value: "o1" },

@@ -61,6 +61,19 @@ function renderToolbar(
   return { onFiltersChange, onSortsChange, onToggleColumn, onChangeGroupBy };
 }
 
+// Mantine 9's Menu.Sub opens through @floating-ui useHover, which reacts to
+// pointer events carrying a mouse pointerType (not the bare mouseEnter older
+// versions used). Fire the pointer sequence on the sub-item's menuitem element
+// so the sub-dropdown mounts (jsdom keeps it display:none; query hidden nodes).
+async function openSubmenu(label: string) {
+  const text = await screen.findByText(label);
+  const item = (text.closest("[role='menuitem']") ?? text) as HTMLElement;
+  fireEvent.pointerMove(item, { pointerType: "mouse" });
+  fireEvent.pointerEnter(item, { pointerType: "mouse" });
+  fireEvent.mouseEnter(item);
+  fireEvent.mouseMove(item);
+}
+
 describe("ViewToolbar", () => {
   it("renders Filter, Sort and View settings icon buttons by aria-label", () => {
     renderToolbar();
@@ -102,7 +115,7 @@ describe("ViewToolbar", () => {
   it("toggles a column off through the View settings menu", async () => {
     const { onToggleColumn } = renderToolbar();
     fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
-    fireEvent.mouseEnter(await screen.findByText("Properties"));
+    await openSubmenu("Properties");
     fireEvent.click(
       await screen.findByRole("switch", { name: "Status", hidden: true }),
     );

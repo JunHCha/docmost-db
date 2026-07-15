@@ -11,6 +11,7 @@ import {
   useDatabaseRowsQuery,
   useDefaultViewId,
 } from "@/features/database/queries/database-query.ts";
+import { useWorkspaceMembersQuery } from "@/features/workspace/queries/workspace-query.ts";
 import { useEmbedHost } from "@/features/database/components/embed-host-context.tsx";
 import { opNeedsValue } from "./operators";
 import { isThisPageRef } from "./self-ref.ts";
@@ -49,6 +50,36 @@ function RelationValueWidget({
       value={typeof value === "string" ? value : null}
       onChange={(v) => onChange(v ?? "")}
       searchable
+    />
+  );
+}
+
+// Picker over the workspace members for a person filter. The raw comparison
+// value is a single user id ("contains <id>"), mirroring how the server matches
+// a person array against one id — the same shape RelationValueWidget emits. The
+// member list is fetched once and filtered client-side by Select's search, so a
+// large workspace (>100) may not surface every member (acceptable first cut,
+// same limit as PersonCell). Intentionally does NOT import PersonCell or any
+// ee/base grid code: this is a standalone filter widget.
+function PersonValueWidget({
+  value,
+  onChange,
+}: Omit<FilterValueWidgetProps, "op" | "property">) {
+  const { data: members } = useWorkspaceMembersQuery({ limit: 100 });
+  const data = (members?.items ?? []).map((u) => ({
+    value: u.id,
+    label: u.name || u.email || "Unknown",
+  }));
+  return (
+    <Select
+      aria-label={LABEL}
+      data={data}
+      value={typeof value === "string" ? value : null}
+      onChange={(v) => onChange(v ?? "")}
+      searchable
+      // Filter builder Popover closes on outside clicks, so keep the dropdown
+      // inside it (same reasoning as SelfRefRelationValueWidget).
+      comboboxProps={{ withinPortal: false }}
     />
   );
 }
@@ -166,6 +197,8 @@ export function FilterValueWidget({
         />
       );
     }
+    case "person":
+      return <PersonValueWidget value={value} onChange={onChange} />;
     case "relation":
       return embedHost?.hostPageId ? (
         <SelfRefRelationValueWidget

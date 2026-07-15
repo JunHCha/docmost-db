@@ -275,4 +275,17 @@ describe("SelectCell", () => {
     );
     expect(setMutate).not.toHaveBeenCalled();
   });
+
+  it("floors the dropdown to a minimum width so a narrow column/panel can't cramp it", () => {
+    renderCell(undefined);
+    fireEvent.click(screen.getByLabelText("Status"));
+    // Combobox width defaults to "target"; without a floor the dropdown collapses
+    // to the width of a narrow column or an empty side-panel value. A min-width
+    // keeps options legible while still growing to the target when it is wider.
+    const dropdown = document.querySelector(
+      "[class*='Combobox-dropdown']",
+    ) as HTMLElement | null;
+    expect(dropdown).toBeTruthy();
+    expect(dropdown!.style.minWidth).toBe("240px");
+  });
 });
