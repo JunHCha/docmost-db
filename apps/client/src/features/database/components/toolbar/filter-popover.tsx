@@ -1,4 +1,5 @@
 import { Button, Stack, Text } from "@mantine/core";
+import { IconFilter, IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -6,6 +7,7 @@ import {
 } from "@/features/database/types/database.types.ts";
 import { operatorsForType } from "@/features/database/filters/operators.ts";
 import { FilterRow } from "./filter-row";
+import classes from "./toolbar.module.css";
 
 interface FilterPopoverProps {
   properties: IDatabaseProperty[];
@@ -39,10 +41,13 @@ export function FilterPopover({
   }
 
   return (
-    <Stack gap="xs" miw={260}>
-      <Text size="sm" fw={600}>
-        {t("Filter")}
-      </Text>
+    <Stack gap="xs" className={classes.popover}>
+      <div className={classes.header}>
+        <IconFilter size={14} className={classes.headerIcon} />
+        <Text size="sm" fw={600}>
+          {t("Filter")}
+        </Text>
+      </div>
       {filters.length > 0 && (
         <Text size="xs" c="dimmed">
           {t("Where")}
@@ -60,8 +65,9 @@ export function FilterPopover({
       <Button
         variant="subtle"
         size="xs"
+        leftSection={<IconPlus size={14} />}
         onClick={addFilter}
-        style={{ alignSelf: "flex-start" }}
+        className={classes.addButton}
       >
         {t("Add filter")}
       </Button>

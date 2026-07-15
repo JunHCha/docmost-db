@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ActionIcon, Button, Group, Select, Stack, Text } from "@mantine/core";
-import { IconGripVertical, IconX } from "@tabler/icons-react";
+import {
+  IconArrowsSort,
+  IconGripVertical,
+  IconPlus,
+  IconX,
+} from "@tabler/icons-react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
   draggable,
@@ -12,6 +17,7 @@ import {
   ISortCondition,
 } from "@/features/database/types/database.types.ts";
 import { titleFilterProperty } from "@/features/database/filters/title-filter.ts";
+import classes from "./toolbar.module.css";
 
 // Pure list reorder: remove the item at `from` and insert it at `to`. The sort
 // list order is the tie-break priority (top = highest), so moving a row updates
@@ -168,10 +174,13 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
   }
 
   return (
-    <Stack gap="xs" miw={260}>
-      <Text size="sm" fw={600}>
-        {t("Sort")}
-      </Text>
+    <Stack gap="xs" className={classes.popover}>
+      <div className={classes.header}>
+        <IconArrowsSort size={14} className={classes.headerIcon} />
+        <Text size="sm" fw={600}>
+          {t("Sort")}
+        </Text>
+      </div>
       {sorts.map((sort, index) => (
         <SortRow
           key={index}
@@ -194,8 +203,9 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
         <Button
           variant="subtle"
           size="xs"
+          leftSection={<IconPlus size={14} />}
           onClick={addSort}
-          style={{ alignSelf: "flex-start" }}
+          className={classes.addButton}
         >
           {t("Add sort")}
         </Button>
