@@ -198,8 +198,13 @@ export function TableView({
       <Table
         withTableBorder
         withColumnBorders
-        striped
         highlightOnHover
+        // striped is intentionally dropped: the ee/base grid look uses a clean
+        // (un-striped) body with a tinted header band + subtle hover instead
+        // (see .table in table-view.module.css). classes.table only re-tints the
+        // Mantine Table CSS vars — no ee/base import.
+        verticalSpacing="xs"
+        className={classes.table}
         // Fixed layout keeps every declared-width column (gutter, Title, data
         // columns) at its width, so switching a cell into edit mode can't reflow
         // it and the selection gutter stays minimal. width:100% fills the page,

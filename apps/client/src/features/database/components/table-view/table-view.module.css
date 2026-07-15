@@ -1,3 +1,49 @@
+/* ── ee/base grid 룩앤필 차용 ─────────────────────────────────────────────
+ * database table view에 ee/base grid의 시각 디자인(헤더 틴트 밴드, 컬럼
+ * divider, 은은한 hover, 선택 행 blue 틴트)을 Mantine Table 위에 자체 CSS로
+ * 재현한다. ee/base 컴포넌트·스타일을 import하지 않으므로 upstream fetch 시
+ * 충돌하지 않으며, 기능도 통합하지 않는 별개 구현이다. */
+.table {
+  /* Mantine Table의 divider/hover 색을 ee/base 톤으로 재지정한다. */
+  --table-border-color: light-dark(
+    var(--mantine-color-gray-2),
+    var(--mantine-color-dark-4)
+  );
+  --table-highlight-on-hover-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+}
+
+/* 헤더 밴드: 은은한 틴트 배경 + 작고 굵은 라벨(색은 자식 Text로 상속).
+ * gutter/Title/데이터/추가열 헤더 셀에 일괄 적용된다. ee/base stickyBand +
+ * headerCell 톤. */
+.table thead th {
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-1));
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+}
+
+/* 선택된 행: blue 틴트가 hover보다 우선하도록 특정성을 높인다(td 대상). */
+.table tbody tr.row[data-selected] td {
+  background-color: light-dark(
+    var(--mantine-color-blue-0),
+    var(--mantine-color-dark-5)
+  );
+}
+
+/* 선택 + hover: 한 단계 짙은 blue (ee/base rowSelected:hover 톤). */
+.table tbody tr.row[data-selected]:hover td {
+  background-color: light-dark(
+    var(--mantine-color-blue-1),
+    var(--mantine-color-dark-4)
+  );
+}
+
 /* The row gutter checkbox is hidden until the row is hovered or selected,
  * mirroring Notion's left-edge select handle. */
 .gutter {
