@@ -8,6 +8,8 @@ import {
   useSetValueMutation,
 } from "@/features/database/queries/database-query.ts";
 import { IconCheck } from "@tabler/icons-react";
+import { useRefetchOnOpen } from "@/features/database/hooks/use-refetch-on-open.ts";
+import { ListFetchSplash } from "@/features/database/components/common/list-fetch-splash.tsx";
 import { PageRefChip, PageGlyph } from "./page-ref-chip";
 import { CellProps } from "./cell-props";
 import { INLINE_EMPTY_PLACEHOLDER } from "./inline-text";
@@ -33,8 +35,16 @@ export function RelationCell({
     targetDatabaseId || undefined,
   );
   const targetViewId = useDefaultViewId(targetDatabaseId);
-  const { data: rows } = useDatabaseRowsQuery(targetDatabaseId, targetViewId);
+  const {
+    data: rows,
+    refetch: refetchRows,
+    isFetching: rowsFetching,
+  } = useDatabaseRowsQuery(targetDatabaseId, targetViewId);
   const [opened, setOpened] = useState(false);
+  // Refresh the target rows each time the picker opens so a row renamed in the
+  // target database shows its current title, not the 5-min-stale cache (main.tsx
+  // disables refetchOnMount). A splash covers the fetch.
+  useRefetchOnOpen(opened, refetchRows);
   const combobox = useCombobox({
     opened,
     onDropdownClose: () => {
@@ -156,10 +166,12 @@ export function RelationCell({
           placeholder="Search..."
         />
         <Combobox.Options>
-          {opened && filtered.length === 0 && (
+          {opened && rowsFetching && <ListFetchSplash label="Loading…" />}
+          {opened && !rowsFetching && filtered.length === 0 && (
             <Combobox.Empty>No pages found</Combobox.Empty>
           )}
           {opened &&
+            !rowsFetching &&
             filtered.map((r) => (
               <Combobox.Option value={r.row.id} key={r.row.id}>
                 <Group gap="xs" justify="space-between" wrap="nowrap">

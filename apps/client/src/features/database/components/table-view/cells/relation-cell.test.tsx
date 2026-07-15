@@ -5,11 +5,17 @@ import { MantineProvider } from "@mantine/core";
 const setMutate = vi.fn();
 const clearMutate = vi.fn();
 let rowsData: any[] = [];
+let rowsFetching = false;
+const rowsRefetch = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
   useClearValueMutation: () => ({ mutate: clearMutate }),
-  useDatabaseRowsQuery: () => ({ data: rowsData }),
+  useDatabaseRowsQuery: () => ({
+    data: rowsData,
+    refetch: rowsRefetch,
+    isFetching: rowsFetching,
+  }),
   useDefaultViewId: () => "v1",
 }));
 
@@ -59,7 +65,9 @@ describe("RelationCell", () => {
     setMutate.mockReset();
     clearMutate.mockReset();
     openPeek.mockReset();
+    rowsRefetch.mockReset();
     rowsData = [row("r1", "Alpha"), row("r2", "Beta")];
+    rowsFetching = false;
   });
 
   it("renders a title chip for each referenced row", () => {
@@ -80,6 +88,23 @@ describe("RelationCell", () => {
       .find((el) => el.textContent?.includes(label));
     fireEvent.click(option!);
   }
+
+  it("refetches the target rows when the picker opens", () => {
+    // Rows are cached with a 5-min staleTime + refetchOnMount:false, so a row
+    // renamed in the target database would show its old title without this.
+    renderCell({ type: "relation", value: ["r1"] });
+    expect(rowsRefetch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText("Projects"));
+    expect(rowsRefetch).toHaveBeenCalled();
+  });
+
+  it("shows a loading splash instead of the options while rows are fetching", () => {
+    rowsFetching = true;
+    renderCell({ type: "relation", value: ["r1"] });
+    fireEvent.click(screen.getByLabelText("Projects"));
+    expect(screen.getByText("Loading…")).toBeTruthy();
+    expect(screen.queryByRole("option")).toBeNull();
+  });
 
   it("adds a row id to the array on selection", () => {
     renderCell({ type: "relation", value: ["r1"] });

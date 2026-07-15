@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
 const listDatabasesQuery = vi.fn();
+const databasesRefetch = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useListDatabasesQuery: (spaceId: string) => listDatabasesQuery(spaceId),
@@ -32,7 +33,13 @@ function renderModal(onConfirm = vi.fn()) {
 describe("DatabasePickerModal", () => {
   beforeEach(() => {
     listDatabasesQuery.mockReset();
-    listDatabasesQuery.mockReturnValue({ data: databases, isLoading: false });
+    databasesRefetch.mockReset();
+    listDatabasesQuery.mockReturnValue({
+      data: databases,
+      isLoading: false,
+      isFetching: false,
+      refetch: databasesRefetch,
+    });
   });
 
   it("lists databases in the host space", () => {
@@ -55,5 +62,25 @@ describe("DatabasePickerModal", () => {
     fireEvent.change(search, { target: { value: "proj" } });
     expect(screen.queryByText("Tasks")).toBeNull();
     expect(screen.getByText("Projects")).toBeTruthy();
+  });
+
+  it("refetches the database list when opened", () => {
+    // The list is cached with a 5-min staleTime + refetchOnMount:false, so a
+    // database renamed elsewhere would show its old name without this refresh.
+    renderModal();
+    expect(databasesRefetch).toHaveBeenCalled();
+  });
+
+  it("shows a loading splash instead of the list while databases are fetching", () => {
+    listDatabasesQuery.mockReturnValue({
+      data: databases,
+      isLoading: false,
+      isFetching: true,
+      refetch: databasesRefetch,
+    });
+    renderModal();
+    expect(screen.getByText("Loading…")).toBeTruthy();
+    // The (possibly stale) list is hidden behind the splash during the refetch.
+    expect(screen.queryByText("Tasks")).toBeNull();
   });
 });

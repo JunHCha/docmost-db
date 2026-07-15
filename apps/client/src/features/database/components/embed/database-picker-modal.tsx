@@ -11,6 +11,8 @@ import {
 import { IconDatabase } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useListDatabasesQuery } from "@/features/database/queries/database-query.ts";
+import { useRefetchOnOpen } from "@/features/database/hooks/use-refetch-on-open.ts";
+import { ListFetchSplash } from "@/features/database/components/common/list-fetch-splash.tsx";
 
 interface DatabasePickerModalProps {
   opened: boolean;
@@ -32,7 +34,11 @@ export function DatabasePickerModal({
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
 
-  const { data: databases } = useListDatabasesQuery(spaceId);
+  // Refetch the database list whenever the picker opens so a database renamed
+  // (or created/deleted) elsewhere is reflected, instead of the 5-min-stale
+  // cache (main.tsx disables refetchOnMount). A splash covers the fetch.
+  const { data: databases, refetch, isFetching } = useListDatabasesQuery(spaceId);
+  useRefetchOnOpen(opened, refetch);
 
   const filteredDatabases = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -66,6 +72,9 @@ export function DatabasePickerModal({
           data-autofocus
         />
         <ScrollArea.Autosize mah={320}>
+          {isFetching ? (
+            <ListFetchSplash label={t("Loading…")} />
+          ) : (
           <Stack gap={2}>
             {filteredDatabases.map((db) => (
               <UnstyledButton
@@ -87,6 +96,7 @@ export function DatabasePickerModal({
               </Text>
             )}
           </Stack>
+          )}
         </ScrollArea.Autosize>
       </Stack>
     </Modal>

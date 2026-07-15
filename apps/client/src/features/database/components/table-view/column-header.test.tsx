@@ -7,12 +7,18 @@ const updateMutate = vi.fn();
 const deleteMutate = vi.fn();
 
 let databasesData: any[] = [];
+let databasesFetching = false;
+const databasesRefetch = vi.fn();
 
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useReorderPropertyMutation: () => ({ mutate: reorderMutate }),
   useUpdatePropertyMutation: () => ({ mutate: updateMutate }),
   useDeletePropertyMutation: () => ({ mutate: deleteMutate }),
-  useListDatabasesQuery: () => ({ data: databasesData }),
+  useListDatabasesQuery: () => ({
+    data: databasesData,
+    refetch: databasesRefetch,
+    isFetching: databasesFetching,
+  }),
 }));
 
 import { ColumnHeader } from "./column-header";
@@ -52,7 +58,9 @@ describe("ColumnHeader", () => {
     reorderMutate.mockReset();
     updateMutate.mockReset();
     deleteMutate.mockReset();
+    databasesRefetch.mockReset();
     databasesData = [];
+    databasesFetching = false;
   });
 
   it("shows the property name", () => {
@@ -278,6 +286,28 @@ describe("ColumnHeader", () => {
     fireEvent.click(screen.getByLabelText("Column options"));
     fireEvent.click(screen.getByText("Relation"));
     expect(screen.queryByText("Self")).toBeNull();
+  });
+
+  it("refetches the database list when the relation target picker opens", () => {
+    // The list is cached with a 5-min staleTime + refetchOnMount:false, so a
+    // database renamed elsewhere would show its old name without this refresh.
+    databasesData = [{ id: "db2", pageId: "p2", title: "People", icon: null }];
+    renderHeader();
+    expect(databasesRefetch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Relation"));
+    expect(databasesRefetch).toHaveBeenCalled();
+  });
+
+  it("shows a loading splash instead of the list while databases are fetching", () => {
+    databasesFetching = true;
+    databasesData = [{ id: "db2", pageId: "p2", title: "People", icon: null }];
+    renderHeader();
+    fireEvent.click(screen.getByLabelText("Column options"));
+    fireEvent.click(screen.getByText("Relation"));
+    expect(screen.getByText("Loading…")).toBeTruthy();
+    // The (possibly stale) list is hidden behind the splash during the refetch.
+    expect(screen.queryByText("People")).toBeNull();
   });
 
   it("disables a target this database already links via another column (#111 QA)", () => {

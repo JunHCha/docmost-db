@@ -25,6 +25,8 @@ import {
   useListDatabasesQuery,
   useUpdatePropertyMutation,
 } from "@/features/database/queries/database-query.ts";
+import { useRefetchOnOpen } from "@/features/database/hooks/use-refetch-on-open.ts";
+import { ListFetchSplash } from "@/features/database/components/common/list-fetch-splash.tsx";
 import { resolveReorderTarget } from "./reorder";
 import { ColumnResizeHandle } from "./column-resize-handle";
 import classes from "./column-header.module.css";
@@ -119,7 +121,15 @@ export function ColumnHeader({
       )
       .map((p) => p.config.targetDatabaseId as string),
   );
-  const { data: databases } = useListDatabasesQuery(spaceId);
+  // Refetch the database list each time the relation-target picker is shown so a
+  // database renamed elsewhere reflects immediately, rather than the 5-min-stale
+  // cache (main.tsx disables refetchOnMount). A splash covers the fetch.
+  const {
+    data: databases,
+    refetch: refetchDatabases,
+    isFetching: databasesFetching,
+  } = useListDatabasesQuery(spaceId);
+  useRefetchOnOpen(pickingRelation, refetchDatabases);
 
   useEffect(() => {
     // The draggable wrapper only exists in the non-editing view (see render),
@@ -260,6 +270,9 @@ export function ColumnHeader({
                     // Relation target picker: list the space's other databases.
                     // Committing without a targetDatabaseId is rejected (400),
                     // so the type change only fires once a target is chosen.
+                    databasesFetching ? (
+                      <ListFetchSplash label={t("Loading…")} />
+                    ) : (
                     <>
                       <Menu.Label>{t("Relation to")}</Menu.Label>
                       {(databases ?? [])
@@ -294,6 +307,7 @@ export function ColumnHeader({
                           );
                         })}
                     </>
+                    )
                   ) : (
                     <>
                       <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>
