@@ -60,9 +60,10 @@ describe("moveSort", () => {
 });
 
 describe("SortPopover", () => {
-  it("renders a Sort title header", () => {
+  it("renders the header and an empty-state message when there are no sorts", () => {
     renderPopover([]);
-    expect(screen.getByText("Sort")).toBeTruthy();
+    expect(screen.getByText("Sort by")).toBeTruthy();
+    expect(screen.getByText("No sorts applied")).toBeTruthy();
   });
 
   it("adds a sort defaulting to the first unused property ascending", () => {

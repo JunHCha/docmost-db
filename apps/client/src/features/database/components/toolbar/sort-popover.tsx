@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef } from "react";
-import { ActionIcon, Button, Group, Select, Stack, Text } from "@mantine/core";
 import {
-  IconArrowsSort,
+  ActionIcon,
+  Group,
+  Select,
+  Stack,
+  Text,
+  UnstyledButton,
+} from "@mantine/core";
+import {
   IconGripVertical,
   IconPlus,
-  IconX,
+  IconTrash,
 } from "@tabler/icons-react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -130,10 +136,11 @@ function SortRow({
       <ActionIcon
         variant="subtle"
         color="gray"
+        size="sm"
         aria-label={t("Remove sort")}
         onClick={onRemove}
       >
-        <IconX size={16} />
+        <IconTrash size={14} />
       </ActionIcon>
     </Group>
   );
@@ -175,12 +182,14 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
 
   return (
     <Stack gap="xs" className={classes.popover}>
-      <div className={classes.header}>
-        <IconArrowsSort size={14} className={classes.headerIcon} />
-        <Text size="sm" fw={600}>
-          {t("Sort")}
+      <Text size="xs" fw={600} c="dimmed">
+        {t("Sort by")}
+      </Text>
+      {sorts.length === 0 && (
+        <Text size="xs" c="dimmed">
+          {t("No sorts applied")}
         </Text>
-      </div>
+      )}
       {sorts.map((sort, index) => (
         <SortRow
           key={index}
@@ -200,15 +209,10 @@ export function SortPopover({ properties, sorts, onChange }: SortPopoverProps) {
         />
       ))}
       {hasUnusedProperty && (
-        <Button
-          variant="subtle"
-          size="xs"
-          leftSection={<IconPlus size={14} />}
-          onClick={addSort}
-          className={classes.addButton}
-        >
+        <UnstyledButton onClick={addSort} className={classes.addActionButton}>
+          <IconPlus size={14} />
           {t("Add sort")}
-        </Button>
+        </UnstyledButton>
       )}
     </Stack>
   );

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ActionIcon, Group, Select } from "@mantine/core";
-import { IconX } from "@tabler/icons-react";
+import { IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -91,10 +91,11 @@ export function FilterRow({
       <ActionIcon
         variant="subtle"
         color="gray"
+        size="sm"
         aria-label={t("Remove filter")}
         onClick={onRemove}
       >
-        <IconX size={16} />
+        <IconTrash size={14} />
       </ActionIcon>
     </Group>
   );

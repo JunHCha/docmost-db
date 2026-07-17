@@ -41,9 +41,10 @@ function renderPopover(filters: IFilterCondition[], onChange = vi.fn()) {
 }
 
 describe("FilterPopover", () => {
-  it("renders a Filter title header", () => {
+  it("renders the header and an empty-state message when there are no filters", () => {
     renderPopover([]);
-    expect(screen.getByText("Filter")).toBeTruthy();
+    expect(screen.getByText("Filter by")).toBeTruthy();
+    expect(screen.getByText("No filters applied")).toBeTruthy();
   });
 
   it("adds a filter defaulting to the first property and its first op", () => {
