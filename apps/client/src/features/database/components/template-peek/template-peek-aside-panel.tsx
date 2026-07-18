@@ -1,4 +1,4 @@
-import { Box, Group, ScrollArea } from "@mantine/core";
+import { Box } from "@mantine/core";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
@@ -70,14 +70,15 @@ export function TemplatePeekAsidePanel() {
         >
           <IconGripVertical size={14} stroke={1.5} />
         </div>
-        <ScrollArea className={classes.body} scrollbarSize={5} type="scroll">
+        <div className={classes.body}>
           <TemplatePeekBody
             databaseId={databaseId}
             templateId={templateId}
             onClose={close}
             headerControls={<TemplatePeekHostControls />}
+            fillHeight
           />
-        </ScrollArea>
+        </div>
       </Box>
     </>
   );
