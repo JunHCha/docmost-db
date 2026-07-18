@@ -127,6 +127,15 @@ describe("SortPopover", () => {
     expect(screen.queryByRole("option", { name: "Price" })).toBeNull();
   });
 
+  it("shows a property-type icon next to each sort column option", () => {
+    renderPopover([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort property" }));
+    // Title(text) → letter-case, select → circle-dot, number → hash glyphs.
+    expect(document.querySelector(".tabler-icon-letter-case")).toBeTruthy();
+    expect(document.querySelector(".tabler-icon-circle-dot")).toBeTruthy();
+    expect(document.querySelector(".tabler-icon-hash")).toBeTruthy();
+  });
+
   it("hides the Add sort action once every property is used", () => {
     // Every property — both real ones plus the Title pseudo-column — is sorted
     // on, so there is nothing left to add.

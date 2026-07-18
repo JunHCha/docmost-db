@@ -23,6 +23,7 @@ import {
   ISortCondition,
 } from "@/features/database/types/database.types.ts";
 import { titleFilterProperty } from "@/features/database/filters/title-filter.ts";
+import { PropertyTypeIcon } from "@/features/database/components/property/property-type-icon.tsx";
 import classes from "./toolbar.module.css";
 
 // Pure list reorder: remove the item at `from` and insert it at `to`. The sort
@@ -118,6 +119,15 @@ function SortRow({
         comboboxProps={{ withinPortal: false }}
         size="xs"
         w={130}
+        renderOption={({ option }) => {
+          const p = properties.find((x) => x.id === option.value);
+          return (
+            <Group gap={6} wrap="nowrap">
+              {p && <PropertyTypeIcon type={p.type} size={14} />}
+              <span>{option.label}</span>
+            </Group>
+          );
+        }}
       />
       <Select
         aria-label={t("Sort direction")}

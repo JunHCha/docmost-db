@@ -8,11 +8,11 @@ import {
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { IconDatabase } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useListDatabasesQuery } from "@/features/database/queries/database-query.ts";
 import { useRefetchOnOpen } from "@/features/database/hooks/use-refetch-on-open.ts";
 import { ListFetchSplash } from "@/features/database/components/common/list-fetch-splash.tsx";
+import { PageGlyph } from "@/features/database/components/table-view/cells/page-ref-chip.tsx";
 import classes from "./database-picker-modal.module.css";
 
 interface DatabasePickerModalProps {
@@ -85,7 +85,7 @@ export function DatabasePickerModal({
                 p="xs"
               >
                 <Group gap="xs" wrap="nowrap">
-                  <IconDatabase size={16} />
+                  <PageGlyph icon={db.icon} pageType="database" />
                   <Text size="sm" truncate>
                     {db.title || t("Untitled")}
                   </Text>
