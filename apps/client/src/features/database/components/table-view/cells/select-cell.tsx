@@ -142,9 +142,10 @@ export function SelectCell({
   return (
     <Combobox
       store={combobox}
-      // Inline in the grid, portal in the row panel (whose overflow:hidden value
-      // wrapper would otherwise clip the dropdown to the row, #93 follow-up).
-      withinPortal={!!showEmptyPlaceholder}
+      // Always portal: inline, the dropdown is clipped by the grid's vertical
+      // overflow when the table is short, and by the row panel's overflow:hidden
+      // value wrapper. Matches PersonCell / RelationCell (#93 follow-up).
+      withinPortal
       onOptionSubmit={(val) => {
         if (val === "$clear") return clear();
         if (val === "$create") return createAndSelect();
