@@ -76,3 +76,27 @@
 .footer {
     margin-top: 1rem;
 }
+
+/* Fill-height mode (modal host): the editor stretches to its host's fixed
+   height, the rich body grows to absorb the slack and scrolls on overflow, and
+   the footer stays pinned at the bottom. Other hosts (aside / full page) size to
+   content and are unaffected. */
+.fill {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fill .body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.fill .editorBody {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
