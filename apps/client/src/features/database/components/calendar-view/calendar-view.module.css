@@ -1,0 +1,18 @@
+/* The per-day "add" button is always mounted (so its menu can stay open) but
+   only revealed on cell hover, or while its own menu is open. */
+.cell {
+  position: relative;
+}
+
+.addButton {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.cell:hover .addButton,
+.addButton[data-open="true"] {
+  opacity: 1;
+}

@@ -28,6 +28,8 @@ interface ViewToolbarProps {
   onChangeGroupBy?: (id: string | null) => void;
   datePropertyId?: string;
   onChangeDateProperty?: (id: string | null) => void;
+  endDatePropertyId?: string;
+  onChangeEndDateProperty?: (id: string | null) => void;
 }
 
 // View options toolbar: icon-only Filter / Sort buttons (each opening a builder
@@ -48,6 +50,8 @@ export function ViewToolbar({
   onChangeGroupBy,
   datePropertyId,
   onChangeDateProperty,
+  endDatePropertyId,
+  onChangeEndDateProperty,
 }: ViewToolbarProps) {
   const { t } = useTranslation();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -132,6 +136,8 @@ export function ViewToolbar({
         onChangeGroupBy={onChangeGroupBy}
         datePropertyId={datePropertyId}
         onChangeDateProperty={onChangeDateProperty}
+        endDatePropertyId={endDatePropertyId}
+        onChangeEndDateProperty={onChangeEndDateProperty}
       />
       <TemplateManagerMenu databaseId={databaseId} />
     </Group>

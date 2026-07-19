@@ -175,6 +175,10 @@ export interface IDatabaseViewConfig {
   // Calendar view: the single date property whose value anchors each row's bar
   // on the month grid. Auto-adopted from the first date column when unset.
   datePropertyId?: string;
+  // Calendar view (optional): a second date property read as each bar's end.
+  // When set (and not before the start), the bar spans start..end across the
+  // grid; unset means every bar stays a single day at datePropertyId.
+  endDatePropertyId?: string;
   // @deprecated Board cards now follow the view's visible columns; kept only so
   // older stored configs still type-check. No longer read or written by the UI.
   cardProperties?: string[];
