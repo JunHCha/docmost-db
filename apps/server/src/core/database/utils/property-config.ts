@@ -12,9 +12,26 @@ export const PROPERTY_TYPES = [
   'url',
   'relation',
   'person',
+  // Computed system columns (issue #128): read-only, values are synthesized
+  // from the row page's metadata (creator/created/updated), never stored.
+  'created_by',
+  'created_time',
+  'last_edited_time',
 ] as const;
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
+
+// Read-only types whose value the backend derives from page metadata at read
+// time. Users cannot create them or set their value.
+export const COMPUTED_PROPERTY_TYPES = [
+  'created_by',
+  'created_time',
+  'last_edited_time',
+] as const;
+
+export function isComputedPropertyType(type: PropertyType): boolean {
+  return (COMPUTED_PROPERTY_TYPES as readonly string[]).includes(type);
+}
 
 export interface SelectOption {
   id: string;

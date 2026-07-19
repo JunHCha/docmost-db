@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   assertPropertyType,
+  isComputedPropertyType,
   isPropertyType,
   normalizePropertyConfig,
 } from './property-config';
@@ -23,9 +24,29 @@ describe('property-config', () => {
       }
     });
 
+    it('accepts the 3 computed system types', () => {
+      for (const t of ['created_by', 'created_time', 'last_edited_time']) {
+        expect(isPropertyType(t)).toBe(true);
+      }
+    });
+
     it('rejects unknown types', () => {
       expect(isPropertyType('formula')).toBe(false);
       expect(() => assertPropertyType('formula')).toThrow(BadRequestException);
+    });
+  });
+
+  describe('isComputedPropertyType', () => {
+    it('is true only for the computed system types', () => {
+      for (const t of ['created_by', 'created_time', 'last_edited_time']) {
+        expect(isComputedPropertyType(t as any)).toBe(true);
+      }
+    });
+
+    it('is false for user-editable types', () => {
+      for (const t of ['text', 'date', 'select', 'relation', 'person']) {
+        expect(isComputedPropertyType(t as any)).toBe(false);
+      }
     });
   });
 
