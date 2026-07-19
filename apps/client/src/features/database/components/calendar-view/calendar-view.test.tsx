@@ -145,7 +145,8 @@ describe("CalendarView", () => {
       config: { datePropertyId: "start" },
       rows: [row("r1", [{ propertyId: "start", iso: "2026-06-10" }])],
     });
-    fireEvent.click(barSegments("r1")[0]);
+    // The clickable zone is the bar's label (handles are drag-only).
+    fireEvent.click(screen.getByText("r1"));
     expect(peekOpen).toHaveBeenCalledWith("r1", "modal");
   });
 
@@ -232,5 +233,98 @@ describe("CalendarView", () => {
       propertyId: "start",
       value: { type: "date", value: "2026-06-20" },
     });
+  });
+
+  const dragData = (over: Record<string, unknown> = {}) => ({
+    source: {
+      data: {
+        id: "r1",
+        startDatePropertyId: "start",
+        endDatePropertyId: "end",
+        startISO: "2026-06-10",
+        endISO: "2026-06-12",
+        ...over,
+      },
+    },
+  });
+
+  it("resizes only the end date when the right handle is dropped", () => {
+    renderCalendar({
+      config: { datePropertyId: "start", endDatePropertyId: "end" },
+      rows: [
+        row("r1", [
+          { propertyId: "start", iso: "2026-06-10" },
+          { propertyId: "end", iso: "2026-06-12" },
+        ]),
+      ],
+    });
+    dropByDate.get("2026-06-16")!(dragData({ mode: "resize-end" }));
+    expect(setMutate).toHaveBeenCalledTimes(1);
+    expect(setMutate).toHaveBeenCalledWith({
+      pageId: "r1",
+      propertyId: "end",
+      value: { type: "date", value: "2026-06-16" },
+    });
+  });
+
+  it("resizes only the start date when the left handle is dropped", () => {
+    renderCalendar({
+      config: { datePropertyId: "start", endDatePropertyId: "end" },
+      rows: [
+        row("r1", [
+          { propertyId: "start", iso: "2026-06-10" },
+          { propertyId: "end", iso: "2026-06-12" },
+        ]),
+      ],
+    });
+    dropByDate.get("2026-06-07")!(dragData({ mode: "resize-start" }));
+    expect(setMutate).toHaveBeenCalledTimes(1);
+    expect(setMutate).toHaveBeenCalledWith({
+      pageId: "r1",
+      propertyId: "start",
+      value: { type: "date", value: "2026-06-07" },
+    });
+  });
+
+  it("clamps a right-handle resize dropped before the start to the start day", () => {
+    renderCalendar({
+      config: { datePropertyId: "start", endDatePropertyId: "end" },
+      rows: [
+        row("r1", [
+          { propertyId: "start", iso: "2026-06-10" },
+          { propertyId: "end", iso: "2026-06-12" },
+        ]),
+      ],
+    });
+    dropByDate.get("2026-06-05")!(dragData({ mode: "resize-end" }));
+    expect(setMutate).toHaveBeenCalledWith({
+      pageId: "r1",
+      propertyId: "end",
+      value: { type: "date", value: "2026-06-10" },
+    });
+  });
+
+  it("renders resize handles only on a multi-day bar's true ends", () => {
+    renderCalendar({
+      config: { datePropertyId: "start", endDatePropertyId: "end" },
+      rows: [
+        row("r1", [
+          { propertyId: "start", iso: "2026-06-08" },
+          { propertyId: "end", iso: "2026-06-10" },
+        ]),
+      ],
+    });
+    // One left + one right handle for a single-week span.
+    expect(screen.getAllByTestId("calendar-bar-resize-start")).toHaveLength(1);
+    expect(screen.getAllByTestId("calendar-bar-resize-end")).toHaveLength(1);
+  });
+
+  it("shows no resize handles on a single-day bar", () => {
+    renderCalendar({
+      config: { datePropertyId: "start" },
+      rows: [row("r1", [{ propertyId: "start", iso: "2026-06-10" }])],
+    });
+    expect(screen.queryByTestId("calendar-bar-resize-start")).toBeNull();
+    expect(screen.queryByTestId("calendar-bar-resize-end")).toBeNull();
   });
 });

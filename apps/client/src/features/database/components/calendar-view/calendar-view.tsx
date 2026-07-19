@@ -56,18 +56,18 @@ interface CalendarViewProps {
   onAutoAdoptDate?: (id: string) => void;
 }
 
-// One day cell: the date number plus a drop target. Dropping a bar here shifts
-// its date property (single-day) or its whole span (multi-day) so the bar's
-// start lands on this day — see onMoveBar. Bars themselves are drawn by the
-// week overlay, not inside the cell, so a span can cross column boundaries.
+// One day cell: the date number plus a drop target. Dropping a bar here applies
+// it to this day — moving the whole span or resizing one end per the drag mode
+// (see onBarDrop). Bars themselves are drawn by the week overlay, not inside the
+// cell, so a span can cross column boundaries.
 function DayCell({
   date,
   inMonth,
-  onMoveBar,
+  onBarDrop,
 }: {
   date: Dayjs;
   inMonth: boolean;
-  onMoveBar: (drag: CalendarBarDrag, date: Dayjs) => void;
+  onBarDrop: (drag: CalendarBarDrag, date: Dayjs) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
@@ -82,10 +82,10 @@ function DayCell({
       onDragLeave: () => setOver(false),
       onDrop: ({ source }) => {
         setOver(false);
-        onMoveBar(source.data as unknown as CalendarBarDrag, date);
+        onBarDrop(source.data as unknown as CalendarBarDrag, date);
       },
     });
-  }, [date, onMoveBar]);
+  }, [date, onBarDrop]);
 
   const isToday = date.isSame(dayjs(), "day");
 
@@ -144,6 +144,7 @@ function WeekBars({
           <CalendarBar
             key={seg.bar.row.row.id}
             bar={seg.bar}
+            resizable={!seg.bar.singleDay}
             continuesLeft={seg.continuesLeft}
             continuesRight={seg.continuesRight}
             style={{
@@ -266,36 +267,56 @@ export function CalendarView({
     return map;
   }, [bars]);
 
-  // Move a dropped bar: shift both date properties by the drop delta so a
-  // multi-day span keeps its length while its start lands on the dropped day.
-  // Each set-value is optimistically patched into the rows cache first (its
+  // Persist one date property, optimistically patching the rows cache first (its
   // onError invalidates the rows prefix and rolls back).
-  const onMoveBar = useCallback(
-    (drag: CalendarBarDrag, date: Dayjs) => {
-      const delta = date.diff(dayjs(drag.startISO, ISO), "day");
-      const updates: Array<{ propertyId: string; iso: string }> = [
-        { propertyId: drag.startDatePropertyId, iso: date.format(ISO) },
-      ];
-      if (drag.endDatePropertyId) {
-        updates.push({
-          propertyId: drag.endDatePropertyId,
-          iso: dayjs(drag.endISO, ISO).add(delta, "day").format(ISO),
-        });
-      }
-      for (const { propertyId, iso } of updates) {
-        const value = { type: "date" as const, value: iso };
-        patchRowValue(queryClient, databaseId, {
-          id: `optimistic-${drag.id}-${propertyId}`,
-          pageId: drag.id,
-          propertyId,
-          value,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-        setValue.mutate({ pageId: drag.id, propertyId, value });
-      }
+  const setDate = useCallback(
+    (rowId: string, propertyId: string, iso: string) => {
+      const value = { type: "date" as const, value: iso };
+      patchRowValue(queryClient, databaseId, {
+        id: `optimistic-${rowId}-${propertyId}`,
+        pageId: rowId,
+        propertyId,
+        value,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      setValue.mutate({ pageId: rowId, propertyId, value });
     },
     [queryClient, databaseId, setValue],
+  );
+
+  // Apply a dropped bar to the dropped day. move shifts both dates by the drop
+  // delta so a multi-day span keeps its length; resize sets just that end,
+  // clamped so the start never passes the end.
+  const onBarDrop = useCallback(
+    (drag: CalendarBarDrag, date: Dayjs) => {
+      const dropISO = date.format(ISO);
+      const start = dayjs(drag.startISO, ISO);
+      const end = dayjs(drag.endISO, ISO);
+
+      if (drag.mode === "resize-start" && drag.endDatePropertyId) {
+        const iso = date.isAfter(end, "day") ? drag.endISO : dropISO;
+        setDate(drag.id, drag.startDatePropertyId, iso);
+        return;
+      }
+      if (drag.mode === "resize-end" && drag.endDatePropertyId) {
+        const iso = date.isBefore(start, "day") ? drag.startISO : dropISO;
+        setDate(drag.id, drag.endDatePropertyId, iso);
+        return;
+      }
+
+      // move: round the fractional day diff (DST-safe, see layout-rows).
+      const delta = Math.round(date.diff(start, "day", true));
+      setDate(drag.id, drag.startDatePropertyId, dropISO);
+      if (drag.endDatePropertyId) {
+        setDate(
+          drag.id,
+          drag.endDatePropertyId,
+          end.add(delta, "day").format(ISO),
+        );
+      }
+    },
+    [setDate],
   );
 
   return (
@@ -360,7 +381,7 @@ export function CalendarView({
                         key={date.format(ISO)}
                         date={date}
                         inMonth={date.isSame(month, "month")}
-                        onMoveBar={onMoveBar}
+                        onBarDrop={onBarDrop}
                       />
                     ))}
                   </SimpleGrid>

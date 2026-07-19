@@ -101,18 +101,22 @@ export function ViewSettingsMenu({
         </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Sub>
-          <Menu.Sub.Target>
-            <Menu.Sub.Item>{t("Show properties")}</Menu.Sub.Item>
-          </Menu.Sub.Target>
-          <Menu.Sub.Dropdown>
-            <PropertiesPopover
-              properties={properties}
-              columns={columns}
-              onToggle={onToggleColumn}
-            />
-          </Menu.Sub.Dropdown>
-        </Menu.Sub>
+        {/* Calendar cells show only the row title, so per-property column
+            show/hide is meaningless there — the submenu is table/board only. */}
+        {viewType !== "calendar" ? (
+          <Menu.Sub>
+            <Menu.Sub.Target>
+              <Menu.Sub.Item>{t("Show properties")}</Menu.Sub.Item>
+            </Menu.Sub.Target>
+            <Menu.Sub.Dropdown>
+              <PropertiesPopover
+                properties={properties}
+                columns={columns}
+                onToggle={onToggleColumn}
+              />
+            </Menu.Sub.Dropdown>
+          </Menu.Sub>
+        ) : null}
         {viewType === "board" && onChangeGroupBy ? (
           <Menu.Sub>
             <Menu.Sub.Target>

@@ -170,6 +170,8 @@
   "Remove group member": "팀에서 사용자 제거",
   "Remove space member": "Space에서 사용자 제거",
   "Restore": "복원",
+  "Resize start": "시작일 조정",
+  "Resize end": "종료일 조정",
   "Role": "역할",
   "Save": "저장",
   "Search": "검색",

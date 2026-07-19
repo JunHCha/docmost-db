@@ -138,6 +138,8 @@ describe("ViewSettingsMenu", () => {
     expect(screen.getByText("End date")).toBeTruthy();
     // Group by is board-only; it must not appear on a calendar.
     expect(screen.queryByText("Group by")).toBeNull();
+    // Column show/hide is meaningless on a calendar, so it is hidden too.
+    expect(screen.queryByText("Show properties")).toBeNull();
   });
 
   it("picks a date candidate from the calendar End date submenu", async () => {
