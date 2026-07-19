@@ -160,6 +160,7 @@ export class DatabaseRepo {
         'pages.parentPageId',
         'pages.spaceId',
         'pages.workspaceId',
+        'pages.creatorId',
         'pages.createdAt',
         'pages.updatedAt',
       ])
@@ -303,6 +304,17 @@ export class DatabaseRepo {
     // The Title pseudo-column sorts on pages.title (TITLE_FILTER_ID).
     if (sort.propertyId === TITLE_FILTER_ID) {
       return sql`pages.title`;
+    }
+    // Computed system columns sort on the row page's own metadata, not a stored
+    // property value. Raw SQL uses the physical snake_case columns.
+    if (sort.propertyType === 'created_time') {
+      return sql`pages.created_at`;
+    }
+    if (sort.propertyType === 'last_edited_time') {
+      return sql`pages.updated_at`;
+    }
+    if (sort.propertyType === 'created_by') {
+      return sql`pages.creator_id`;
     }
     const v = this.valueSubquery(sort.propertyId);
     if (sort.propertyType === 'number') {
