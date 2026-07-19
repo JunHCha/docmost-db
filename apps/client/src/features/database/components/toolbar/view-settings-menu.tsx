@@ -22,6 +22,8 @@ interface ViewSettingsMenuProps {
   onChangeGroupBy?: (id: string | null) => void;
   datePropertyId?: string;
   onChangeDateProperty?: (id: string | null) => void;
+  endDatePropertyId?: string;
+  onChangeEndDateProperty?: (id: string | null) => void;
 }
 
 // The toolbar's "View settings" control: an icon button opening a menu whose
@@ -38,18 +40,25 @@ export function ViewSettingsMenu({
   onChangeGroupBy,
   datePropertyId,
   onChangeDateProperty,
+  endDatePropertyId,
+  onChangeEndDateProperty,
 }: ViewSettingsMenuProps) {
   const { t } = useTranslation();
   const candidates = groupByCandidates(properties);
   const dates = dateCandidates(properties);
 
-  // The calendar's single date-property submenu. Picking the already-selected
-  // property clears it, so the date anchor can be unset again.
-  function dateSubmenu() {
+  // A calendar date-property submenu (used for both the start "Date" anchor and
+  // the optional "End date"). Picking the already-selected property clears it,
+  // so either anchor can be unset again.
+  function dateSubmenu(
+    label: string,
+    selectedId: string | undefined,
+    onChange: (id: string | null) => void,
+  ) {
     return (
       <Menu.Sub>
         <Menu.Sub.Target>
-          <Menu.Sub.Item>{t("Date")}</Menu.Sub.Item>
+          <Menu.Sub.Item>{label}</Menu.Sub.Item>
         </Menu.Sub.Target>
         <Menu.Sub.Dropdown>
           {dates.map((property) => (
@@ -57,14 +66,12 @@ export function ViewSettingsMenu({
               key={property.id}
               leftSection={<PropertyTypeIcon type={property.type} size={14} />}
               rightSection={
-                datePropertyId === property.id ? (
+                selectedId === property.id ? (
                   <IconCheck size={14} />
                 ) : undefined
               }
               onClick={() =>
-                onChangeDateProperty?.(
-                  datePropertyId === property.id ? null : property.id,
-                )
+                onChange(selectedId === property.id ? null : property.id)
               }
             >
               {property.name}
@@ -131,7 +138,16 @@ export function ViewSettingsMenu({
             </Menu.Sub.Dropdown>
           </Menu.Sub>
         ) : null}
-        {viewType === "calendar" && onChangeDateProperty ? dateSubmenu() : null}
+        {viewType === "calendar" && onChangeDateProperty
+          ? dateSubmenu(t("Date"), datePropertyId, onChangeDateProperty)
+          : null}
+        {viewType === "calendar" && onChangeEndDateProperty
+          ? dateSubmenu(
+              t("End date"),
+              endDatePropertyId,
+              onChangeEndDateProperty,
+            )
+          : null}
       </Menu.Dropdown>
     </Menu>
   );

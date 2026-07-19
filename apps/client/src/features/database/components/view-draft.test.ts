@@ -67,9 +67,10 @@ describe("isDraftDirty", () => {
     ).toBe(true);
   });
 
-  it("is dirty when groupBy / dateProperty / titleWidth change", () => {
+  it("is dirty when groupBy / dateProperty / endDateProperty / titleWidth change", () => {
     expect(isDraftDirty({ groupByPropertyId: "g" }, {})).toBe(true);
     expect(isDraftDirty({ datePropertyId: "d" }, {})).toBe(true);
+    expect(isDraftDirty({ endDatePropertyId: "e" }, {})).toBe(true);
     expect(isDraftDirty({ titleWidth: 300 }, {})).toBe(true);
   });
 
@@ -228,14 +229,28 @@ describe("pruneUnknownPropertyRefs", () => {
     expect(pruned.sorts).toEqual([{ propertyId: "p2", direction: "desc" as const }]);
   });
 
-  it("unsets groupBy/dateProperty refs to a deleted property", () => {
+  it("unsets groupBy/dateProperty/endDateProperty refs to a deleted property", () => {
     const { config: pruned, dropped } = pruneUnknownPropertyRefs(
-      { groupByPropertyId: "gone", datePropertyId: "gone" },
+      {
+        groupByPropertyId: "gone",
+        datePropertyId: "gone",
+        endDatePropertyId: "gone",
+      },
       known,
     );
     expect(dropped).toBe(true);
     expect(pruned.groupByPropertyId).toBeUndefined();
     expect(pruned.datePropertyId).toBeUndefined();
+    expect(pruned.endDatePropertyId).toBeUndefined();
+  });
+
+  it("keeps a known endDateProperty ref", () => {
+    const { config: pruned, dropped } = pruneUnknownPropertyRefs(
+      { datePropertyId: "p1", endDatePropertyId: "p2" },
+      known,
+    );
+    expect(dropped).toBe(false);
+    expect(pruned.endDatePropertyId).toBe("p2");
   });
 
   it("keeps the Title sentinel and in-progress rows without a property", () => {

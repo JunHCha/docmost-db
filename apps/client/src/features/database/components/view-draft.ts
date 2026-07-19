@@ -11,6 +11,7 @@ const DRAFT_KEYS = [
   "sorts",
   "groupByPropertyId",
   "datePropertyId",
+  "endDatePropertyId",
 ] as const;
 
 // Canonical JSON: object keys sorted recursively, null/undefined entries
@@ -82,6 +83,10 @@ export function pruneUnknownPropertyRefs(
   }
   if (config.datePropertyId && !knows(config.datePropertyId)) {
     pruned.datePropertyId = undefined;
+    dropped = true;
+  }
+  if (config.endDatePropertyId && !knows(config.endDatePropertyId)) {
+    pruned.endDatePropertyId = undefined;
     dropped = true;
   }
   return { config: pruned, dropped };

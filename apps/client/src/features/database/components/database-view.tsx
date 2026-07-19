@@ -290,6 +290,12 @@ export function DatabaseView({
     setDraft((d) => ({ ...d, datePropertyId: id ?? undefined }));
   }
 
+  // Set/clear a calendar view's optional end-date property — draft only. When
+  // set, bars span start..end; clearing returns every bar to a single day.
+  function changeEndDateProperty(id: string | null) {
+    setDraft((d) => ({ ...d, endDatePropertyId: id ?? undefined }));
+  }
+
   // Persist the whole draft on demand. Success leaves dirty=false because the
   // views cache then echoes this exact config (draft === saved). A failed save
   // keeps the dirty draft in memory (no echo arrives), so the user can retry or
@@ -384,6 +390,8 @@ export function DatabaseView({
             onChangeGroupBy={changeGroupBy}
             datePropertyId={draft.datePropertyId}
             onChangeDateProperty={changeDateProperty}
+            endDatePropertyId={draft.endDatePropertyId}
+            onChangeEndDateProperty={changeEndDateProperty}
           />
         </Group>
       </Group>

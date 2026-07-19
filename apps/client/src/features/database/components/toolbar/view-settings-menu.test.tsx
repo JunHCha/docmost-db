@@ -33,6 +33,8 @@ function renderMenu(
 ) {
   const onToggleColumn = vi.fn();
   const onChangeGroupBy = vi.fn();
+  const onChangeDateProperty = vi.fn();
+  const onChangeEndDateProperty = vi.fn();
   render(
     <MantineProvider>
       <ViewSettingsMenu
@@ -43,11 +45,29 @@ function renderMenu(
         onToggleColumn={over.onToggleColumn ?? onToggleColumn}
         groupByPropertyId={over.groupByPropertyId}
         onChangeGroupBy={over.onChangeGroupBy ?? onChangeGroupBy}
+        datePropertyId={over.datePropertyId}
+        onChangeDateProperty={over.onChangeDateProperty ?? onChangeDateProperty}
+        endDatePropertyId={over.endDatePropertyId}
+        onChangeEndDateProperty={
+          over.onChangeEndDateProperty ?? onChangeEndDateProperty
+        }
       />
     </MantineProvider>,
   );
-  return { onToggleColumn, onChangeGroupBy };
+  return {
+    onToggleColumn,
+    onChangeGroupBy,
+    onChangeDateProperty,
+    onChangeEndDateProperty,
+  };
 }
+
+// Calendar needs date-typed properties to populate the Date / End date submenus.
+const calendarProps = [
+  prop("d1", "Due", "date"),
+  prop("d2", "Ends", "date"),
+  prop("t1", "Note", "text"),
+];
 
 // Mantine 9's Menu.Sub opens through @floating-ui useHover, which reacts to
 // pointer events carrying a mouse pointerType (not the bare mouseEnter older
@@ -109,5 +129,39 @@ describe("ViewSettingsMenu", () => {
     // Status (the only candidate) is listed, but there is no clear/None entry.
     expect(await screen.findByText("Status")).toBeTruthy();
     expect(screen.queryByText("None")).toBeNull();
+  });
+
+  it("shows both Date and End date submenus for a calendar view", async () => {
+    renderMenu({ viewType: "calendar", properties: calendarProps });
+    fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
+    expect(await screen.findByText("Date")).toBeTruthy();
+    expect(screen.getByText("End date")).toBeTruthy();
+    // Group by is board-only; it must not appear on a calendar.
+    expect(screen.queryByText("Group by")).toBeNull();
+  });
+
+  it("picks a date candidate from the calendar End date submenu", async () => {
+    const { onChangeEndDateProperty } = renderMenu({
+      viewType: "calendar",
+      properties: calendarProps,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
+    await openSubmenu("End date");
+    // Only date-typed properties are listed (Note is excluded).
+    expect(screen.queryByText("Note")).toBeNull();
+    fireEvent.click(await screen.findByText("Ends"));
+    expect(onChangeEndDateProperty).toHaveBeenCalledWith("d2");
+  });
+
+  it("clears the End date when the already-selected property is re-picked", async () => {
+    const { onChangeEndDateProperty } = renderMenu({
+      viewType: "calendar",
+      properties: calendarProps,
+      endDatePropertyId: "d2",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
+    await openSubmenu("End date");
+    fireEvent.click(await screen.findByText("Ends"));
+    expect(onChangeEndDateProperty).toHaveBeenCalledWith(null);
   });
 });
