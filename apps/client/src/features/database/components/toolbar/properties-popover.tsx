@@ -29,7 +29,7 @@ export function PropertiesPopover({
   return (
     <Stack gap="xs" miw={220}>
       <Group gap={6} wrap="nowrap" c="dimmed">
-        <IconEye size={14} />
+        <IconEye size={14} aria-hidden />
         <Text size="xs" fw={600}>
           {t("Show properties")}
         </Text>
