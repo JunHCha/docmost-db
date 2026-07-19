@@ -2,13 +2,17 @@ import { useState } from "react";
 import { Group, Menu, ActionIcon, TextInput, UnstyledButton } from "@mantine/core";
 import { IconLock } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { IDatabaseView } from "@/features/database/types/database.types.ts";
+import {
+  IDatabaseProperty,
+  IDatabaseView,
+} from "@/features/database/types/database.types.ts";
 import {
   useCreateViewMutation,
   useDeleteViewMutation,
   useSetDefaultViewMutation,
   useUpdateViewMutation,
 } from "@/features/database/queries/database-query.ts";
+import { initialBoardConfig } from "./board-view/board-config";
 
 interface ViewSwitcherProps {
   databaseId: string;
@@ -19,6 +23,9 @@ interface ViewSwitcherProps {
   // records its source_page_id for save-time orphan reconcile.
   pageId?: string;
   views: IDatabaseView[];
+  // The database's properties, used to seed a new board view's default group-by
+  // and hidden columns (#1, #2). Defaults to empty when unavailable.
+  properties?: IDatabaseProperty[];
   activeViewId: string;
   onActivate: (viewId: string) => void;
 }
@@ -152,6 +159,7 @@ export function ViewSwitcher({
   embedId,
   pageId,
   views,
+  properties = [],
   activeViewId,
   onActivate,
 }: ViewSwitcherProps) {
@@ -162,6 +170,11 @@ export function ViewSwitcher({
   const deleteView = useDeleteViewMutation(databaseId, embedId);
 
   function addView(type: string, visibility: "personal" | "shared") {
+    // A new board opens with a sensible default group-by/hidden columns (#1,
+    // #2). initialBoardConfig returns {} when there is nothing to seed, so we
+    // only attach a config when it carries something — keeping other view types
+    // (and property-less boards) on the server's empty-config default.
+    const config = type === "board" ? initialBoardConfig(properties) : undefined;
     createView.mutate({
       databaseId,
       name: t(VIEW_TYPES.find((v) => v.type === type)!.label),
@@ -169,6 +182,7 @@ export function ViewSwitcher({
       embedId,
       pageId,
       visibility,
+      ...(config && Object.keys(config).length > 0 ? { config } : {}),
     });
   }
 

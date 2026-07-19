@@ -339,6 +339,94 @@ describe("BoardView", () => {
     expect(screen.getByText("Ann")).toBeTruthy();
   });
 
+  it("renders text fields compactly without a name label (#3 follow-up)", () => {
+    const owner: IDatabaseProperty = {
+      id: "owner",
+      databaseId: "db1",
+      name: "Owner",
+      type: "text",
+      config: {},
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    const row: IDatabaseRow = {
+      row: { id: "r1", title: "r1", slugId: "r1" } as any,
+      values: [
+        {
+          id: "v-r1",
+          pageId: "r1",
+          propertyId: "status",
+          value: { type: "select", value: "todo" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "ov-r1",
+          pageId: "r1",
+          propertyId: "owner",
+          value: { type: "text", value: "Ann" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
+    };
+    renderBoard({
+      config: { groupByPropertyId: "status" },
+      properties: [status, owner],
+      rows: [row],
+    });
+    const card = screen.getByTestId("board-card");
+    // The value shows, but the column name is not repeated on the card.
+    expect(within(card).getByText("Ann")).toBeTruthy();
+    expect(within(card).queryByText("Owner")).toBeNull();
+  });
+
+  it("labels a checkbox field with its property name (boolean notation)", () => {
+    const done: IDatabaseProperty = {
+      id: "done",
+      databaseId: "db1",
+      name: "Done",
+      type: "checkbox",
+      config: {},
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    const row: IDatabaseRow = {
+      row: { id: "r1", title: "r1", slugId: "r1" } as any,
+      values: [
+        {
+          id: "v-r1",
+          pageId: "r1",
+          propertyId: "status",
+          value: { type: "select", value: "todo" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "dv-r1",
+          pageId: "r1",
+          propertyId: "done",
+          value: { type: "checkbox", value: true } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
+    };
+    renderBoard({
+      config: { groupByPropertyId: "status" },
+      properties: [status, done],
+      rows: [row],
+    });
+    const card = screen.getByTestId("board-card");
+    // A lone checkbox is meaningless, so the card names it and shows the toggle.
+    expect(within(card).getByText("Done")).toBeTruthy();
+    expect(within(card).getByLabelText("Done")).toBeTruthy();
+  });
+
   it("hides columns flagged visible:false from cards", () => {
     const owner: IDatabaseProperty = {
       id: "owner",
