@@ -66,14 +66,14 @@ describe("ViewSettingsMenu", () => {
   it("opens with a Properties item and no Group by for a table view", async () => {
     renderMenu({ viewType: "table" });
     fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
-    expect(await screen.findByText("Properties")).toBeTruthy();
+    expect(await screen.findByText("Show properties")).toBeTruthy();
     expect(screen.queryByText("Group by")).toBeNull();
   });
 
   it("shows both Properties and Group by for a board view", async () => {
     renderMenu({ viewType: "board" });
     fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
-    expect(await screen.findByText("Properties")).toBeTruthy();
+    expect(await screen.findByText("Show properties")).toBeTruthy();
     expect(screen.getByText("Group by")).toBeTruthy();
   });
 
@@ -82,15 +82,15 @@ describe("ViewSettingsMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
     // Mantine 9 Menu.Sub opens via floating-ui useHover (pointer events with a
     // mouse pointerType), so plain mouseEnter no longer opens it.
-    await openSubmenu("Properties");
+    await openSubmenu("Show properties");
     // The submenu's Popover dropdown stays display:none in jsdom (floating-ui
-    // never positions), so query the switch including hidden nodes.
+    // never positions), so query the eye toggle including hidden nodes.
     fireEvent.click(
-      await screen.findByRole("switch", { name: "Status", hidden: true }),
+      await screen.findByRole("button", { name: "Status", hidden: true }),
     );
     expect(onToggleColumn).toHaveBeenCalledWith("p1", false);
     // The root menu stays open (closeOnItemClick=false): Properties still shows.
-    expect(screen.getByText("Properties")).toBeTruthy();
+    expect(screen.getByText("Show properties")).toBeTruthy();
   });
 
   it("picks a group-by candidate from the board Group by submenu", async () => {

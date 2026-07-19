@@ -1326,6 +1326,8 @@
   "Filter property": "필터 속성",
   "Filter value kind": "필터 값 종류",
   "Hide column": "열 숨기기",
+  "Hide": "숨기기",
+  "Show": "표시",
   "Insert database view": "데이터베이스 뷰 삽입",
   "New column": "새 열",
   "New database": "새 데이터베이스",
