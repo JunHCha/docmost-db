@@ -48,6 +48,24 @@ describe("DatabasePickerModal", () => {
     expect(screen.getByText("Projects")).toBeTruthy();
   });
 
+  it("shows each database's own emoji icon when it has one", () => {
+    listDatabasesQuery.mockReturnValue({
+      data: [{ id: "db3", pageId: "p3", title: "Roadmap", icon: "🚀" }],
+      isLoading: false,
+      isFetching: false,
+      refetch: databasesRefetch,
+    });
+    renderModal();
+    expect(screen.getByText("🚀")).toBeTruthy();
+    expect(screen.getByText("Roadmap")).toBeTruthy();
+  });
+
+  it("falls back to a database glyph when a database has no icon", () => {
+    // databases default to icon: null → PageGlyph renders the database glyph.
+    renderModal();
+    expect(document.querySelector(".tabler-icon-database")).toBeTruthy();
+  });
+
   it("confirms with the chosen database id as soon as it is picked", () => {
     // No per-view step: embedding copies every shared view of the database
     // (server seeds them), so a single click inserts the embed (issue #66).

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ActionIcon, Group, Select } from "@mantine/core";
-import { IconX } from "@tabler/icons-react";
+import { IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
@@ -12,6 +12,7 @@ import {
 } from "@/features/database/filters/operators.ts";
 import { FilterValueWidget } from "@/features/database/filters/filter-value-widgets.tsx";
 import { titleFilterProperty } from "@/features/database/filters/title-filter.ts";
+import { PropertyTypeIcon } from "@/features/database/components/property/property-type-icon.tsx";
 
 interface FilterRowProps {
   properties: IDatabaseProperty[];
@@ -70,6 +71,15 @@ export function FilterRow({
         comboboxProps={{ withinPortal: false }}
         size="xs"
         w={120}
+        renderOption={({ option }) => {
+          const p = allProperties.find((x) => x.id === option.value);
+          return (
+            <Group gap={6} wrap="nowrap">
+              {p && <PropertyTypeIcon type={p.type} size={14} />}
+              <span>{option.label}</span>
+            </Group>
+          );
+        }}
       />
       <Select
         aria-label={t("Filter operator")}
@@ -91,10 +101,11 @@ export function FilterRow({
       <ActionIcon
         variant="subtle"
         color="gray"
+        size="sm"
         aria-label={t("Remove filter")}
         onClick={onRemove}
       >
-        <IconX size={16} />
+        <IconTrash size={14} />
       </ActionIcon>
     </Group>
   );

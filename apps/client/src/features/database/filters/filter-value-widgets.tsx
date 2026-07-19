@@ -1,7 +1,20 @@
 import { useState } from "react";
-import { Group, NumberInput, Select, Switch, TextInput } from "@mantine/core";
+import {
+  Combobox,
+  Group,
+  Input,
+  InputBase,
+  NumberInput,
+  Select,
+  Switch,
+  Text,
+  TextInput,
+  useCombobox,
+} from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import { IconCheck } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { CustomAvatar } from "@/components/ui/custom-avatar.tsx";
 import {
   FilterOp,
   IDatabaseProperty,
@@ -13,6 +26,7 @@ import {
 } from "@/features/database/queries/database-query.ts";
 import { useWorkspaceMembersQuery } from "@/features/workspace/queries/workspace-query.ts";
 import { useEmbedHost } from "@/features/database/components/embed-host-context.tsx";
+import { PageGlyph } from "@/features/database/components/table-view/cells/page-ref-chip.tsx";
 import { opNeedsValue } from "./operators";
 import { isThisPageRef } from "./self-ref.ts";
 
@@ -39,10 +53,15 @@ function RelationValueWidget({
       : "";
   const targetViewId = useDefaultViewId(targetDatabaseId);
   const { data: rows } = useDatabaseRowsQuery(targetDatabaseId, targetViewId);
-  const data = (rows ?? []).map((r) => ({
+  const rowList = rows ?? [];
+  const data = rowList.map((r) => ({
     value: r.row.id,
     label: r.row.title || "Untitled",
   }));
+  // Look up each row by id so an option can show its page glyph (emoji, or the
+  // default doc/database icon) — the same PageGlyph the relation cell/picker
+  // uses, so a relation filter option reads like a page block.
+  const rowById = new Map(rowList.map((r) => [r.row.id, r.row]));
   return (
     <Select
       aria-label={LABEL}
@@ -50,37 +69,127 @@ function RelationValueWidget({
       value={typeof value === "string" ? value : null}
       onChange={(v) => onChange(v ?? "")}
       searchable
+      size="xs"
+      renderOption={({ option }) => {
+        const row = rowById.get(option.value);
+        return (
+          <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+            <PageGlyph
+              icon={row?.icon ?? null}
+              pageType={(row as { pageType?: string } | undefined)?.pageType}
+            />
+            <Text size="xs" lineClamp={1}>
+              {option.label}
+            </Text>
+          </Group>
+        );
+      }}
     />
   );
 }
 
-// Picker over the workspace members for a person filter. The raw comparison
-// value is a single user id ("contains <id>"), mirroring how the server matches
-// a person array against one id — the same shape RelationValueWidget emits. The
-// member list is fetched once and filtered client-side by Select's search, so a
-// large workspace (>100) may not surface every member (acceptable first cut,
-// same limit as PersonCell). Intentionally does NOT import PersonCell or any
-// ee/base grid code: this is a standalone filter widget.
+// Picker over the workspace members for a person filter. Single-select: the raw
+// comparison value is one user id ("contains <id>"), mirroring how the server
+// matches a person array against one id — the same shape RelationValueWidget
+// emits. Rendered with a low-level Combobox (not a plain Select) so the picked
+// member shows as an avatar + name INSIDE the input — the same avatar treatment
+// as PersonCell, which a Select's text-only input cannot do. The member list is
+// fetched once and filtered client-side, so a large workspace (>100) may not
+// surface every member (acceptable first cut, same limit as PersonCell).
+// Intentionally does NOT import PersonCell or any ee/base grid code: this is a
+// standalone filter widget that only reuses the shared CustomAvatar.
 function PersonValueWidget({
   value,
   onChange,
 }: Omit<FilterValueWidgetProps, "op" | "property">) {
+  const { t } = useTranslation();
   const { data: members } = useWorkspaceMembersQuery({ limit: 100 });
-  const data = (members?.items ?? []).map((u) => ({
-    value: u.id,
-    label: u.name || u.email || "Unknown",
-  }));
+  const [search, setSearch] = useState("");
+  const combobox = useCombobox({ onDropdownClose: () => setSearch("") });
+
+  const users = members?.items ?? [];
+  const selectedId = typeof value === "string" && value ? value : null;
+  const selected = users.find((u) => u.id === selectedId);
+  const filtered = users.filter((u) =>
+    `${u.name ?? ""} ${u.email ?? ""}`
+      .toLowerCase()
+      .includes(search.trim().toLowerCase()),
+  );
+
   return (
-    <Select
-      aria-label={LABEL}
-      data={data}
-      value={typeof value === "string" ? value : null}
-      onChange={(v) => onChange(v ?? "")}
-      searchable
-      // Filter builder Popover closes on outside clicks, so keep the dropdown
-      // inside it (same reasoning as SelfRefRelationValueWidget).
-      comboboxProps={{ withinPortal: false }}
-    />
+    <Combobox
+      store={combobox}
+      // The filter builder Popover closes on outside clicks, so keep the
+      // dropdown inside it (same reasoning as SelfRefRelationValueWidget).
+      withinPortal={false}
+      onOptionSubmit={(val) => {
+        onChange(val);
+        combobox.closeDropdown();
+      }}
+    >
+      <Combobox.Target>
+        <InputBase
+          component="button"
+          type="button"
+          size="xs"
+          pointer
+          w={170}
+          aria-label={LABEL}
+          rightSection={<Combobox.Chevron size="xs" />}
+          rightSectionPointerEvents="none"
+          onClick={() => combobox.toggleDropdown()}
+        >
+          {selected ? (
+            <Group gap={6} wrap="nowrap">
+              <CustomAvatar
+                avatarUrl={selected.avatarUrl}
+                name={selected.name ?? "?"}
+                size={18}
+              />
+              <Text size="xs" lineClamp={1}>
+                {selected.name ?? selected.email ?? t("Unknown")}
+              </Text>
+            </Group>
+          ) : (
+            <Input.Placeholder>{t("Select")}</Input.Placeholder>
+          )}
+        </InputBase>
+      </Combobox.Target>
+      <Combobox.Dropdown>
+        <Combobox.Search
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          placeholder={t("Search...")}
+        />
+        <Combobox.Options>
+          {filtered.length === 0 && (
+            <Combobox.Empty>{t("No members found")}</Combobox.Empty>
+          )}
+          {filtered.map((u) => (
+            <Combobox.Option value={u.id} key={u.id}>
+              <Group gap="xs" justify="space-between" wrap="nowrap">
+                <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                  <CustomAvatar
+                    avatarUrl={u.avatarUrl}
+                    name={u.name ?? "?"}
+                    size={22}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm" lineClamp={1}>
+                      {u.name}
+                    </Text>
+                    <Text size="xs" c="dimmed" lineClamp={1}>
+                      {u.email}
+                    </Text>
+                  </div>
+                </Group>
+                {selectedId === u.id && <IconCheck size={16} stroke={2} />}
+              </Group>
+            </Combobox.Option>
+          ))}
+        </Combobox.Options>
+      </Combobox.Dropdown>
+    </Combobox>
   );
 }
 
@@ -117,6 +226,7 @@ function SelfRefRelationValueWidget({
         // The filter builder Popover closes on outside clicks, so value widgets
         // must keep their dropdowns inside it (withinPortal: false).
         comboboxProps={{ withinPortal: false }}
+        size="xs"
         w={160}
       />
       {mode === "page" && (
@@ -151,6 +261,7 @@ export function FilterValueWidget({
       return (
         <NumberInput
           aria-label={LABEL}
+          size="xs"
           value={typeof value === "number" ? value : ""}
           onChange={(v) => {
             // NumberInput emits "" while the field is empty; forward undefined
@@ -167,6 +278,7 @@ export function FilterValueWidget({
       return (
         <DateInput
           aria-label={LABEL}
+          size="xs"
           valueFormat="YYYY-MM-DD"
           value={typeof value === "string" && value ? value : null}
           onChange={(v) => onChange(v ?? "")}
@@ -176,6 +288,7 @@ export function FilterValueWidget({
       return (
         <Switch
           aria-label={LABEL}
+          size="xs"
           checked={value === true}
           label={value === true ? t("Checked") : t("Unchecked")}
           onChange={(e) => onChange(e.currentTarget.checked)}
@@ -194,6 +307,7 @@ export function FilterValueWidget({
           value={typeof value === "string" ? value : null}
           onChange={(v) => onChange(v ?? "")}
           searchable
+          size="xs"
         />
       );
     }
@@ -218,6 +332,7 @@ export function FilterValueWidget({
       return (
         <TextInput
           aria-label={LABEL}
+          size="xs"
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.currentTarget.value)}
         />

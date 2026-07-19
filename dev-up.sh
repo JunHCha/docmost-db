@@ -29,6 +29,11 @@ CLIENT_PORT="${CLIENT_PORT:-5173}"
 SERVER_PORT="${PORT:-3000}"
 LOG="/tmp/docmost-dev-$(basename "$REPO_ROOT").log"
 COMPOSE_FILE="docker-compose.dev.yml"
+# Pin the compose project so every worktree shares ONE set of named volumes.
+# Without this, compose derives the project from the cwd basename, so each
+# worktree spins up its own empty <worktree>_dev_pgdata and the DB looks
+# unmigrated ("relation ... does not exist"). Fixed name => shared data.
+COMPOSE_PROJECT="docmost-db-dev"
 
 DO_MIGRATE=0
 DO_CLEAN=0
@@ -92,7 +97,7 @@ if port_open 5432 && port_open 6379; then
   ok "infra reachable (pg :5432, redis :6379) — reusing"
 else
   say "starting shared infra via $COMPOSE_FILE"
-  docker compose -f "$COMPOSE_FILE" up -d || die "docker compose up failed"
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d || die "docker compose up failed"
   say "waiting for postgres :5432"
   for i in $(seq 1 30); do
     port_open 5432 && break

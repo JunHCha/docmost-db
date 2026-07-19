@@ -60,9 +60,10 @@ describe("moveSort", () => {
 });
 
 describe("SortPopover", () => {
-  it("renders a Sort title header", () => {
+  it("renders the header and an empty-state message when there are no sorts", () => {
     renderPopover([]);
-    expect(screen.getByText("Sort")).toBeTruthy();
+    expect(screen.getByText("Sort by")).toBeTruthy();
+    expect(screen.getByText("No sorts applied")).toBeTruthy();
   });
 
   it("adds a sort defaulting to the first unused property ascending", () => {
@@ -124,6 +125,15 @@ describe("SortPopover", () => {
     fireEvent.click(propertySelects[0]);
     expect(screen.getByRole("option", { name: "Status" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "Price" })).toBeNull();
+  });
+
+  it("shows a property-type icon next to each sort column option", () => {
+    renderPopover([{ propertyId: "p1", direction: "asc" }]);
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort property" }));
+    // Title(text) → letter-case, select → circle-dot, number → hash glyphs.
+    expect(document.querySelector(".tabler-icon-letter-case")).toBeTruthy();
+    expect(document.querySelector(".tabler-icon-circle-dot")).toBeTruthy();
+    expect(document.querySelector(".tabler-icon-hash")).toBeTruthy();
   });
 
   it("hides the Add sort action once every property is used", () => {

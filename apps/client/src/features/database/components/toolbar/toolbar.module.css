@@ -1,28 +1,18 @@
-/* ── ee/base grid 톤을 filter/sort 빌더 popover에 차용 ──────────────────────
- * ee/base grid의 시각 언어(은은한 틴트 헤더 밴드 + subtle 액션)를 database의
- * filter/sort popover에 자체 CSS로 재현한다. ee/base 컴포넌트·스타일은
- * import하지 않으므로 upstream fetch 시 충돌하지 않고, 기능도 별개다. */
+/* ── view-config(ee/base/components/views) 시각 톤을 자체 CSS로 재현 ──────────
+ * filter/sort 빌더 popover가 ee/base view-config와 동일한 시각 언어(dimmed 텍스트
+ * 헤더 + 왼쪽 정렬 파란 텍스트 링크 Add 액션)를 갖도록 한다. ee/base 컴포넌트·
+ * 스타일은 import하지 않으므로 upstream fetch 시 충돌하지 않고, 기능도 별개다. */
 .popover {
   min-width: 264px;
 }
 
-/* 헤더 밴드: 아이콘 + 제목 + 하단 divider (ee/base stickyBand 톤). */
-.header {
+/* Add 액션: view-config의 addActionButton(왼쪽 정렬, 파란 텍스트 링크, 아이콘+텍스트). */
+.addActionButton {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-bottom: 8px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid
-    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
-  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-0));
-}
-
-.headerIcon {
-  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-2));
-}
-
-/* Add 액션: ee/base addRowButton 톤(왼쪽 정렬, subtle, 아이콘+텍스트). */
-.addButton {
   align-self: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-blue-6);
 }

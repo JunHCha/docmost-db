@@ -13,6 +13,8 @@ interface TemplatePeekBodyProps {
   templateId: string | null;
   onClose: () => void;
   headerControls?: ReactNode;
+  // Forwarded to the editor so the modal host can stretch it to full height.
+  fillHeight?: boolean;
 }
 
 // Shared editor body for all template hosts (modal / aside / full page). There's
@@ -23,6 +25,7 @@ export function TemplatePeekBody({
   templateId,
   onClose,
   headerControls,
+  fillHeight,
 }: TemplatePeekBodyProps) {
   const { t } = useTranslation();
   const templatesQuery = useDatabaseTemplatesQuery(databaseId);
@@ -37,6 +40,7 @@ export function TemplatePeekBody({
         template={null}
         onClose={onClose}
         headerControls={headerControls}
+        fillHeight={fillHeight}
       />
     );
   }
@@ -70,6 +74,7 @@ export function TemplatePeekBody({
       template={template}
       onClose={onClose}
       headerControls={headerControls}
+      fillHeight={fillHeight}
     />
   );
 }

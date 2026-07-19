@@ -8,6 +8,7 @@ import {
   Text,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { templateExtensions } from "@/features/editor/extensions/extensions";
@@ -40,6 +41,9 @@ interface TemplateRowEditorProps {
   // Host-supplied header controls (host switch / close). Falls back to a plain
   // close button when omitted.
   headerControls?: ReactNode;
+  // When true (modal host), the editor stretches to the host's fixed height and
+  // the rich body fills the slack; other hosts size to content.
+  fillHeight?: boolean;
 }
 
 // A collab-free editor for a database row template that mirrors the page edit
@@ -54,6 +58,7 @@ export function TemplateRowEditor({
   template,
   onClose,
   headerControls,
+  fillHeight,
 }: TemplateRowEditorProps) {
   const { t } = useTranslation();
   const createTemplate = useCreateTemplateMutation(databaseId);
@@ -142,7 +147,7 @@ export function TemplateRowEditor({
   }
 
   return (
-    <div className={classes.accent}>
+    <div className={clsx(classes.accent, fillHeight && classes.fill)}>
       <Group justify="space-between" className={classes.badgeBar}>
         <Group gap={6}>
           <PropertyTypeIcon type="text" size={14} />

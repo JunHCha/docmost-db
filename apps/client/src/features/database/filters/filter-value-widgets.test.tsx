@@ -1,10 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 
+// Relation rows are configurable per test so the relation picker can be
+// exercised with real page rows (default: empty).
+const dbRowsMock = vi.hoisted(() => ({ rows: [] as unknown[] }));
+
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useDefaultViewId: () => "",
-  useDatabaseRowsQuery: () => ({ data: [] }),
+  useDatabaseRowsQuery: () => ({ data: dbRowsMock.rows }),
 }));
 
 vi.mock("@/features/workspace/queries/workspace-query.ts", () => ({
@@ -42,6 +46,10 @@ function renderWidget(node: React.ReactNode) {
 }
 
 describe("FilterValueWidget", () => {
+  beforeEach(() => {
+    dbRowsMock.rows = [];
+  });
+
   it("hides the widget for empty ops", () => {
     const { container } = renderWidget(
       <FilterValueWidget
@@ -164,7 +172,7 @@ describe("FilterValueWidget", () => {
     expect(onChange).toHaveBeenCalledWith("o2");
   });
 
-  it("renders a member select for person and emits the picked user id", () => {
+  it("renders a member picker for person and emits the picked user id", () => {
     const onChange = vi.fn();
     renderWidget(
       <FilterValueWidget
@@ -175,12 +183,13 @@ describe("FilterValueWidget", () => {
       />,
     );
     // A person filter fills its value from the workspace members, not free text.
-    fireEvent.click(screen.getByRole("combobox", { name: "Filter value" }));
+    // The trigger is an avatar button (Combobox), not a plain Select input.
+    fireEvent.click(screen.getByLabelText("Filter value"));
     fireEvent.click(screen.getByText("Bob"));
     expect(onChange).toHaveBeenCalledWith("u2");
   });
 
-  it("shows the picked member's name for a person filter value", () => {
+  it("shows the picked member as an avatar chip inside the trigger", () => {
     renderWidget(
       <FilterValueWidget
         property={prop({ type: "person" })}
@@ -189,10 +198,28 @@ describe("FilterValueWidget", () => {
         onChange={vi.fn()}
       />,
     );
-    const input = screen.getByRole("combobox", {
-      name: "Filter value",
-    }) as HTMLInputElement;
-    expect(input.value).toBe("Alice");
+    // The picked member renders as an avatar + name inside the trigger button.
+    const trigger = screen.getByLabelText("Filter value");
+    expect(trigger.textContent).toContain("Alice");
+  });
+
+  it("renders a page glyph next to each relation option", () => {
+    dbRowsMock.rows = [{ row: { id: "r1", title: "Roadmap", icon: "🚀" } }];
+    const onChange = vi.fn();
+    renderWidget(
+      <FilterValueWidget
+        property={prop({ type: "relation", config: { targetDatabaseId: "td" } })}
+        op="contains"
+        value={null}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter value" }));
+    // The option lists the page title alongside its emoji glyph (PageGlyph).
+    expect(screen.getByText("Roadmap")).toBeTruthy();
+    expect(screen.getByText("🚀")).toBeTruthy();
+    fireEvent.click(screen.getByText("Roadmap"));
+    expect(onChange).toHaveBeenCalledWith("r1");
   });
 
   // --- Live self-reference: "this page" for relation filters in an embed ---

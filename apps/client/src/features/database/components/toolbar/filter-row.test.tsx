@@ -133,4 +133,13 @@ describe("FilterRow", () => {
     const input = screen.getByLabelText("Filter value") as HTMLInputElement;
     expect(input.value).toBe("plan");
   });
+
+  it("shows a property-type icon next to each column option", () => {
+    renderRow({ propertyId: "p1", op: "eq", value: "o1" });
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter property" }));
+    // select → circle-dot, number → hash, Title(text) → letter-case glyphs.
+    expect(document.querySelector(".tabler-icon-circle-dot")).toBeTruthy();
+    expect(document.querySelector(".tabler-icon-hash")).toBeTruthy();
+    expect(document.querySelector(".tabler-icon-letter-case")).toBeTruthy();
+  });
 });

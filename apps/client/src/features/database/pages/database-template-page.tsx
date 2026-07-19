@@ -27,11 +27,23 @@ export default function DatabaseTemplatePage() {
           {t("Edit template")} - {getAppName()}
         </title>
       </Helmet>
-      <Container size={760} py="lg">
+      <Container
+        size={760}
+        py="lg"
+        style={{
+          // Fill the AppShell main content area (viewport minus the app header
+          // and the shell's top/bottom padding) so the editor is full-height.
+          height:
+            "calc(100dvh - var(--app-shell-header-height, 45px) - 2 * var(--app-shell-padding, 1rem))",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <TemplatePeekBody
           databaseId={databaseId}
           templateId={resolvedTemplateId}
           onClose={() => navigate(-1)}
+          fillHeight
         />
       </Container>
     </>
