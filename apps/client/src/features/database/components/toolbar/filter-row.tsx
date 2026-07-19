@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   IDatabaseProperty,
   IFilterCondition,
+  isComputedPropertyType,
 } from "@/features/database/types/database.types.ts";
 import {
   operatorsForType,
@@ -33,8 +34,12 @@ export function FilterRow({
   const { t } = useTranslation();
   // Title is filterable too, via a synthetic text property prepended to the
   // list (it is not a real database property, so it has no grid column).
+  // Computed system columns are sort-only, so they are excluded here (#128).
   const allProperties = useMemo(
-    () => [titleFilterProperty(t("Title")), ...properties],
+    () => [
+      titleFilterProperty(t("Title")),
+      ...properties.filter((p) => !isComputedPropertyType(p.type)),
+    ],
     [properties, t],
   );
   const property = allProperties.find((p) => p.id === condition.propertyId);

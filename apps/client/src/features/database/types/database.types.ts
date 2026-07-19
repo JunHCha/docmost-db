@@ -9,7 +9,25 @@ export type PropertyType =
   | "checkbox"
   | "url"
   | "relation"
-  | "person";
+  | "person"
+  // Computed system columns (issue #128): read-only, values synthesized by the
+  // server from each row page's metadata. Not user-creatable.
+  | "created_by"
+  | "created_time"
+  | "last_edited_time";
+
+const COMPUTED_PROPERTY_TYPES: readonly PropertyType[] = [
+  "created_by",
+  "created_time",
+  "last_edited_time",
+];
+
+// Computed system columns are read-only and derived from page metadata; the UI
+// hides them from type pickers and filters. Keep in sync with the server
+// property-config.ts.
+export function isComputedPropertyType(type: PropertyType): boolean {
+  return COMPUTED_PROPERTY_TYPES.includes(type);
+}
 
 export interface IPropertyValue {
   type: PropertyType;

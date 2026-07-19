@@ -39,6 +39,23 @@ describe("PropertyTypeIcon", () => {
     expect(new Set(iconNames).size).toBe(ALL_TYPES.length);
   });
 
+  it("has a distinct icon for each computed system type", () => {
+    const computed: PropertyType[] = [
+      "created_by",
+      "created_time",
+      "last_edited_time",
+    ];
+    for (const type of computed) {
+      expect(PROPERTY_TYPE_ICONS[type]).toBeTruthy();
+    }
+    const iconNames = computed.map((type) => {
+      const { container } = render(<PropertyTypeIcon type={type} />);
+      const cls = container.querySelector("svg")?.getAttribute("class") ?? "";
+      return cls.split(/\s+/).find((c) => c.startsWith("tabler-icon-")) ?? "";
+    });
+    expect(new Set(iconNames).size).toBe(computed.length);
+  });
+
   it("renders the icon hidden from assistive tech (label sits beside it)", () => {
     const { container } = render(<PropertyTypeIcon type="number" />);
     const svg = container.querySelector("svg");

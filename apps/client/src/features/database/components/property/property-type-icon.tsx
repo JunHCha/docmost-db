@@ -1,13 +1,16 @@
 import {
   IconArrowsLeftRight,
   IconCalendar,
+  IconCalendarPlus,
   IconCircleDot,
+  IconClockEdit,
   IconHash,
   IconLetterCase,
   IconLink,
   IconList,
   IconSquareCheck,
   IconUser,
+  IconUserCircle,
   type IconProps,
 } from "@tabler/icons-react";
 import { ComponentType } from "react";
@@ -29,6 +32,9 @@ export const PROPERTY_TYPE_ICONS: Record<
   url: IconLink,
   relation: IconArrowsLeftRight,
   person: IconUser,
+  created_by: IconUserCircle,
+  created_time: IconCalendarPlus,
+  last_edited_time: IconClockEdit,
 };
 
 interface PropertyTypeIconProps {
