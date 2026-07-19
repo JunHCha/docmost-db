@@ -141,6 +141,29 @@ describe("packBars", () => {
     expect(week1B!.lane).toBeLessThan(3);
   });
 
+  it("keeps a long bar visible through a crowded day; short bars overflow", () => {
+    // A long bar L spans cells 7..11 (all of week 1). Three single-day bars pile
+    // onto cell 9. With 3 lanes, L must stay visible (it should not be pushed to
+    // "+more" just for crossing the busy day); the extra single-day bar overflows
+    // cell 9 only, and L's sparse cells (7, 8, 10, 11) show no overflow.
+    const bars = [
+      bar("s1", 9, 9),
+      bar("s2", 9, 9),
+      bar("s3", 9, 9),
+      bar("L", 7, 11),
+    ];
+    const { segments, overflow } = packBars(bars, WEEKS, 3);
+    const lSeg = segments.find((s) => s.bar.row.row.id === "L");
+    expect(lSeg).toBeTruthy();
+    expect(lSeg!.lane).toBeLessThan(3);
+    // Only the crowded day overflows, and only by the one short bar that didn't
+    // fit — never the long bar.
+    expect(overflow.get(9)).toBe(1);
+    for (const c of [7, 8, 10, 11]) {
+      expect(overflow.get(c)).toBeUndefined();
+    }
+  });
+
   it("counts overflow only on the days a hidden bar actually covers", () => {
     // Three lane-fillers span cells 7..9; a hidden bar sits only on cell 8.
     const bars = [

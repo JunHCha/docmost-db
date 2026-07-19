@@ -30,15 +30,19 @@ const weekOf = (index: number) => Math.floor(index / 7);
 // only hidden there: in a week where it fits it still renders, so a sparse cell
 // never shows a phantom "+N more" for a bar that a different week crowded out.
 //
-// Within a week, bars are placed left-to-right (by start, then end, then input
-// order for stability); a lane is free once its previous occupant ends before
-// the new bar begins.
+// Within a week, longer bars are placed first so they claim the low, visible
+// lanes: a multi-day bar then keeps showing across its sparse days even when it
+// crosses a crowded one — the crowding instead pushes the shorter single-day
+// bars on that day into its "+N more". Ties break by start, then input order,
+// for stability. A lane is free once its previous occupant ends before the new
+// bar begins.
 export function packBars(
   bars: CalendarBar[],
   weekCount: number,
   maxLanes: number,
 ): PackedWeeks {
   const order = new Map<CalendarBar, number>(bars.map((b, i) => [b, i]));
+  const span = (b: CalendarBar) => b.endIndex - b.startIndex;
   const segments: WeekSegment[] = [];
   const overflow = new Map<number, number>();
 
@@ -46,13 +50,13 @@ export function packBars(
     const weekStart = w * 7;
     const weekEnd = weekStart + 6;
 
-    // Bars intersecting this week, packed left-to-right.
+    // Bars intersecting this week, longest first (then left-to-right).
     const weekBars = bars
       .filter((b) => b.startIndex <= weekEnd && b.endIndex >= weekStart)
       .sort(
         (a, b) =>
+          span(b) - span(a) ||
           a.startIndex - b.startIndex ||
-          a.endIndex - b.endIndex ||
           order.get(a)! - order.get(b)!,
       );
 
