@@ -33,6 +33,10 @@ import { CALENDAR_BAR_DRAG } from "./calendar-dnd";
 const ISO = "YYYY-MM-DD";
 const MAX_VISIBLE = 3;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// The single divider colour for the whole grid. Cells draw their right/bottom
+// edge in it and the grid wrapper draws the top/left, so the month reads as one
+// lined table rather than a set of spaced cards.
+const CALENDAR_LINE = "var(--mantine-color-gray-3)";
 
 interface CalendarViewProps {
   databaseId: string;
@@ -105,8 +109,12 @@ function DayCell({
       data-date={date.format(ISO)}
       style={{
         minHeight: 96,
-        border: "1px solid var(--mantine-color-gray-2)",
-        borderRadius: 4,
+        // Cells are divided by single shared lines, not per-cell boxes: each
+        // cell draws only its right/bottom edge and the grid wrapper draws the
+        // top/left, so adjacent cells meet on one 1px line (no gaps, no double
+        // borders, no rounded corners). See CALENDAR_LINE.
+        borderRight: `1px solid ${CALENDAR_LINE}`,
+        borderBottom: `1px solid ${CALENDAR_LINE}`,
         padding: 4,
         background: over
           ? "var(--mantine-color-blue-light)"
@@ -269,28 +277,38 @@ export function CalendarView({
         </Box>
       ) : (
         <>
-          <SimpleGrid cols={7} spacing={4}>
+          <SimpleGrid cols={7} spacing={0}>
             {WEEKDAYS.map((d) => (
-              <Text key={d} size="xs" c="dimmed" ta="center" fw={500}>
+              <Text key={d} size="xs" c="dimmed" ta="center" fw={500} pb={4}>
                 {t(d)}
               </Text>
             ))}
           </SimpleGrid>
-          <SimpleGrid cols={7} spacing={4}>
-            {cells.map((date) => {
-              const inMonth = date.isSame(month, "month");
-              return (
-                <DayCell
-                  key={date.format(ISO)}
-                  date={date}
-                  inMonth={inMonth}
-                  bars={inMonth ? (dayMap.get(date.date()) ?? []) : []}
-                  spaceSlug={spaceSlug}
-                  onDropOnDay={onDropOnDay}
-                />
-              );
-            })}
-          </SimpleGrid>
+          {/* The wrapper supplies the grid's top and left edge; each cell draws
+              only its right/bottom edge, so cells meet on shared 1px lines with
+              no gaps (spacing={0}). */}
+          <Box
+            style={{
+              borderTop: `1px solid ${CALENDAR_LINE}`,
+              borderLeft: `1px solid ${CALENDAR_LINE}`,
+            }}
+          >
+            <SimpleGrid cols={7} spacing={0}>
+              {cells.map((date) => {
+                const inMonth = date.isSame(month, "month");
+                return (
+                  <DayCell
+                    key={date.format(ISO)}
+                    date={date}
+                    inMonth={inMonth}
+                    bars={inMonth ? (dayMap.get(date.date()) ?? []) : []}
+                    spaceSlug={spaceSlug}
+                    onDropOnDay={onDropOnDay}
+                  />
+                );
+              })}
+            </SimpleGrid>
+          </Box>
         </>
       )}
     </Stack>
