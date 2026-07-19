@@ -26,15 +26,16 @@ const property: IDatabaseProperty = {
   deletedAt: null,
 };
 
-function renderCell(value: any, showEmptyPlaceholder = true) {
+function renderCell(value: any, showEmptyPlaceholder = true, onChange?: any) {
   return render(
     <MantineProvider>
       <DateCell
         property={property}
         value={value}
-        pageId="page1"
+        pageId={onChange ? "" : "page1"}
         databaseId="db1"
         showEmptyPlaceholder={showEmptyPlaceholder}
+        onChange={onChange}
       />
     </MantineProvider>,
   );
@@ -51,13 +52,16 @@ describe("DateCell", () => {
     expect(screen.getByText("2026-06-01")).toBeTruthy();
   });
 
-  it("renders an empty value as a full-width clickable box", () => {
+  it("renders an empty value as a full-width clickable box that opens one dropdown", () => {
     renderCell(undefined);
     const display = screen.getByText("Empty");
     expect(display.style.display).toBe("block");
     expect(display.style.width).toBe("100%");
     fireEvent.click(display);
-    expect(screen.getByLabelText("Due")).toBeTruthy();
+    // A single dropdown hosts BOTH the quick shortcuts and the calendar: the
+    // "Today" shortcut and a calendar day ("15" is unique in a month grid).
+    expect(screen.getByText("Today")).toBeTruthy();
+    expect(screen.getByText("15")).toBeTruthy();
   });
 
   it("omits the Empty placeholder in the grid but stays clickable", () => {
@@ -67,64 +71,35 @@ describe("DateCell", () => {
     expect(display.textContent).toBe("");
     expect(display.style.width).toBe("100%");
     fireEvent.click(display);
-    expect(screen.getByLabelText("Due")).toBeTruthy();
+    expect(screen.getByText("Today")).toBeTruthy();
   });
 
-  it("commits an ISO date string on selection", () => {
+  it("commits an ISO date picked from the calendar", () => {
     renderCell(undefined);
     fireEvent.click(screen.getByText("Empty"));
-    const input = screen.getByLabelText("Due");
-    fireEvent.change(input, { target: { value: "June 1, 2026" } });
-    fireEvent.blur(input);
+    // Exactly one "15" is rendered for the visible (current) month.
+    fireEvent.click(screen.getByText("15"));
     expect(setMutate).toHaveBeenCalledWith({
       pageId: "page1",
       propertyId: "prop1",
-      value: { type: "date", value: "2026-06-01" },
+      value: { type: "date", value: dayjs().date(15).format("YYYY-MM-DD") },
     });
     expect(clearMutate).not.toHaveBeenCalled();
+    // Picking closes the single dropdown.
+    expect(screen.queryByText("Today")).toBeNull();
   });
 
-  it("commits on change and does not re-commit on the trailing blur", () => {
-    renderCell(undefined);
-    fireEvent.click(screen.getByText("Empty"));
-    const input = screen.getByLabelText("Due");
-    // onChange owns the commit; the input stays open so the user can adjust.
-    fireEvent.change(input, { target: { value: "June 1, 2026" } });
-    expect(setMutate).toHaveBeenCalledTimes(1);
-    expect(setMutate).toHaveBeenCalledWith({
-      pageId: "page1",
-      propertyId: "prop1",
-      value: { type: "date", value: "2026-06-01" },
-    });
-    // Still editing after a commit (blur, not change, terminates editing).
-    expect(screen.queryByLabelText("Due")).not.toBeNull();
-    // The trailing blur (Mantine echoes the raw text) must not re-commit.
-    fireEvent.blur(input);
-    expect(setMutate).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not re-fire the mutation when the same date is committed twice", () => {
-    renderCell(undefined);
-    fireEvent.click(screen.getByText("Empty"));
-    const input = screen.getByLabelText("Due");
-    fireEvent.change(input, { target: { value: "June 1, 2026" } });
-    fireEvent.change(input, { target: { value: "June 1, 2026" } });
-    expect(setMutate).toHaveBeenCalledTimes(1);
-  });
-
-  it("pre-fills the input with the stored date when editing starts", () => {
+  it("opens the calendar on the stored month", () => {
     renderCell({ type: "date", value: "2026-06-01" });
     fireEvent.click(screen.getByText("2026-06-01"));
-    const input = screen.getByLabelText("Due") as HTMLInputElement;
-    expect(input.value).toBe("2026-06-01");
+    // The calendar navigates to the stored value's month.
+    expect(screen.getByText("June 2026")).toBeTruthy();
   });
 
-  it("clears the value when emptied", () => {
+  it("clears the value via the Clear button", () => {
     renderCell({ type: "date", value: "2026-06-01" });
     fireEvent.click(screen.getByText("2026-06-01"));
-    const input = screen.getByLabelText("Due");
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.blur(input);
+    fireEvent.click(screen.getByText("Clear"));
     expect(clearMutate).toHaveBeenCalledWith({
       pageId: "page1",
       propertyId: "prop1",
@@ -132,46 +107,10 @@ describe("DateCell", () => {
     expect(setMutate).not.toHaveBeenCalled();
   });
 
-  it("controlled: emits onChange with an ISO date, no mutation", () => {
-    const onChange = vi.fn();
-    render(
-      <MantineProvider>
-        <DateCell
-          property={property}
-          value={undefined}
-          pageId=""
-          databaseId="db1"
-          showEmptyPlaceholder
-          onChange={onChange}
-        />
-      </MantineProvider>,
-    );
+  it("does not offer Clear when there is no stored value", () => {
+    renderCell(undefined);
     fireEvent.click(screen.getByText("Empty"));
-    const input = screen.getByLabelText("Due");
-    fireEvent.change(input, { target: { value: "June 1, 2026" } });
-    expect(onChange).toHaveBeenCalledWith({ type: "date", value: "2026-06-01" });
-    expect(setMutate).not.toHaveBeenCalled();
-  });
-
-  it("controlled: emits onChange(undefined) when cleared, no mutation", () => {
-    const onChange = vi.fn();
-    render(
-      <MantineProvider>
-        <DateCell
-          property={property}
-          value={{ type: "date", value: "2026-06-01" }}
-          pageId=""
-          databaseId="db1"
-          showEmptyPlaceholder
-          onChange={onChange}
-        />
-      </MantineProvider>,
-    );
-    fireEvent.click(screen.getByText("2026-06-01"));
-    const input = screen.getByLabelText("Due");
-    fireEvent.change(input, { target: { value: "" } });
-    expect(onChange).toHaveBeenCalledWith(undefined);
-    expect(clearMutate).not.toHaveBeenCalled();
+    expect(screen.queryByText("Clear")).toBeNull();
   });
 
   describe("quick picks", () => {
@@ -214,20 +153,19 @@ describe("DateCell", () => {
       );
     });
 
+    it("does not re-fire the mutation when the same date is picked twice", () => {
+      renderCell(undefined);
+      fireEvent.click(screen.getByText("Empty"));
+      fireEvent.click(screen.getByText("Today"));
+      // Reopen and pick the same day again — the last-committed guard blocks it.
+      fireEvent.click(screen.getByText("Empty"));
+      fireEvent.click(screen.getByText("Today"));
+      expect(setMutate).toHaveBeenCalledTimes(1);
+    });
+
     it("controlled: a quick pick emits onChange without a mutation", () => {
       const onChange = vi.fn();
-      render(
-        <MantineProvider>
-          <DateCell
-            property={property}
-            value={undefined}
-            pageId=""
-            databaseId="db1"
-            showEmptyPlaceholder
-            onChange={onChange}
-          />
-        </MantineProvider>,
-      );
+      renderCell(undefined, true, onChange);
       fireEvent.click(screen.getByText("Empty"));
       fireEvent.click(screen.getByText("2 days later"));
       expect(onChange).toHaveBeenCalledWith({
@@ -235,6 +173,15 @@ describe("DateCell", () => {
         value: dayjs().add(2, "day").format("YYYY-MM-DD"),
       });
       expect(setMutate).not.toHaveBeenCalled();
+    });
+
+    it("controlled: Clear emits onChange(undefined), no mutation", () => {
+      const onChange = vi.fn();
+      renderCell({ type: "date", value: "2026-06-01" }, true, onChange);
+      fireEvent.click(screen.getByText("2026-06-01"));
+      fireEvent.click(screen.getByText("Clear"));
+      expect(onChange).toHaveBeenCalledWith(undefined);
+      expect(clearMutate).not.toHaveBeenCalled();
     });
   });
 });

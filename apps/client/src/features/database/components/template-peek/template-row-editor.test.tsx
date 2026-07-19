@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import dayjs from "dayjs";
 
 const createMutate = vi.fn();
 const updateMutate = vi.fn();
@@ -228,12 +229,12 @@ describe("TemplateRowEditor", () => {
   it("edits a date value into the save payload", () => {
     renderEditor(null, [prop({ id: "p1", name: "Due", type: "date" })]);
     fireEvent.click(screen.getByText("Empty"));
-    fireEvent.change(screen.getByLabelText("Due"), {
-      target: { value: "June 1, 2026" },
-    });
+    // The date editor now offers quick shortcuts + a calendar in one dropdown;
+    // "Today" commits a deterministic value through the controlled onChange.
+    fireEvent.click(screen.getByText("Today"));
     fireEvent.click(screen.getByText("Save"));
     expect(createMutate.mock.calls[0][0].propertyValues).toEqual({
-      p1: { type: "date", value: "2026-06-01" },
+      p1: { type: "date", value: dayjs().format("YYYY-MM-DD") },
     });
   });
 

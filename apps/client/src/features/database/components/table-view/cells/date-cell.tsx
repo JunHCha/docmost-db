@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { Button, Popover, Stack, Text } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { Button, Group, Popover, Stack, Text } from "@mantine/core";
+import { DatePicker } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,7 +16,7 @@ import {
 
 const ISO = "YYYY-MM-DD";
 
-// Relative shortcuts offered above the calendar so common due dates are one
+// Relative shortcuts shown alongside the calendar so common due dates are one
 // click away. Each computes its date from "now" at click time (dayjs).
 const QUICK_PICKS: { label: string; compute: () => Date }[] = [
   { label: "Today", compute: () => dayjs().toDate() },
@@ -26,7 +26,7 @@ const QUICK_PICKS: { label: string; compute: () => Date }[] = [
   { label: "Next week", compute: () => dayjs().add(1, "week").toDate() },
 ];
 
-// Normalize whatever DateInput hands back (a `YYYY-MM-DD` string in Mantine v8,
+// Normalize whatever the picker hands back (a `YYYY-MM-DD` string in Mantine v8,
 // or a Date) into the ISO date-only string the backend stores (conventions §1).
 function toIso(value: string | Date | null): string {
   if (!value) return "";
@@ -71,63 +71,17 @@ export function DateCell({
     }
   }
 
-  function pick(date: Date) {
-    commit(date);
+  // A pick (quick shortcut, calendar day, or clear) commits and closes the
+  // single dropdown that hosts both the shortcuts and the calendar.
+  function pick(next: string | Date | null) {
+    commit(next);
     setEditing(false);
   }
 
-  if (editing) {
-    return (
-      <Popover
-        opened
-        trapFocus={false}
-        withinPortal
-        position="bottom-start"
-        shadow="md"
-      >
-        <Popover.Target>
-          <div style={{ width: "100%" }}>
-            <DateInput
-              autoFocus
-              size="xs"
-              variant="unstyled"
-              valueFormat={ISO}
-              clearable
-              defaultValue={stored || null}
-              aria-label={property.name}
-              onChange={commit}
-              onBlur={() => setEditing(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setEditing(false);
-              }}
-            />
-          </div>
-        </Popover.Target>
-        <Popover.Dropdown p={4}>
-          <Stack gap={2}>
-            {QUICK_PICKS.map((qp) => (
-              <Button
-                key={qp.label}
-                variant="subtle"
-                color="gray"
-                size="xs"
-                justify="flex-start"
-                // Keep the DateInput focused so its onBlur does not close the
-                // editor before the click commits.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pick(qp.compute())}
-              >
-                {t(qp.label)}
-              </Button>
-            ))}
-          </Stack>
-        </Popover.Dropdown>
-      </Popover>
-    );
-  }
-
   const showPlaceholder = !stored && showEmptyPlaceholder;
-  return (
+  // The clickable display doubles as the Popover anchor while editing, so it is
+  // the same element in both states (the calendar/shortcuts float from it).
+  const display = (
     <Text
       size="sm"
       c={showPlaceholder ? "dimmed" : undefined}
@@ -136,6 +90,61 @@ export function DateCell({
     >
       {stored || (showPlaceholder ? t(INLINE_EMPTY_PLACEHOLDER) : "")}
     </Text>
+  );
+
+  if (!editing) return display;
+
+  return (
+    // Rendered already-opened while editing (not a controlled toggle) so the
+    // dropdown mounts synchronously. Clicking outside fires onChange(false),
+    // which ends editing and unmounts the popover.
+    <Popover
+      opened
+      onChange={(o) => {
+        if (!o) setEditing(false);
+      }}
+      trapFocus={false}
+      withinPortal
+      position="bottom-start"
+      shadow="md"
+    >
+      <Popover.Target>{display}</Popover.Target>
+      <Popover.Dropdown p={8}>
+        {/* One dropdown, two ways to pick: relative shortcuts on top, the full
+            calendar below (#128 follow-up). */}
+        <Stack gap={8}>
+          <Group gap={4} wrap="wrap" aria-label={t("Quick select")}>
+            {QUICK_PICKS.map((qp) => (
+              <Button
+                key={qp.label}
+                size="compact-xs"
+                variant="light"
+                color="gray"
+                onClick={() => pick(qp.compute())}
+              >
+                {t(qp.label)}
+              </Button>
+            ))}
+          </Group>
+          <DatePicker
+            aria-label={property.name}
+            defaultDate={stored || undefined}
+            value={stored || null}
+            onChange={(d) => pick(d)}
+          />
+          {stored && (
+            <Button
+              variant="subtle"
+              color="gray"
+              size="compact-xs"
+              onClick={() => pick(null)}
+            >
+              {t("Clear")}
+            </Button>
+          )}
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
   );
 }
 
