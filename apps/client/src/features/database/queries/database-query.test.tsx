@@ -406,6 +406,37 @@ describe("useCreateRowMutation success path", () => {
       ]),
     );
   });
+
+  it("refetches the rows query when created from a template", async () => {
+    // Template property values are applied server-side (the client sends only a
+    // templateId), so the optimistic row can't carry them — the cache must be
+    // refetched or the new row shows empty until reload.
+    const page = { id: "row1", title: "" };
+    service.createRow.mockResolvedValue(page);
+    const invalidate = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+    const { result } = renderHook(() => useCreateRowMutation(dbId), { wrapper });
+    result.current.mutate({ databaseId: dbId, templateId: "tpl1" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["database-rows", dbId],
+    });
+    invalidate.mockRestore();
+  });
+
+  it("does not refetch on a plain create (optimistic append suffices)", async () => {
+    const page = { id: "row1", title: "" };
+    service.createRow.mockResolvedValue(page);
+    const invalidate = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined as never);
+    const { result } = renderHook(() => useCreateRowMutation(dbId), { wrapper });
+    result.current.mutate({ databaseId: dbId } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidate).not.toHaveBeenCalled();
+    invalidate.mockRestore();
+  });
 });
 
 describe("useCreateDatabaseMutation success path", () => {

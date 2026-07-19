@@ -291,6 +291,15 @@ export function useCreateRowMutation(databaseId: string) {
       // A row is a page parented to the database, but it is intentionally not
       // surfaced in the sidebar tree (Notion-like), so we don't patch the
       // sidebar create cache here.
+      //
+      // A template applies its property values server-side (the client sends
+      // only a templateId, not the values), so the optimistic row above cannot
+      // carry them. Refetch the rows so those server-applied values appear
+      // without a manual reload. Plain/initialValues creates stay refetch-free
+      // (#103): their values are already in the optimistic row.
+      if (variables.templateId) {
+        queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
+      }
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: rowsPrefix(databaseId) });
