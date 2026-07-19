@@ -77,8 +77,11 @@ export function layoutRows(
 
     // Cells are consecutive days, so a date's grid index is its day offset from
     // the first cell; clip to [0, lastIndex] and remember which ends we cut.
-    const rawStartIndex = start.diff(gridStart, "day");
-    const rawEndIndex = end.diff(gridStart, "day");
+    // Round the fractional day diff rather than truncate: both operands are
+    // local midnights, but a DST spring-forward between them yields 23h (a
+    // truncating diff would then under-count the offset by one day).
+    const rawStartIndex = Math.round(start.diff(gridStart, "day", true));
+    const rawEndIndex = Math.round(end.diff(gridStart, "day", true));
     const startIndex = Math.max(0, rawStartIndex);
     const endIndex = Math.min(lastIndex, rawEndIndex);
 
