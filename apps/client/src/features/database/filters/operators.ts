@@ -36,6 +36,10 @@ const OPS_BY_TYPE: Record<PropertyType, FilterOp[]> = {
   relation: ["contains", "not_contains", ...EMPTY_OPS],
   person: ["contains", "not_contains", ...EMPTY_OPS],
   checkbox: ["eq"],
+  // Computed system columns are not filterable (sort-only). See issue #128.
+  created_by: [],
+  created_time: [],
+  last_edited_time: [],
 };
 
 export function operatorsForType(type: PropertyType): OperatorOption[] {

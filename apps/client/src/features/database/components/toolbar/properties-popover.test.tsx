@@ -41,40 +41,36 @@ function renderPopover(
 }
 
 describe("PropertiesPopover", () => {
-  it("renders the 'Show properties' header", () => {
+  it("renders a visibility toggle (eye icon) for every property", () => {
     renderPopover(undefined);
-    expect(screen.getByText("Show properties")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Status" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Owner" })).toBeTruthy();
   });
 
-  it("renders a toggle for every property", () => {
-    renderPopover(undefined);
-    expect(screen.getByRole("switch", { name: "Status" })).toBeTruthy();
-    expect(screen.getByRole("switch", { name: "Owner" })).toBeTruthy();
-  });
-
-  it("shows visible:false columns as off", () => {
+  it("shows visible:false columns as pressed-off (hidden)", () => {
     renderPopover([{ propertyId: "p1", visible: false }]);
-    const status = screen.getByRole("switch", { name: "Status" });
-    expect((status as HTMLInputElement).checked).toBe(false);
+    const status = screen.getByRole("button", { name: "Status" });
+    expect(status.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("defaults properties missing from config to on", () => {
     renderPopover([{ propertyId: "p1", visible: false }]);
-    const owner = screen.getByRole("switch", { name: "Owner" });
-    expect((owner as HTMLInputElement).checked).toBe(true);
+    const owner = screen.getByRole("button", { name: "Owner" });
+    expect(owner.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("treats an empty/absent config as all on", () => {
     renderPopover(undefined);
     expect(
-      (screen.getByRole("switch", { name: "Status" }) as HTMLInputElement)
-        .checked,
-    ).toBe(true);
+      screen
+        .getByRole("button", { name: "Status" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 
   it("calls onToggle with false when turning a visible column off", () => {
     const { onToggle } = renderPopover(undefined);
-    fireEvent.click(screen.getByRole("switch", { name: "Status" }));
+    fireEvent.click(screen.getByRole("button", { name: "Status" }));
     expect(onToggle).toHaveBeenCalledWith("p1", false);
   });
 
@@ -82,7 +78,7 @@ describe("PropertiesPopover", () => {
     const { onToggle } = renderPopover([
       { propertyId: "p1", visible: false },
     ]);
-    fireEvent.click(screen.getByRole("switch", { name: "Status" }));
+    fireEvent.click(screen.getByRole("button", { name: "Status" }));
     expect(onToggle).toHaveBeenCalledWith("p1", true);
   });
 });

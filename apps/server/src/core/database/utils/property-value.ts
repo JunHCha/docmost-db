@@ -78,6 +78,14 @@ export function validateValueForType(
         throw bad(type, 'an array of user ids');
       }
       break;
+    case 'created_by':
+    case 'created_time':
+    case 'last_edited_time':
+      // Computed system columns are derived from page metadata and can never be
+      // written directly. See conventions.md / issue #128.
+      throw new BadRequestException(
+        `'${type}' is a read-only computed property`,
+      );
   }
 
   return { type, value: v };

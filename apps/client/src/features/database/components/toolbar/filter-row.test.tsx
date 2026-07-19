@@ -134,6 +134,36 @@ describe("FilterRow", () => {
     expect(input.value).toBe("plan");
   });
 
+  it("excludes computed system columns from the filter property list", () => {
+    const withComputed: IDatabaseProperty[] = [
+      ...properties,
+      {
+        id: "p-ct",
+        databaseId: "db1",
+        name: "Created time",
+        type: "created_time",
+        config: {},
+        position: "a2",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      },
+    ];
+    render(
+      <MantineProvider>
+        <FilterRow
+          properties={withComputed}
+          condition={{ propertyId: "p1", op: "eq", value: "o1" } as any}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      </MantineProvider>,
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter property" }));
+    expect(screen.getByText("Status")).toBeTruthy();
+    expect(screen.queryByText("Created time")).toBeNull();
+  });
+
   it("shows a property-type icon next to each column option", () => {
     renderRow({ propertyId: "p1", op: "eq", value: "o1" });
     fireEvent.click(screen.getByRole("combobox", { name: "Filter property" }));

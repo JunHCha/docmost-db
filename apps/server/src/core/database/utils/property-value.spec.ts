@@ -68,6 +68,14 @@ describe('validateValueForType', () => {
     ).toEqual(['page-1', 'page-2']);
   });
 
+  it('rejects any value for computed system types (read-only)', () => {
+    for (const t of ['created_by', 'created_time', 'last_edited_time'] as const) {
+      expect(() =>
+        validateValueForType(t, { type: t, value: 'x' }),
+      ).toThrow(BadRequestException);
+    }
+  });
+
   it('accepts an array of user ids for person, rejects non-arrays', () => {
     expect(
       validateValueForType('person', {

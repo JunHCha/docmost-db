@@ -79,6 +79,12 @@ describe('filter-ops', () => {
     it('maps checkbox to eq only', () => {
       expect(allowedOpsForType('checkbox')).toEqual(['eq']);
     });
+
+    it('maps computed system types to no ops (not filterable)', () => {
+      for (const t of ['created_by', 'created_time', 'last_edited_time'] as const) {
+        expect(allowedOpsForType(t)).toEqual([]);
+      }
+    });
   });
 
   describe('assertOpForType', () => {

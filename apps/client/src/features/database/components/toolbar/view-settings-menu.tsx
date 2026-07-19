@@ -8,6 +8,7 @@ import {
 import { groupByCandidates } from "../board-view/board-config";
 import { dateCandidates } from "../calendar-view/calendar-config";
 import { PropertiesPopover } from "./properties-popover";
+import { PropertyTypeIcon } from "../property/property-type-icon";
 
 interface ViewSettingsMenuProps {
   viewType: string;
@@ -54,7 +55,8 @@ export function ViewSettingsMenu({
           {dates.map((property) => (
             <Menu.Item
               key={property.id}
-              leftSection={
+              leftSection={<PropertyTypeIcon type={property.type} size={14} />}
+              rightSection={
                 datePropertyId === property.id ? (
                   <IconCheck size={14} />
                 ) : undefined
@@ -94,7 +96,7 @@ export function ViewSettingsMenu({
       <Menu.Dropdown>
         <Menu.Sub>
           <Menu.Sub.Target>
-            <Menu.Sub.Item>{t("Properties")}</Menu.Sub.Item>
+            <Menu.Sub.Item>{t("Show properties")}</Menu.Sub.Item>
           </Menu.Sub.Target>
           <Menu.Sub.Dropdown>
             <PropertiesPopover
@@ -114,6 +116,9 @@ export function ViewSettingsMenu({
                 <Menu.Item
                   key={property.id}
                   leftSection={
+                    <PropertyTypeIcon type={property.type} size={14} />
+                  }
+                  rightSection={
                     groupByPropertyId === property.id ? (
                       <IconCheck size={14} />
                     ) : undefined

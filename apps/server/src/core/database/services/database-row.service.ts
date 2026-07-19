@@ -21,7 +21,11 @@ import {
   RowFilter,
   RowSort,
 } from '@docmost/db/repos/database/database.repo';
-import { assertPropertyType } from '../utils/property-config';
+import {
+  assertPropertyType,
+  isComputedPropertyType,
+  PropertyType,
+} from '../utils/property-config';
 import {
   assertOpForType,
   assertFilterValueForType,
@@ -179,10 +183,43 @@ export class DatabaseRowService {
       valuesByPage.set(value.pageId, list);
     }
 
-    return rows.map((row) => ({
-      row,
-      values: valuesByPage.get(row.id) ?? [],
-    }));
+    // Computed system columns carry no stored value; synthesize each row's value
+    // from the row page's own metadata (creator/created/updated). Only appended
+    // when the row has no stored value for that property (there normally is
+    // none, since writes are rejected for computed types).
+    const properties = await this.propertyRepo.findByDatabaseId(database.id);
+    const computed = properties.filter((p) =>
+      isComputedPropertyType(p.type as PropertyType),
+    );
+
+    return rows.map((row) => {
+      const stored = valuesByPage.get(row.id) ?? [];
+      const synthesized = computed
+        .filter((p) => !stored.some((v) => v.propertyId === p.id))
+        .map((p) => this.synthesizeComputedValue(p, row));
+      return { row, values: [...stored, ...synthesized] as typeof stored };
+    });
+  }
+
+  // Build the tagged value for a computed column from the row page's metadata.
+  private synthesizeComputedValue(
+    property: { id: string; type: string },
+    row: { id: string; creatorId?: string; createdAt: Date; updatedAt: Date },
+  ) {
+    const meta =
+      property.type === 'created_by'
+        ? row.creatorId
+        : property.type === 'last_edited_time'
+          ? row.updatedAt
+          : row.createdAt;
+    return {
+      id: `computed:${property.id}:${row.id}`,
+      pageId: row.id,
+      propertyId: property.id,
+      value: { type: property.type, value: meta },
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    } as any;
   }
 
   async deleteRows(user: User, workspace: Workspace, dto: DeleteRowsDto) {
@@ -304,6 +341,12 @@ export class DatabaseRowService {
       property.databaseId,
       SpaceCaslAction.Edit,
     );
+    // Computed system columns are derived from page metadata; reject writes.
+    if (isComputedPropertyType(property.type as PropertyType)) {
+      throw new BadRequestException(
+        `'${property.type}' is a read-only computed property`,
+      );
+    }
     await this.assertRowInDatabase(dto.pageId, database);
 
     // Empty values are expressed by clearValue (no row), not setValue(null).
@@ -355,6 +398,12 @@ export class DatabaseRowService {
       property.databaseId,
       SpaceCaslAction.Edit,
     );
+    // Computed system columns are read-only; there is nothing to clear.
+    if (isComputedPropertyType(property.type as PropertyType)) {
+      throw new BadRequestException(
+        `'${property.type}' is a read-only computed property`,
+      );
+    }
     // Symmetric with setValue: only clear values on a live row of this database.
     await this.assertRowInDatabase(dto.pageId, database);
 

@@ -23,6 +23,7 @@ import {
 } from '@docmost/db/types/entity.types';
 import {
   assertPropertyType,
+  isComputedPropertyType,
   normalizePropertyConfig,
   PropertyType,
   SelectOption,
@@ -99,6 +100,14 @@ export class DatabasePropertyService {
       dto.propertyId,
       SpaceCaslAction.Edit,
     );
+
+    // Computed system columns are locked: they cannot be renamed, retyped, or
+    // reconfigured (only reordered). See isComputedPropertyType / issue #128.
+    if (isComputedPropertyType(property.type as PropertyType)) {
+      throw new BadRequestException(
+        'System columns cannot be renamed or changed',
+      );
+    }
 
     // Capture the old type/options before the config (option labels) is
     // discarded, so values can be migrated from option ids to labels below.
@@ -449,6 +458,12 @@ export class DatabasePropertyService {
       dto.propertyId,
       SpaceCaslAction.Edit,
     );
+
+    // Computed system columns are locked and cannot be deleted (#128).
+    if (isComputedPropertyType(property.type as PropertyType)) {
+      throw new BadRequestException('System columns cannot be deleted');
+    }
+
     await this.propertyRepo.softDeleteProperty(dto.propertyId);
 
     // Cascade to the paired reverse column so the bidirectional link stays

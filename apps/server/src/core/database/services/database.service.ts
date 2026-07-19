@@ -4,9 +4,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
 import { PageService } from '../../page/services/page.service';
 import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
+import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
+import { PropertyType } from '../utils/property-config';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
   SpaceCaslAction,
@@ -24,9 +27,23 @@ export class DatabaseService {
   constructor(
     private readonly pageService: PageService,
     private readonly databaseRepo: DatabaseRepo,
+    private readonly propertyRepo: DatabasePropertyRepo,
     private readonly pageRepo: PageRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
   ) {}
+
+  // Default columns seeded on every new database. These are computed system
+  // columns (issue #128): read-only, values derived from each row page's
+  // metadata. Korean names follow the same data-stored convention as relation
+  // columns ("<title>와 관계됨").
+  private static readonly SYSTEM_COLUMNS: {
+    name: string;
+    type: PropertyType;
+  }[] = [
+    { name: '생성자', type: 'created_by' },
+    { name: '만든 날짜', type: 'created_time' },
+    { name: '수정한 날짜', type: 'last_edited_time' },
+  ];
 
   async create(user: User, workspace: Workspace, dto: CreateDatabaseDto) {
     const ability = await this.spaceAbility.createForUser(user, dto.spaceId);
@@ -55,6 +72,7 @@ export class DatabaseService {
         spaceId: dto.spaceId,
         workspaceId: workspace.id,
       });
+      await this.seedSystemColumns(database.id);
       return { database, page };
     } catch (err) {
       // Compensation, not a true transaction: the page was created via the
@@ -71,6 +89,31 @@ export class DatabaseService {
         );
       }
       throw err;
+    }
+  }
+
+  // Best-effort seed of the computed system columns. A failure here must not
+  // fail the whole database creation (the database + page already exist), so it
+  // is logged and swallowed — the columns can be re-added manually if needed.
+  private async seedSystemColumns(databaseId: string): Promise<void> {
+    try {
+      let prev: string | null = null;
+      for (const col of DatabaseService.SYSTEM_COLUMNS) {
+        const position = generateJitteredKeyBetween(prev, null);
+        await this.propertyRepo.insertProperty({
+          databaseId,
+          name: col.name,
+          type: col.type,
+          config: {},
+          position,
+        });
+        prev = position;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to seed system columns for database ${databaseId}`,
+        err,
+      );
     }
   }
 

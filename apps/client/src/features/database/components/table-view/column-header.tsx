@@ -18,6 +18,7 @@ import {
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
 import {
   IDatabaseProperty,
+  isComputedPropertyType,
   PropertyType,
 } from "@/features/database/types/database.types.ts";
 import {
@@ -88,6 +89,11 @@ export function ColumnHeader({
   // Swaps the type menu for a target-database picker (relation needs a
   // targetDatabaseId, otherwise the server rejects the update with 400).
   const [pickingRelation, setPickingRelation] = useState(false);
+
+  // Computed system columns (생성자/만든 날짜/수정한 날짜) are locked: they can be
+  // reordered (drag) but not renamed, retyped, or deleted (#128). The server
+  // rejects such mutations too; the UI just hides the controls.
+  const isComputed = isComputedPropertyType(property.type);
 
   const update = useUpdatePropertyMutation(databaseId);
   // The drag adapter must register ONCE and stay alive: the onReorder callback
@@ -239,8 +245,8 @@ export function ColumnHeader({
                 size="sm"
                 fw={500}
                 truncate
-                style={{ flex: 1, cursor: "text" }}
-                onDoubleClick={startRename}
+                style={{ flex: 1, cursor: isComputed ? "default" : "text" }}
+                onDoubleClick={isComputed ? undefined : startRename}
               >
                 {property.name}
               </Text>
@@ -308,6 +314,10 @@ export function ColumnHeader({
                         })}
                     </>
                     )
+                  ) : isComputed ? (
+                    // Locked system column: only Hide (view visibility) remains;
+                    // no Rename / Type / Delete (#128).
+                    <Menu.Item onClick={onHide}>{t("Hide column")}</Menu.Item>
                   ) : (
                     <>
                       <Menu.Item onClick={startRename}>{t("Rename")}</Menu.Item>

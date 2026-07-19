@@ -10,6 +10,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from './database.service';
 import { PageService } from '../../page/services/page.service';
 import { DatabaseRepo } from '@docmost/db/repos/database/database.repo';
+import { DatabasePropertyRepo } from '@docmost/db/repos/database/database-property.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import {
@@ -37,6 +38,7 @@ describe('DatabaseService', () => {
     >
   >;
   let pageRepo: jest.Mocked<Pick<PageRepo, 'findById' | 'deletePage'>>;
+  let propertyRepo: jest.Mocked<Pick<DatabasePropertyRepo, 'insertProperty'>>;
   let spaceAbility: jest.Mocked<Pick<SpaceAbilityFactory, 'createForUser'>>;
 
   beforeEach(async () => {
@@ -48,6 +50,11 @@ describe('DatabaseService', () => {
       findBySpaceId: jest.fn(),
     } as any;
     pageRepo = { findById: jest.fn(), deletePage: jest.fn() } as any;
+    propertyRepo = {
+      insertProperty: jest
+        .fn()
+        .mockImplementation(async (insertable: any) => insertable),
+    } as any;
     spaceAbility = { createForUser: jest.fn() } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -55,6 +62,7 @@ describe('DatabaseService', () => {
         DatabaseService,
         { provide: PageService, useValue: pageService },
         { provide: DatabaseRepo, useValue: databaseRepo },
+        { provide: DatabasePropertyRepo, useValue: propertyRepo },
         { provide: PageRepo, useValue: pageRepo },
         { provide: SpaceAbilityFactory, useValue: spaceAbility },
       ],
@@ -95,6 +103,8 @@ describe('DatabaseService', () => {
         user.id,
         workspace.id,
         expect.objectContaining({ spaceId: 'space-1', title: 'Tasks' }),
+        undefined,
+        false,
         'database',
       );
       expect(databaseRepo.insertDatabase).toHaveBeenCalledWith({
@@ -102,6 +112,43 @@ describe('DatabaseService', () => {
         spaceId: 'space-1',
         workspaceId: 'ws-1',
       });
+      expect(result).toEqual({ database, page });
+    });
+
+    it('seeds the three computed system columns after creating the meta row', async () => {
+      spaceAbility.createForUser.mockResolvedValue(abilityMock(true) as any);
+      pageService.create.mockResolvedValue({ id: 'page-1' } as any);
+      databaseRepo.insertDatabase.mockResolvedValue({
+        id: 'db-1',
+        pageId: 'page-1',
+      } as any);
+
+      await service.create(user, workspace, dto);
+
+      const calls = propertyRepo.insertProperty.mock.calls.map((c) => c[0]);
+      expect(calls).toHaveLength(3);
+      expect(calls.map((c) => [c.name, c.type])).toEqual([
+        ['생성자', 'created_by'],
+        ['만든 날짜', 'created_time'],
+        ['수정한 날짜', 'last_edited_time'],
+      ]);
+      // All bound to the new database with empty config and ascending positions.
+      expect(calls.every((c) => c.databaseId === 'db-1')).toBe(true);
+      expect(calls.every((c) => typeof c.position === 'string')).toBe(true);
+      expect(calls[0].position < calls[1].position).toBe(true);
+      expect(calls[1].position < calls[2].position).toBe(true);
+    });
+
+    it('still returns the database when seeding a system column fails', async () => {
+      spaceAbility.createForUser.mockResolvedValue(abilityMock(true) as any);
+      const page: any = { id: 'page-1' };
+      const database: any = { id: 'db-1', pageId: 'page-1' };
+      pageService.create.mockResolvedValue(page);
+      databaseRepo.insertDatabase.mockResolvedValue(database);
+      propertyRepo.insertProperty.mockRejectedValue(new Error('boom'));
+
+      const result = await service.create(user, workspace, dto);
+
       expect(result).toEqual({ database, page });
     });
 

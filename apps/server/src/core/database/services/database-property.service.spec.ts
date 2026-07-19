@@ -789,4 +789,34 @@ describe('DatabasePropertyService', () => {
       expect(result).toBe(rows);
     });
   });
+
+  describe('computed system columns are locked (#128)', () => {
+    for (const type of ['created_by', 'created_time', 'last_edited_time']) {
+      it(`rejects renaming a ${type} column`, async () => {
+        propertyRepo.findById.mockResolvedValue({
+          id: 'sys-1',
+          databaseId: 'db-1',
+          type,
+          config: {},
+        } as any);
+        await expect(
+          service.update(user, { propertyId: 'sys-1', name: 'X' } as any),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(propertyRepo.updateProperty).not.toHaveBeenCalled();
+      });
+
+      it(`rejects deleting a ${type} column`, async () => {
+        propertyRepo.findById.mockResolvedValue({
+          id: 'sys-1',
+          databaseId: 'db-1',
+          type,
+          config: {},
+        } as any);
+        await expect(
+          service.delete(user, { propertyId: 'sys-1' } as any),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(propertyRepo.softDeleteProperty).not.toHaveBeenCalled();
+      });
+    }
+  });
 });

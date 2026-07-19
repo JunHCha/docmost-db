@@ -115,9 +115,9 @@ describe("ViewToolbar", () => {
   it("toggles a column off through the View settings menu", async () => {
     const { onToggleColumn } = renderToolbar();
     fireEvent.click(screen.getByRole("button", { name: /view settings/i }));
-    await openSubmenu("Properties");
+    await openSubmenu("Show properties");
     fireEvent.click(
-      await screen.findByRole("switch", { name: "Status", hidden: true }),
+      await screen.findByRole("button", { name: "Status", hidden: true }),
     );
     expect(onToggleColumn).toHaveBeenCalledWith("p1", false);
   });
