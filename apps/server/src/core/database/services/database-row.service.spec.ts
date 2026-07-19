@@ -129,7 +129,6 @@ describe('DatabaseRowService', () => {
           parentPageId: 'dbpage-1',
           title: 'Row',
         }),
-        'doc',
       );
       expect(result).toBe(page);
       expect(templateRepo.findById).not.toHaveBeenCalled();
@@ -175,7 +174,6 @@ describe('DatabaseRowService', () => {
             content: template.content,
             format: 'json',
           }),
-          'doc',
         );
         expect(valueRepo.setValue).toHaveBeenCalledWith({
           pageId: 'row-1',
@@ -246,7 +244,6 @@ describe('DatabaseRowService', () => {
             title: 'Bug report',
             icon: '🐛',
           }),
-          'doc',
         );
       });
 
@@ -431,6 +428,59 @@ describe('DatabaseRowService', () => {
         },
         { row: { id: 'row-2' }, values: [] },
       ]);
+    });
+
+    it('appends synthesized computed values to each row from page metadata', async () => {
+      const created = new Date('2026-01-01T00:00:00.000Z');
+      const updated = new Date('2026-02-01T00:00:00.000Z');
+      databaseRepo.listRows.mockResolvedValue([
+        {
+          id: 'row-1',
+          creatorId: 'user-9',
+          createdAt: created,
+          updatedAt: updated,
+        },
+      ] as any);
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-cb', databaseId: 'db-1', type: 'created_by' },
+        { id: 'p-ct', databaseId: 'db-1', type: 'created_time' },
+        { id: 'p-le', databaseId: 'db-1', type: 'last_edited_time' },
+      ] as any);
+
+      const result = await service.listRows(user, {
+        databaseId: 'db-1',
+      } as any);
+
+      expect(result[0].values).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            propertyId: 'p-cb',
+            pageId: 'row-1',
+            value: { type: 'created_by', value: 'user-9' },
+          }),
+          expect.objectContaining({
+            propertyId: 'p-ct',
+            value: { type: 'created_time', value: created },
+          }),
+          expect.objectContaining({
+            propertyId: 'p-le',
+            value: { type: 'last_edited_time', value: updated },
+          }),
+        ]),
+      );
+    });
+
+    it('does not synthesize computed values when there are no computed columns', async () => {
+      databaseRepo.listRows.mockResolvedValue([{ id: 'row-1' }] as any);
+      propertyRepo.findByDatabaseId.mockResolvedValue([
+        { id: 'p-txt', databaseId: 'db-1', type: 'text' },
+      ] as any);
+
+      const result = await service.listRows(user, {
+        databaseId: 'db-1',
+      } as any);
+
+      expect(result).toEqual([{ row: { id: 'row-1' }, values: [] }]);
     });
 
     it('resolves filters/sorts against db properties and passes options', async () => {
@@ -639,6 +689,44 @@ describe('DatabaseRowService', () => {
         'ws-1',
       );
       expect(result).toEqual({ deleted: 2 });
+    });
+  });
+
+  describe('computed columns are read-only', () => {
+    const computed: any = {
+      id: 'p-ct',
+      databaseId: 'db-1',
+      type: 'created_time',
+      config: {},
+    };
+
+    beforeEach(() => {
+      propertyRepo.findById.mockResolvedValue(computed);
+      pageRepo.findById.mockResolvedValue({
+        id: 'row-1',
+        parentPageId: 'dbpage-1',
+      } as any);
+    });
+
+    it('rejects setValue on a computed property (400)', async () => {
+      await expect(
+        service.setValue(user, {
+          pageId: 'row-1',
+          propertyId: 'p-ct',
+          value: { type: 'created_time', value: 'x' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(valueRepo.setValue).not.toHaveBeenCalled();
+    });
+
+    it('rejects clearValue on a computed property (400)', async () => {
+      await expect(
+        service.clearValue(user, {
+          pageId: 'row-1',
+          propertyId: 'p-ct',
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(valueRepo.clearValue).not.toHaveBeenCalled();
     });
   });
 
