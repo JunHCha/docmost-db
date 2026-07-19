@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,8 +12,13 @@ vi.mock(
 );
 
 const setMutate = vi.fn();
+const createRowMutate = vi.fn();
+// Mutable holder so a test can set the template list before rendering.
+const templatesRef: { current: any[] } = { current: [] };
 vi.mock("@/features/database/queries/database-query.ts", () => ({
   useSetValueMutation: () => ({ mutate: setMutate }),
+  useCreateRowMutation: () => ({ mutate: createRowMutate }),
+  useDatabaseTemplatesQuery: () => ({ data: templatesRef.current }),
 }));
 
 const patchRowValue = vi.fn();
@@ -124,9 +129,16 @@ describe("CalendarView", () => {
     vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
     dropByDate.clear();
     setMutate.mockReset();
+    createRowMutate.mockReset();
+    templatesRef.current = [];
     patchRowValue.mockReset();
     peekOpen.mockReset();
   });
+
+  const cellFor = (iso: string) =>
+    screen
+      .getAllByTestId("calendar-day")
+      .find((c) => c.getAttribute("data-date") === iso) as HTMLElement;
 
   afterEach(() => {
     vi.useRealTimers();
@@ -326,5 +338,27 @@ describe("CalendarView", () => {
     });
     expect(screen.queryByTestId("calendar-bar-resize-start")).toBeNull();
     expect(screen.queryByTestId("calendar-bar-resize-end")).toBeNull();
+  });
+
+  it("creates a new page seeded with the cell's date from the + menu", () => {
+    renderCalendar({ config: { datePropertyId: "start" } });
+    fireEvent.click(within(cellFor("2026-06-10")).getByLabelText("Add"));
+    fireEvent.click(screen.getByText("New page"));
+    expect(createRowMutate).toHaveBeenCalledWith({
+      databaseId: "db1",
+      initialValues: { start: { type: "date", value: "2026-06-10" } },
+    });
+  });
+
+  it("creates a row from a template seeded with the cell's date", () => {
+    templatesRef.current = [{ id: "t1", name: "Bug", icon: null }];
+    renderCalendar({ config: { datePropertyId: "start" } });
+    fireEvent.click(within(cellFor("2026-06-15")).getByLabelText("Add"));
+    fireEvent.click(screen.getByText("Bug"));
+    expect(createRowMutate).toHaveBeenCalledWith({
+      databaseId: "db1",
+      templateId: "t1",
+      initialValues: { start: { type: "date", value: "2026-06-15" } },
+    });
   });
 });

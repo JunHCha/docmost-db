@@ -3,13 +3,18 @@ import {
   ActionIcon,
   Box,
   Group,
+  Menu,
   Popover,
   SimpleGrid,
   Stack,
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlus,
+} from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import dayjs, { Dayjs } from "dayjs";
@@ -17,9 +22,14 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import {
   IDatabaseProperty,
   IDatabaseRow,
+  IDatabaseTemplate,
   IDatabaseView,
 } from "@/features/database/types/database.types.ts";
-import { useSetValueMutation } from "@/features/database/queries/database-query.ts";
+import {
+  useCreateRowMutation,
+  useDatabaseTemplatesQuery,
+  useSetValueMutation,
+} from "@/features/database/queries/database-query.ts";
 import { patchRowValue } from "@/features/database/queries/database-cache.ts";
 import { layoutRows, CalendarBar as BarData } from "./layout-rows";
 import { packBars, WeekSegment } from "./week-lanes";
@@ -27,6 +37,7 @@ import { dateCandidates } from "./calendar-config";
 import { monthGrid } from "./month-grid";
 import { CalendarBar, CalendarBarDrag } from "./calendar-bar";
 import { CALENDAR_BAR_DRAG } from "./calendar-dnd";
+import classes from "./calendar-view.module.css";
 
 const ISO = "YYYY-MM-DD";
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -56,21 +67,28 @@ interface CalendarViewProps {
   onAutoAdoptDate?: (id: string) => void;
 }
 
-// One day cell: the date number plus a drop target. Dropping a bar here applies
-// it to this day — moving the whole span or resizing one end per the drag mode
-// (see onBarDrop). Bars themselves are drawn by the week overlay, not inside the
-// cell, so a span can cross column boundaries.
+// One day cell: the date number, a hover "+" to add a row on this day, and a
+// drop target. Dropping a bar here applies it to this day — moving the whole
+// span or resizing one end per the drag mode (see onBarDrop). Bars themselves
+// are drawn by the week overlay, not inside the cell, so a span can cross
+// column boundaries.
 function DayCell({
   date,
   inMonth,
   onBarDrop,
+  templates,
+  onCreate,
 }: {
   date: Dayjs;
   inMonth: boolean;
   onBarDrop: (drag: CalendarBarDrag, date: Dayjs) => void;
+  templates: IDatabaseTemplate[];
+  onCreate: (templateId: string | null, date: Dayjs) => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -94,6 +112,7 @@ function DayCell({
       ref={ref}
       data-testid="calendar-day"
       data-date={date.format(ISO)}
+      className={classes.cell}
       style={{
         minHeight: CELL_MIN_H,
         // Each cell draws only its right/bottom edge; the grid wrapper draws the
@@ -108,6 +127,46 @@ function DayCell({
             : "var(--mantine-color-gray-0)",
       }}
     >
+      <Menu
+        position="bottom-start"
+        shadow="md"
+        withinPortal
+        opened={menuOpen}
+        onChange={setMenuOpen}
+        transitionProps={{ duration: 0 }}
+      >
+        <Menu.Target>
+          <ActionIcon
+            className={classes.addButton}
+            data-open={menuOpen || undefined}
+            variant="subtle"
+            size="sm"
+            aria-label={t("Add")}
+          >
+            <IconPlus size={14} />
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item onClick={() => onCreate(null, date)}>
+            {t("New page")}
+          </Menu.Item>
+          {templates.length > 0 && (
+            <>
+              <Menu.Divider />
+              <Menu.Label>{t("From template")}</Menu.Label>
+              {templates.map((template) => (
+                <Menu.Item
+                  key={template.id}
+                  leftSection={template.icon ?? undefined}
+                  onClick={() => onCreate(template.id, date)}
+                >
+                  {template.name}
+                </Menu.Item>
+              ))}
+            </>
+          )}
+        </Menu.Dropdown>
+      </Menu>
       <Text
         size="xs"
         c={inMonth ? (isToday ? "blue" : "dimmed") : "dimmed"}
@@ -202,6 +261,8 @@ export function CalendarView({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const setValue = useSetValueMutation(databaseId);
+  const createRow = useCreateRowMutation(databaseId);
+  const templates = useDatabaseTemplatesQuery(databaseId).data ?? [];
   const [month, setMonth] = useState(() => dayjs().startOf("month"));
 
   const datePropertyId = activeView.config.datePropertyId;
@@ -319,6 +380,22 @@ export function CalendarView({
     [setDate],
   );
 
+  // Add a row on a day: seed the (start) date property with that day so the new
+  // row lands on the clicked cell. A templateId, when given, is applied
+  // server-side; template values win where they overlap the seeded date.
+  const onCreate = useCallback(
+    (templateId: string | null, date: Dayjs) => {
+      createRow.mutate({
+        databaseId,
+        ...(templateId ? { templateId } : {}),
+        initialValues: effectiveDateId
+          ? { [effectiveDateId]: { type: "date", value: date.format(ISO) } }
+          : {},
+      });
+    },
+    [createRow, databaseId, effectiveDateId],
+  );
+
   return (
     <Stack gap="sm" data-testid="calendar-view">
       <Group justify="space-between">
@@ -382,6 +459,8 @@ export function CalendarView({
                         date={date}
                         inMonth={date.isSame(month, "month")}
                         onBarDrop={onBarDrop}
+                        templates={templates}
+                        onCreate={onCreate}
                       />
                     ))}
                   </SimpleGrid>
