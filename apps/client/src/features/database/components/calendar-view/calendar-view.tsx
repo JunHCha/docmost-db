@@ -9,10 +9,7 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import {
-  IconChevronLeft,
-  IconChevronRight,
-} from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import dayjs, { Dayjs } from "dayjs";
@@ -25,18 +22,29 @@ import {
 import { useSetValueMutation } from "@/features/database/queries/database-query.ts";
 import { patchRowValue } from "@/features/database/queries/database-cache.ts";
 import { layoutRows, CalendarBar as BarData } from "./layout-rows";
+import { packBars, WeekSegment } from "./week-lanes";
 import { dateCandidates } from "./calendar-config";
 import { monthGrid } from "./month-grid";
-import { CalendarBar } from "./calendar-bar";
+import { CalendarBar, CalendarBarDrag } from "./calendar-bar";
 import { CALENDAR_BAR_DRAG } from "./calendar-dnd";
 
 const ISO = "YYYY-MM-DD";
-const MAX_VISIBLE = 3;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // The single divider colour for the whole grid. Cells draw their right/bottom
 // edge in it and the grid wrapper draws the top/left, so the month reads as one
 // lined table rather than a set of spaced cards.
 const CALENDAR_LINE = "var(--mantine-color-gray-3)";
+
+// Vertical layout of a day cell: the date number sits on top; bars occupy up to
+// MAX_LANES stacked lanes below it, and a reserved strip holds the "+N" overflow
+// control so every week row stays the same height.
+const DAY_NUM_H = 22;
+const BAR_H = 18;
+const BAR_GAP = 2;
+const MAX_LANES = 3;
+const OVERFLOW_H = 16;
+const CELL_MIN_H =
+  DAY_NUM_H + MAX_LANES * (BAR_H + BAR_GAP) + OVERFLOW_H + BAR_GAP;
 
 interface CalendarViewProps {
   databaseId: string;
@@ -49,41 +57,25 @@ interface CalendarViewProps {
   onAutoAdoptDate?: (id: string) => void;
 }
 
-// A bar occupies every day from startDay..endDay; index it per day-of-month so
-// each cell can render the bars that touch it.
-function barsByDay(bars: BarData[]): Map<number, BarData[]> {
-  const map = new Map<number, BarData[]>();
-  for (const bar of bars) {
-    for (let d = bar.startDay; d <= bar.endDay; d++) {
-      const list = map.get(d) ?? [];
-      list.push(bar);
-      map.set(d, list);
-    }
-  }
-  return map;
-}
-
-// One day cell: a drop target for single-date bars (a drop rewrites that bar's
-// date property to this day). Cells outside the visible month render dimmed.
+// One day cell: the date number plus a drop target. Dropping a bar here shifts
+// its date property (single-day) or its whole span (multi-day) so the bar's
+// start lands on this day — see onMoveBar. Bars themselves are drawn by the
+// week overlay, not inside the cell, so a span can cross column boundaries.
 function DayCell({
   date,
   inMonth,
-  bars,
-  spaceSlug,
-  onDropOnDay,
+  onMoveBar,
 }: {
   date: Dayjs;
   inMonth: boolean;
-  bars: BarData[];
-  spaceSlug?: string;
-  onDropOnDay: (rowId: string, propertyIds: string[], date: Dayjs) => void;
+  onMoveBar: (drag: CalendarBarDrag, date: Dayjs) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || !inMonth) return;
+    if (!el) return;
     return dropTargetForElements({
       element: el,
       canDrop: ({ source }) => source.data.context === CALENDAR_BAR_DRAG,
@@ -91,15 +83,11 @@ function DayCell({
       onDragLeave: () => setOver(false),
       onDrop: ({ source }) => {
         setOver(false);
-        const propertyIds = source.data.propertyIds as string[] | undefined;
-        if (!propertyIds?.length) return;
-        onDropOnDay(source.data.id as string, propertyIds, date);
+        onMoveBar(source.data as unknown as CalendarBarDrag, date);
       },
     });
-  }, [inMonth, date, onDropOnDay]);
+  }, [date, onMoveBar]);
 
-  const visible = bars.slice(0, MAX_VISIBLE);
-  const overflow = bars.slice(MAX_VISIBLE);
   const isToday = date.isSame(dayjs(), "day");
 
   return (
@@ -108,11 +96,9 @@ function DayCell({
       data-testid="calendar-day"
       data-date={date.format(ISO)}
       style={{
-        minHeight: 96,
-        // Cells are divided by single shared lines, not per-cell boxes: each
-        // cell draws only its right/bottom edge and the grid wrapper draws the
-        // top/left, so adjacent cells meet on one 1px line (no gaps, no double
-        // borders, no rounded corners). See CALENDAR_LINE.
+        minHeight: CELL_MIN_H,
+        // Each cell draws only its right/bottom edge; the grid wrapper draws the
+        // top/left so adjacent cells meet on one shared 1px line (no gaps).
         borderRight: `1px solid ${CALENDAR_LINE}`,
         borderBottom: `1px solid ${CALENDAR_LINE}`,
         padding: 4,
@@ -128,50 +114,90 @@ function DayCell({
         c={inMonth ? (isToday ? "blue" : "dimmed") : "dimmed"}
         fw={isToday ? 700 : 400}
         ta="right"
-        mb={2}
       >
         {date.date()}
       </Text>
-      {inMonth && (
-        <Stack gap={2}>
-          {visible.map((bar) => (
-            <CalendarBar
-              key={bar.row.row.id}
-              bar={bar}
-              spaceSlug={spaceSlug}
-            />
-          ))}
-          {overflow.length > 0 && (
-            <Popover position="bottom" withinPortal shadow="md">
-              <Popover.Target>
-                <UnstyledButton
-                  data-testid="calendar-overflow"
-                  style={{ fontSize: "var(--mantine-font-size-xs)" }}
-                >
-                  <Text size="xs" c="dimmed">
-                    +{overflow.length}
-                  </Text>
-                </UnstyledButton>
-              </Popover.Target>
-              <Popover.Dropdown>
-                <Text size="xs" fw={600} mb={4}>
-                  {date.format("MMM D")}
-                </Text>
-                <Stack gap={2} style={{ minWidth: 160 }}>
-                  {bars.map((bar) => (
-                    <CalendarBar
-                      key={bar.row.row.id}
-                      bar={bar}
-                      spaceSlug={spaceSlug}
-                    />
-                  ))}
-                </Stack>
-              </Popover.Dropdown>
-            </Popover>
-          )}
-        </Stack>
-      )}
     </Box>
+  );
+}
+
+// The bars (and any "+N more") of a single week, absolutely positioned over its
+// day-cell grid. Column position comes from the segment's start/end column; the
+// vertical lane keeps a multi-week bar on one row across the whole grid.
+function WeekBars({
+  week,
+  segments,
+  overflow,
+  weekBars,
+  spaceSlug,
+}: {
+  week: number;
+  segments: WeekSegment[];
+  overflow: number;
+  weekBars: BarData[];
+  spaceSlug?: string;
+}) {
+  const { t } = useTranslation();
+  const colPct = (col: number) => (col / 7) * 100;
+
+  return (
+    <>
+      {segments.map((seg) => {
+        const leftInset = seg.continuesLeft ? 0 : 3;
+        const rightInset = seg.continuesRight ? 0 : 3;
+        return (
+          <CalendarBar
+            key={seg.bar.row.row.id}
+            bar={seg.bar}
+            spaceSlug={spaceSlug}
+            continuesLeft={seg.continuesLeft}
+            continuesRight={seg.continuesRight}
+            style={{
+              position: "absolute",
+              left: `calc(${colPct(seg.startCol)}% + ${leftInset}px)`,
+              width: `calc(${colPct(seg.endCol - seg.startCol + 1)}% - ${
+                leftInset + rightInset
+              }px)`,
+              top: DAY_NUM_H + seg.lane * (BAR_H + BAR_GAP),
+              height: BAR_H,
+            }}
+          />
+        );
+      })}
+      {overflow > 0 && (
+        <Box
+          style={{
+            position: "absolute",
+            left: 4,
+            top: DAY_NUM_H + MAX_LANES * (BAR_H + BAR_GAP),
+          }}
+        >
+          <Popover position="bottom-start" withinPortal shadow="md">
+            <Popover.Target>
+              <UnstyledButton
+                data-testid="calendar-overflow"
+                style={{ fontSize: "var(--mantine-font-size-xs)" }}
+              >
+                <Text size="xs" c="dimmed">
+                  +{overflow} {t("more")}
+                </Text>
+              </UnstyledButton>
+            </Popover.Target>
+            <Popover.Dropdown>
+              <Stack gap={2} style={{ minWidth: 180 }}>
+                {weekBars.map((bar) => (
+                  <CalendarBar
+                    key={bar.row.row.id}
+                    bar={bar}
+                    spaceSlug={spaceSlug}
+                  />
+                ))}
+              </Stack>
+            </Popover.Dropdown>
+          </Popover>
+        </Box>
+      )}
+    </>
   );
 }
 
@@ -189,12 +215,24 @@ export function CalendarView({
   const [month, setMonth] = useState(() => dayjs().startOf("month"));
 
   const datePropertyId = activeView.config.datePropertyId;
+  const endDatePropertyId = activeView.config.endDatePropertyId;
 
   // Guard against a stale config pointing at a non-date (or deleted) property.
-  const validDateId = useMemo(() => {
-    const p = properties.find((p) => p.id === datePropertyId);
-    return p && p.type === "date" ? p.id : undefined;
-  }, [properties, datePropertyId]);
+  const validId = useCallback(
+    (id: string | undefined) => {
+      const p = properties.find((p) => p.id === id);
+      return p && p.type === "date" ? p.id : undefined;
+    },
+    [properties],
+  );
+  const validDateId = useMemo(
+    () => validId(datePropertyId),
+    [validId, datePropertyId],
+  );
+  const validEndDateId = useMemo(
+    () => validId(endDatePropertyId),
+    [validId, endDatePropertyId],
+  );
 
   // When nothing valid is configured, adopt the first date column. effectiveId
   // drives the render so the grid shows immediately (even in embed mode where
@@ -215,27 +253,57 @@ export function CalendarView({
   }, [validDateId, firstCandidate, datePropertyId, onAutoAdoptDate]);
 
   const cells = useMemo(() => monthGrid(month), [month]);
-  const dayMap = useMemo(
-    () => barsByDay(layoutRows(rows, effectiveDateId, month)),
-    [rows, effectiveDateId, month],
+  const weekCount = cells.length / 7;
+  const bars = useMemo(
+    () => layoutRows(rows, effectiveDateId, validEndDateId, cells),
+    [rows, effectiveDateId, validEndDateId, cells],
   );
+  const packed = useMemo(
+    () => packBars(bars, weekCount, MAX_LANES),
+    [bars, weekCount],
+  );
+  // Bars intersecting each week, listed in the "+N more" popover.
+  const barsByWeek = useMemo(() => {
+    const map = new Map<number, BarData[]>();
+    for (const bar of bars) {
+      const first = Math.floor(bar.startIndex / 7);
+      const last = Math.floor(bar.endIndex / 7);
+      for (let w = first; w <= last; w++) {
+        const list = map.get(w) ?? [];
+        list.push(bar);
+        map.set(w, list);
+      }
+    }
+    return map;
+  }, [bars]);
 
-  // Move a bar onto the dropped day: optimistically patch the rows cache so the
-  // chip jumps immediately, then persist via set-value (its onError invalidates
-  // the rows prefix and rolls back). The bar carries the single date property id.
-  const onDropOnDay = useCallback(
-    (rowId: string, propertyIds: string[], date: Dayjs) => {
-      const value = { type: "date" as const, value: date.format(ISO) };
-      for (const propertyId of propertyIds) {
+  // Move a dropped bar: shift both date properties by the drop delta so a
+  // multi-day span keeps its length while its start lands on the dropped day.
+  // Each set-value is optimistically patched into the rows cache first (its
+  // onError invalidates the rows prefix and rolls back).
+  const onMoveBar = useCallback(
+    (drag: CalendarBarDrag, date: Dayjs) => {
+      const delta = date.diff(dayjs(drag.startISO, ISO), "day");
+      const updates: Array<{ propertyId: string; iso: string }> = [
+        { propertyId: drag.startDatePropertyId, iso: date.format(ISO) },
+      ];
+      if (drag.endDatePropertyId) {
+        updates.push({
+          propertyId: drag.endDatePropertyId,
+          iso: dayjs(drag.endISO, ISO).add(delta, "day").format(ISO),
+        });
+      }
+      for (const { propertyId, iso } of updates) {
+        const value = { type: "date" as const, value: iso };
         patchRowValue(queryClient, databaseId, {
-          id: `optimistic-${rowId}-${propertyId}`,
-          pageId: rowId,
+          id: `optimistic-${drag.id}-${propertyId}`,
+          pageId: drag.id,
           propertyId,
           value,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        setValue.mutate({ pageId: rowId, propertyId, value });
+        setValue.mutate({ pageId: drag.id, propertyId, value });
       }
     },
     [queryClient, databaseId, setValue],
@@ -285,29 +353,38 @@ export function CalendarView({
             ))}
           </SimpleGrid>
           {/* The wrapper supplies the grid's top and left edge; each cell draws
-              only its right/bottom edge, so cells meet on shared 1px lines with
-              no gaps (spacing={0}). */}
+              only its right/bottom edge so cells meet on shared 1px lines. */}
           <Box
             style={{
               borderTop: `1px solid ${CALENDAR_LINE}`,
               borderLeft: `1px solid ${CALENDAR_LINE}`,
             }}
           >
-            <SimpleGrid cols={7} spacing={0}>
-              {cells.map((date) => {
-                const inMonth = date.isSame(month, "month");
-                return (
-                  <DayCell
-                    key={date.format(ISO)}
-                    date={date}
-                    inMonth={inMonth}
-                    bars={inMonth ? (dayMap.get(date.date()) ?? []) : []}
+            {Array.from({ length: weekCount }, (_, w) => {
+              const weekCells = cells.slice(w * 7, w * 7 + 7);
+              const weekSegments = packed.segments.filter((s) => s.week === w);
+              return (
+                <Box key={w} style={{ position: "relative" }}>
+                  <SimpleGrid cols={7} spacing={0}>
+                    {weekCells.map((date) => (
+                      <DayCell
+                        key={date.format(ISO)}
+                        date={date}
+                        inMonth={date.isSame(month, "month")}
+                        onMoveBar={onMoveBar}
+                      />
+                    ))}
+                  </SimpleGrid>
+                  <WeekBars
+                    week={w}
+                    segments={weekSegments}
+                    overflow={packed.overflow.get(w) ?? 0}
+                    weekBars={barsByWeek.get(w) ?? []}
                     spaceSlug={spaceSlug}
-                    onDropOnDay={onDropOnDay}
                   />
-                );
-              })}
-            </SimpleGrid>
+                </Box>
+              );
+            })}
           </Box>
         </>
       )}

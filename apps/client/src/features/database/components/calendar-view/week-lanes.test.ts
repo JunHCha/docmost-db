@@ -1,0 +1,118 @@
+import { describe, it, expect } from "vitest";
+import { packBars } from "./week-lanes";
+import { CalendarBar } from "./layout-rows";
+
+// Minimal bar factory — packing only reads index/clip fields, not the row.
+function bar(
+  id: string,
+  startIndex: number,
+  endIndex: number,
+  clip: { start?: boolean; end?: boolean } = {},
+): CalendarBar {
+  return {
+    row: { row: { id } } as CalendarBar["row"],
+    startIndex,
+    endIndex,
+    clippedStart: clip.start ?? false,
+    clippedEnd: clip.end ?? false,
+    singleDay: startIndex === endIndex,
+    draggable: true,
+    dragPropertyIds: ["start"],
+    startDatePropertyId: "start",
+    endDatePropertyId: undefined,
+    startISO: "2026-06-01",
+    endISO: "2026-06-01",
+  };
+}
+
+// A 5-week grid (indices 0..34). Week w covers indices [w*7 .. w*7+6].
+const WEEKS = 5;
+
+describe("packBars", () => {
+  it("returns no segments when there are no bars", () => {
+    const { segments, overflow } = packBars([], WEEKS, 3);
+    expect(segments).toEqual([]);
+    expect(overflow.size).toBe(0);
+  });
+
+  it("places a single-week bar as one segment on lane 0", () => {
+    // indices 8..10 → week 1, cols 1..3.
+    const { segments } = packBars([bar("a", 8, 10)], WEEKS, 3);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]).toMatchObject({
+      week: 1,
+      startCol: 1,
+      endCol: 3,
+      lane: 0,
+      continuesLeft: false,
+      continuesRight: false,
+    });
+  });
+
+  it("splits a bar crossing a week boundary into one segment per week", () => {
+    // indices 5..9 → week 0 cols 5..6, week 1 cols 0..2.
+    const { segments } = packBars([bar("a", 5, 9)], WEEKS, 3);
+    const byWeek = segments.sort((x, y) => x.week - y.week);
+    expect(byWeek).toHaveLength(2);
+    expect(byWeek[0]).toMatchObject({
+      week: 0,
+      startCol: 5,
+      endCol: 6,
+      continuesLeft: false,
+      continuesRight: true,
+    });
+    expect(byWeek[1]).toMatchObject({
+      week: 1,
+      startCol: 0,
+      endCol: 2,
+      continuesLeft: true,
+      continuesRight: false,
+    });
+    // Same bar keeps one consistent lane across both weeks.
+    expect(byWeek[0].lane).toBe(byWeek[1].lane);
+  });
+
+  it("stacks overlapping bars onto separate lanes", () => {
+    const bars = [bar("a", 8, 12), bar("b", 10, 13)];
+    const { segments } = packBars(bars, WEEKS, 3);
+    const laneOf = (id: string) =>
+      segments.find((s) => s.bar.row.row.id === id)!.lane;
+    expect(laneOf("a")).toBe(0);
+    expect(laneOf("b")).toBe(1);
+  });
+
+  it("reuses a lane for non-overlapping bars in the same week", () => {
+    const bars = [bar("a", 7, 8), bar("b", 10, 11)];
+    const { segments } = packBars(bars, WEEKS, 3);
+    expect(segments.every((s) => s.lane === 0)).toBe(true);
+  });
+
+  it("flags clipped ends as continuing off-grid", () => {
+    const { segments } = packBars(
+      [bar("a", 0, 2, { start: true })],
+      WEEKS,
+      3,
+    );
+    expect(segments[0]).toMatchObject({
+      week: 0,
+      continuesLeft: true,
+      continuesRight: false,
+    });
+  });
+
+  it("hides bars beyond maxLanes and counts them as per-week overflow", () => {
+    // Four mutually overlapping bars in week 1, maxLanes 3 → one overflows.
+    const bars = [
+      bar("a", 7, 9),
+      bar("b", 7, 9),
+      bar("c", 7, 9),
+      bar("d", 7, 9),
+    ];
+    const { segments, overflow } = packBars(bars, WEEKS, 3);
+    // Only the first three lanes render.
+    expect(segments.every((s) => s.lane < 3)).toBe(true);
+    expect(segments).toHaveLength(3);
+    // The fourth bar overflows week 1.
+    expect(overflow.get(1)).toBe(1);
+  });
+});
