@@ -41,6 +41,11 @@ function renderPopover(
 }
 
 describe("PropertiesPopover", () => {
+  it("renders the 'Show properties' header", () => {
+    renderPopover(undefined);
+    expect(screen.getByText("Show properties")).toBeTruthy();
+  });
+
   it("renders a toggle for every property", () => {
     renderPopover(undefined);
     expect(screen.getByRole("switch", { name: "Status" })).toBeTruthy();

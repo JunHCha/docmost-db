@@ -1,0 +1,43 @@
+/* Board card visuals borrowed from the ee/base kanban card (kanban.module.css):
+   a white, softly shadowed, bordered tile that lifts its border on hover. The
+   goal is that a card reads as a discrete object against the column's tinted
+   background instead of a bare stack of grid cells. */
+.card {
+  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+  border: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  border-radius: 8px;
+  box-shadow: 0 1px 2px light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.25));
+  cursor: pointer;
+}
+
+.card:hover {
+  border-color: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-3));
+}
+
+.cardDragging {
+  opacity: 0.4;
+}
+
+/* Each property is a labelled field so a value is never orphaned from the column
+   it belongs to (#3): a dimmed type-icon + name caption sits above the value. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.fieldLabelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -339,6 +339,49 @@ describe("BoardView", () => {
     expect(screen.getByText("Ann")).toBeTruthy();
   });
 
+  it("labels each card field with its property name (#3)", () => {
+    const owner: IDatabaseProperty = {
+      id: "owner",
+      databaseId: "db1",
+      name: "Owner",
+      type: "text",
+      config: {},
+      position: "a1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    const row: IDatabaseRow = {
+      row: { id: "r1", title: "r1", slugId: "r1" } as any,
+      values: [
+        {
+          id: "v-r1",
+          pageId: "r1",
+          propertyId: "status",
+          value: { type: "select", value: "todo" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "ov-r1",
+          pageId: "r1",
+          propertyId: "owner",
+          value: { type: "text", value: "Ann" } as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
+    };
+    renderBoard({
+      config: { groupByPropertyId: "status" },
+      properties: [status, owner],
+      rows: [row],
+    });
+    const card = screen.getByTestId("board-card");
+    // The field caption names the column so its value is unambiguous.
+    expect(within(card).getByText("Owner")).toBeTruthy();
+  });
+
   it("hides columns flagged visible:false from cards", () => {
     const owner: IDatabaseProperty = {
       id: "owner",

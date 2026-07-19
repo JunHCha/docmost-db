@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Card, Stack, Text } from "@mantine/core";
+import { Card, Group, Stack, Text } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import clsx from "clsx";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
   IDatabaseProperty,
@@ -9,7 +10,9 @@ import {
 } from "@/features/database/types/database.types.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { GridCell } from "../table-view/grid-cell";
+import { PropertyTypeIcon } from "../property/property-type-icon";
 import { BOARD_CARD_DRAG } from "./board-dnd";
+import classes from "./board-card.module.css";
 
 interface BoardCardProps {
   row: IDatabaseRow;
@@ -23,6 +26,10 @@ interface BoardCardProps {
 // A single row rendered as a draggable card. Clicking opens the row as a full
 // page (#9); dragging it to another column re-buckets it (handled by the
 // column drop target via the source id).
+//
+// Design borrowed from the ee/base kanban card (#3): a bordered, shadowed tile
+// whose fields each carry a dimmed type-icon + name caption, so a value is never
+// ambiguous about which column it belongs to.
 export function BoardCard({
   row,
   databaseId,
@@ -48,22 +55,29 @@ export function BoardCard({
   return (
     <Card
       ref={ref}
-      withBorder
       padding="xs"
       radius="sm"
       data-testid="board-card"
       data-row-id={row.row.id}
-      style={{ cursor: "pointer", opacity: dragging ? 0.4 : 1 }}
+      className={clsx(classes.card, dragging && classes.cardDragging)}
       onClick={() =>
         navigate(buildPageUrl(spaceSlug, row.row.slugId, row.row.title))
       }
     >
-      <Stack gap={4}>
+      <Stack gap={8}>
         <Text size="sm" fw={500} c={row.row.title ? undefined : "dimmed"}>
           {row.row.title || t("Untitled")}
         </Text>
         {cardProperties.map((property) => (
-          <div key={property.id} onClick={(e) => e.stopPropagation()}>
+          <div
+            key={property.id}
+            className={classes.field}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Group gap={4} wrap="nowrap" className={classes.fieldLabel}>
+              <PropertyTypeIcon type={property.type} size={12} />
+              <span className={classes.fieldLabelText}>{property.name}</span>
+            </Group>
             <GridCell
               property={property}
               value={row.values.find((v) => v.propertyId === property.id)}

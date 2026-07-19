@@ -347,6 +347,7 @@ export function DatabaseView({
           embedId={embedId}
           pageId={pageId}
           views={views}
+          properties={propertiesQuery.data ?? []}
           activeViewId={activeViewId}
           onActivate={setSelectedViewId}
         />

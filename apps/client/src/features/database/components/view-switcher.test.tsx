@@ -15,7 +15,27 @@ vi.mock("@/features/database/queries/database-query.ts", () => ({
 }));
 
 import { ViewSwitcher } from "./view-switcher";
-import { IDatabaseView } from "@/features/database/types/database.types.ts";
+import {
+  IDatabaseProperty,
+  IDatabaseView,
+} from "@/features/database/types/database.types.ts";
+
+function prop(
+  id: string,
+  type: IDatabaseProperty["type"],
+): IDatabaseProperty {
+  return {
+    id,
+    databaseId: "db1",
+    name: id,
+    type,
+    config: {},
+    position: id,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  };
+}
 
 function view(
   id: string,
@@ -47,6 +67,7 @@ function renderSwitcher(
     embedId?: string;
     pageId?: string;
     views?: IDatabaseView[];
+    properties?: IDatabaseProperty[];
   } = {},
 ) {
   return render(
@@ -56,6 +77,7 @@ function renderSwitcher(
         embedId={opts.embedId}
         pageId={opts.pageId}
         views={opts.views ?? views}
+        properties={opts.properties}
         activeViewId={opts.activeViewId ?? "v1"}
         onActivate={opts.onActivate ?? vi.fn()}
       />
@@ -142,6 +164,40 @@ describe("ViewSwitcher", () => {
       embedId: undefined,
       visibility: "shared",
     });
+  });
+
+  it("seeds a new board with a default group-by and hidden relation columns", () => {
+    renderSwitcher({
+      properties: [
+        prop("status", "select"),
+        prop("owner", "relation"),
+        prop("notes", "text"),
+      ],
+    });
+    fireEvent.click(screen.getByLabelText("Add view"));
+    fireEvent.click(screen.getAllByText("Board")[0]);
+    expect(createViewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "board",
+        config: {
+          groupByPropertyId: "status",
+          columns: [
+            { propertyId: "status", visible: true },
+            { propertyId: "owner", visible: false },
+            { propertyId: "notes", visible: true },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("does not attach a config to a new table view", () => {
+    renderSwitcher({ properties: [prop("status", "select")] });
+    fireEvent.click(screen.getByLabelText("Add view"));
+    fireEvent.click(screen.getAllByText("Table")[0]);
+    expect(createViewMutate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ config: expect.anything() }),
+    );
   });
 
   it("forwards the embedId to createView so the view lands in the embed scope", () => {
