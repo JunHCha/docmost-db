@@ -18,25 +18,31 @@
   opacity: 0.4;
 }
 
-/* Each property is a labelled field so a value is never orphaned from the column
-   it belongs to (#3): a dimmed type-icon + name caption sits above the value. */
+/* Each property is ONE compact line: a dimmed type-icon hints the data type,
+   then the value. Kept to a single row so a card stays scannable (#3 follow-up).
+   select / multi_select / person omit the icon — their pills/avatars already
+   read as their type — so those render the value alone. */
 .field {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
-.fieldLabel {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.fieldIcon {
+  flex-shrink: 0;
+}
+
+.fieldValue {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Checkbox is meaningless on a card without its column, so it gets a dedicated
+   boolean notation: the toggle followed by the property name as a caption. */
+.checkboxLabel {
   color: var(--mantine-color-dimmed);
   font-size: var(--mantine-font-size-xs);
-  line-height: 1.2;
-  overflow: hidden;
-}
-
-.fieldLabelText {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
