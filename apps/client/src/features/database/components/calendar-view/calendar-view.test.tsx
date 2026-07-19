@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const navigate = vi.fn();
-vi.mock("react-router-dom", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router-dom")>();
-  return { ...actual, useNavigate: () => navigate };
-});
+// The bar opens the row in the page-peek modal rather than navigating.
+const peekOpen = vi.fn();
+vi.mock(
+  "@/features/database/components/relation-peek/use-page-peek.tsx",
+  () => ({ usePagePeek: () => ({ open: peekOpen }) }),
+);
 
 const setMutate = vi.fn();
 vi.mock("@/features/database/queries/database-query.ts", () => ({
@@ -102,7 +103,6 @@ function renderCalendar(opts: {
             properties={properties}
             rows={opts.rows ?? []}
             activeView={view(opts.config ?? { datePropertyId: "start" })}
-            spaceSlug="my-space"
           />
         </MemoryRouter>
       </MantineProvider>
@@ -125,7 +125,7 @@ describe("CalendarView", () => {
     dropByDate.clear();
     setMutate.mockReset();
     patchRowValue.mockReset();
-    navigate.mockReset();
+    peekOpen.mockReset();
   });
 
   afterEach(() => {
@@ -138,6 +138,15 @@ describe("CalendarView", () => {
       rows: [row("r1", [{ propertyId: "start", iso: "2026-06-10" }])],
     });
     expect(barSegments("r1")).toHaveLength(1);
+  });
+
+  it("opens the row in the page-peek modal when a bar is clicked", () => {
+    renderCalendar({
+      config: { datePropertyId: "start" },
+      rows: [row("r1", [{ propertyId: "start", iso: "2026-06-10" }])],
+    });
+    fireEvent.click(barSegments("r1")[0]);
+    expect(peekOpen).toHaveBeenCalledWith("r1", "modal");
   });
 
   it("splits a span crossing a week boundary into one segment per week", () => {

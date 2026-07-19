@@ -409,7 +409,6 @@ export function DatabaseView({
           properties={propertiesQuery.data ?? []}
           rows={rowsQuery.data ?? []}
           activeView={draftView}
-          spaceSlug={spaceSlug}
           onAutoAdoptDate={changeDateProperty}
         />
       ) : !rowsQuery.isLoading &&

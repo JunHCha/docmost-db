@@ -51,7 +51,6 @@ interface CalendarViewProps {
   properties: IDatabaseProperty[];
   rows: IDatabaseRow[];
   activeView: IDatabaseView;
-  spaceSlug?: string;
   // Persist an auto-adopted date property back to the view config. Omitted in
   // embed (session-only) mode, where adoption is render-time fallback only.
   onAutoAdoptDate?: (id: string) => void;
@@ -125,17 +124,13 @@ function DayCell({
 // day-cell grid. Column position comes from the segment's start/end column; the
 // vertical lane keeps a multi-week bar on one row across the whole grid.
 function WeekBars({
-  week,
   segments,
   overflow,
   weekBars,
-  spaceSlug,
 }: {
-  week: number;
   segments: WeekSegment[];
   overflow: number;
   weekBars: BarData[];
-  spaceSlug?: string;
 }) {
   const { t } = useTranslation();
   const colPct = (col: number) => (col / 7) * 100;
@@ -149,7 +144,6 @@ function WeekBars({
           <CalendarBar
             key={seg.bar.row.row.id}
             bar={seg.bar}
-            spaceSlug={spaceSlug}
             continuesLeft={seg.continuesLeft}
             continuesRight={seg.continuesRight}
             style={{
@@ -186,11 +180,7 @@ function WeekBars({
             <Popover.Dropdown>
               <Stack gap={2} style={{ minWidth: 180 }}>
                 {weekBars.map((bar) => (
-                  <CalendarBar
-                    key={bar.row.row.id}
-                    bar={bar}
-                    spaceSlug={spaceSlug}
-                  />
+                  <CalendarBar key={bar.row.row.id} bar={bar} />
                 ))}
               </Stack>
             </Popover.Dropdown>
@@ -206,7 +196,6 @@ export function CalendarView({
   properties,
   rows,
   activeView,
-  spaceSlug,
   onAutoAdoptDate,
 }: CalendarViewProps) {
   const { t } = useTranslation();
@@ -376,11 +365,9 @@ export function CalendarView({
                     ))}
                   </SimpleGrid>
                   <WeekBars
-                    week={w}
                     segments={weekSegments}
                     overflow={packed.overflow.get(w) ?? 0}
                     weekBars={barsByWeek.get(w) ?? []}
-                    spaceSlug={spaceSlug}
                   />
                 </Box>
               );

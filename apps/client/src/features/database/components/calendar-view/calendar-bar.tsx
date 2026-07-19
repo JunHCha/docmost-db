@@ -1,15 +1,13 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { Text } from "@mantine/core";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { buildPageUrl } from "@/features/page/page.utils.ts";
+import { usePagePeek } from "@/features/database/components/relation-peek/use-page-peek.tsx";
 import { CalendarBar as BarData } from "./layout-rows";
 import { CALENDAR_BAR_DRAG } from "./calendar-dnd";
 
 interface CalendarBarProps {
   bar: BarData;
-  spaceSlug?: string;
   // Absolute positioning supplied by the week renderer (left/width/top).
   style?: CSSProperties;
   // The bar extends past this segment's edge (a multi-week span or a clipped
@@ -34,13 +32,12 @@ export interface CalendarBarDrag {
 // full page; the bar is draggable to move its date(s) — see CalendarBarDrag.
 export function CalendarBar({
   bar,
-  spaceSlug,
   style,
   continuesLeft,
   continuesRight,
 }: CalendarBarProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const { open } = usePagePeek();
   const ref = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -81,9 +78,10 @@ export function CalendarBar({
       data-testid="calendar-bar"
       data-row-id={bar.row.row.id}
       data-draggable={bar.draggable}
-      onClick={() =>
-        navigate(buildPageUrl(spaceSlug, bar.row.row.slugId, bar.row.row.title))
-      }
+      // Open the row as a page preview in the centered modal peek (#94), the
+      // same host relation chips use — rather than navigating away from the
+      // calendar. The modal host is mounted globally on page routes.
+      onClick={() => open(bar.row.row.id, "modal")}
       style={{
         cursor: bar.draggable ? "grab" : "pointer",
         opacity: dragging ? 0.4 : 1,
