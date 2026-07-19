@@ -16,8 +16,8 @@ export interface WeekSegment {
 export interface PackedWeeks {
   // Segments for bars on a visible lane (lane < maxLanes), in input order.
   segments: WeekSegment[];
-  // week index -> number of bars hidden on that week because they landed on a
-  // lane >= maxLanes (drives the "+N" more indicator).
+  // grid cell index -> number of bars hidden on that day because they landed on
+  // a lane >= maxLanes (drives each cell's own "+N more" indicator).
   overflow: Map<number, number>;
 }
 
@@ -69,8 +69,10 @@ export function packBars(
     }
 
     if (lane >= maxLanes) {
-      for (let w = firstWeek; w <= lastWeek; w++) {
-        overflow.set(w, (overflow.get(w) ?? 0) + 1);
+      // Count the hidden bar against every day it covers, so each cell shows its
+      // own overflow rather than one indicator for the whole week.
+      for (let c = bar.startIndex; c <= bar.endIndex; c++) {
+        overflow.set(c, (overflow.get(c) ?? 0) + 1);
       }
       continue;
     }

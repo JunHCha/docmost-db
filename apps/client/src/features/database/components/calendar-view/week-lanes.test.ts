@@ -100,8 +100,8 @@ describe("packBars", () => {
     });
   });
 
-  it("hides bars beyond maxLanes and counts them as per-week overflow", () => {
-    // Four mutually overlapping bars in week 1, maxLanes 3 → one overflows.
+  it("hides bars beyond maxLanes and counts them per covered cell", () => {
+    // Four mutually overlapping bars over cells 7..9, maxLanes 3 → one overflows.
     const bars = [
       bar("a", 7, 9),
       bar("b", 7, 9),
@@ -112,7 +112,23 @@ describe("packBars", () => {
     // Only the first three lanes render.
     expect(segments.every((s) => s.lane < 3)).toBe(true);
     expect(segments).toHaveLength(3);
-    // The fourth bar overflows week 1.
-    expect(overflow.get(1)).toBe(1);
+    // The hidden bar (d) is counted against each day it covers: cells 7, 8, 9.
+    expect(overflow.get(7)).toBe(1);
+    expect(overflow.get(8)).toBe(1);
+    expect(overflow.get(9)).toBe(1);
+  });
+
+  it("counts overflow only on the days a hidden bar actually covers", () => {
+    // Three lane-fillers span cells 7..9; a hidden bar sits only on cell 8.
+    const bars = [
+      bar("a", 7, 9),
+      bar("b", 7, 9),
+      bar("c", 7, 9),
+      bar("d", 8, 8),
+    ];
+    const { overflow } = packBars(bars, WEEKS, 3);
+    expect(overflow.get(8)).toBe(1);
+    expect(overflow.has(7)).toBe(false);
+    expect(overflow.has(9)).toBe(false);
   });
 });

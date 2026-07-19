@@ -361,4 +361,21 @@ describe("CalendarView", () => {
       initialValues: { start: { type: "date", value: "2026-06-15" } },
     });
   });
+
+  it("shows the '+N more' overflow inside the cell that overflows", () => {
+    // Four single-day bars on 2026-06-10 (max 3 lanes) → that cell hides one.
+    renderCalendar({
+      config: { datePropertyId: "start" },
+      rows: ["a", "b", "c", "d"].map((id) =>
+        row(id, [{ propertyId: "start", iso: "2026-06-10" }]),
+      ),
+    });
+    const cell = cellFor("2026-06-10");
+    const overflow = within(cell).getByTestId("calendar-overflow");
+    expect(overflow.textContent).toContain("1");
+    // A different day has no overflow indicator.
+    expect(
+      within(cellFor("2026-06-11")).queryByTestId("calendar-overflow"),
+    ).toBeNull();
+  });
 });

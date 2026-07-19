@@ -78,12 +78,18 @@ function DayCell({
   onBarDrop,
   templates,
   onCreate,
+  overflowCount,
+  dayBars,
 }: {
   date: Dayjs;
   inMonth: boolean;
   onBarDrop: (drag: CalendarBarDrag, date: Dayjs) => void;
   templates: IDatabaseTemplate[];
   onCreate: (templateId: string | null, date: Dayjs) => void;
+  // Bars hidden on this day (lane past the visible cap) and the full list of
+  // bars touching it, listed in the "+N more" popover.
+  overflowCount: number;
+  dayBars: BarData[];
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -175,23 +181,48 @@ function DayCell({
       >
         {date.date()}
       </Text>
+      {overflowCount > 0 && (
+        <Box
+          style={{
+            position: "absolute",
+            left: 4,
+            right: 4,
+            top: DAY_NUM_H + MAX_LANES * (BAR_H + BAR_GAP),
+          }}
+        >
+          <Popover position="bottom-start" withinPortal shadow="md">
+            <Popover.Target>
+              <UnstyledButton
+                data-testid="calendar-overflow"
+                style={{ fontSize: "var(--mantine-font-size-xs)" }}
+              >
+                <Text size="xs" c="dimmed">
+                  +{overflowCount} {t("more")}
+                </Text>
+              </UnstyledButton>
+            </Popover.Target>
+            <Popover.Dropdown>
+              <Text size="xs" fw={600} mb={4}>
+                {date.format("MMM D")}
+              </Text>
+              <Stack gap={2} style={{ minWidth: 180 }}>
+                {dayBars.map((bar) => (
+                  <CalendarBar key={bar.row.row.id} bar={bar} />
+                ))}
+              </Stack>
+            </Popover.Dropdown>
+          </Popover>
+        </Box>
+      )}
     </Box>
   );
 }
 
-// The bars (and any "+N more") of a single week, absolutely positioned over its
-// day-cell grid. Column position comes from the segment's start/end column; the
-// vertical lane keeps a multi-week bar on one row across the whole grid.
-function WeekBars({
-  segments,
-  overflow,
-  weekBars,
-}: {
-  segments: WeekSegment[];
-  overflow: number;
-  weekBars: BarData[];
-}) {
-  const { t } = useTranslation();
+// The bar segments of a single week, absolutely positioned over its day-cell
+// grid. Column position comes from the segment's start/end column; the vertical
+// lane keeps a multi-week bar on one row across the whole grid. The per-cell
+// "+N more" overflow is drawn by DayCell, not here.
+function WeekBars({ segments }: { segments: WeekSegment[] }) {
   const colPct = (col: number) => (col / 7) * 100;
 
   return (
@@ -218,35 +249,6 @@ function WeekBars({
           />
         );
       })}
-      {overflow > 0 && (
-        <Box
-          style={{
-            position: "absolute",
-            left: 4,
-            top: DAY_NUM_H + MAX_LANES * (BAR_H + BAR_GAP),
-          }}
-        >
-          <Popover position="bottom-start" withinPortal shadow="md">
-            <Popover.Target>
-              <UnstyledButton
-                data-testid="calendar-overflow"
-                style={{ fontSize: "var(--mantine-font-size-xs)" }}
-              >
-                <Text size="xs" c="dimmed">
-                  +{overflow} {t("more")}
-                </Text>
-              </UnstyledButton>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack gap={2} style={{ minWidth: 180 }}>
-                {weekBars.map((bar) => (
-                  <CalendarBar key={bar.row.row.id} bar={bar} />
-                ))}
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
-        </Box>
-      )}
     </>
   );
 }
@@ -313,16 +315,16 @@ export function CalendarView({
     () => packBars(bars, weekCount, MAX_LANES),
     [bars, weekCount],
   );
-  // Bars intersecting each week, listed in the "+N more" popover.
-  const barsByWeek = useMemo(() => {
+  // Bars touching each grid cell (by index), listed in that cell's "+N more"
+  // popover. Insertion order matches layoutRows, so the popover lists bars in
+  // the same order they were packed.
+  const barsByCell = useMemo(() => {
     const map = new Map<number, BarData[]>();
     for (const bar of bars) {
-      const first = Math.floor(bar.startIndex / 7);
-      const last = Math.floor(bar.endIndex / 7);
-      for (let w = first; w <= last; w++) {
-        const list = map.get(w) ?? [];
+      for (let c = bar.startIndex; c <= bar.endIndex; c++) {
+        const list = map.get(c) ?? [];
         list.push(bar);
-        map.set(w, list);
+        map.set(c, list);
       }
     }
     return map;
@@ -453,22 +455,23 @@ export function CalendarView({
               return (
                 <Box key={w} style={{ position: "relative" }}>
                   <SimpleGrid cols={7} spacing={0}>
-                    {weekCells.map((date) => (
-                      <DayCell
-                        key={date.format(ISO)}
-                        date={date}
-                        inMonth={date.isSame(month, "month")}
-                        onBarDrop={onBarDrop}
-                        templates={templates}
-                        onCreate={onCreate}
-                      />
-                    ))}
+                    {weekCells.map((date, col) => {
+                      const cellIndex = w * 7 + col;
+                      return (
+                        <DayCell
+                          key={date.format(ISO)}
+                          date={date}
+                          inMonth={date.isSame(month, "month")}
+                          onBarDrop={onBarDrop}
+                          templates={templates}
+                          onCreate={onCreate}
+                          overflowCount={packed.overflow.get(cellIndex) ?? 0}
+                          dayBars={barsByCell.get(cellIndex) ?? []}
+                        />
+                      );
+                    })}
                   </SimpleGrid>
-                  <WeekBars
-                    segments={weekSegments}
-                    overflow={packed.overflow.get(w) ?? 0}
-                    weekBars={barsByWeek.get(w) ?? []}
-                  />
+                  <WeekBars segments={weekSegments} />
                 </Box>
               );
             })}
