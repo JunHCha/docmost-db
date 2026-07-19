@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import dayjs from "dayjs";
 
 const setMutate = vi.fn();
 const clearMutate = vi.fn();
@@ -171,5 +172,69 @@ describe("DateCell", () => {
     fireEvent.change(input, { target: { value: "" } });
     expect(onChange).toHaveBeenCalledWith(undefined);
     expect(clearMutate).not.toHaveBeenCalled();
+  });
+
+  describe("quick picks", () => {
+    it("commits today's date via the Today quick pick", () => {
+      renderCell(undefined);
+      fireEvent.click(screen.getByText("Empty"));
+      fireEvent.click(screen.getByText("Today"));
+      expect(setMutate).toHaveBeenCalledWith({
+        pageId: "page1",
+        propertyId: "prop1",
+        value: { type: "date", value: dayjs().format("YYYY-MM-DD") },
+      });
+    });
+
+    it("commits a 1-day offset via the '1 day later' quick pick", () => {
+      renderCell(undefined);
+      fireEvent.click(screen.getByText("Empty"));
+      fireEvent.click(screen.getByText("1 day later"));
+      expect(setMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          value: {
+            type: "date",
+            value: dayjs().add(1, "day").format("YYYY-MM-DD"),
+          },
+        }),
+      );
+    });
+
+    it("commits a next-week offset via the 'Next week' quick pick", () => {
+      renderCell(undefined);
+      fireEvent.click(screen.getByText("Empty"));
+      fireEvent.click(screen.getByText("Next week"));
+      expect(setMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          value: {
+            type: "date",
+            value: dayjs().add(1, "week").format("YYYY-MM-DD"),
+          },
+        }),
+      );
+    });
+
+    it("controlled: a quick pick emits onChange without a mutation", () => {
+      const onChange = vi.fn();
+      render(
+        <MantineProvider>
+          <DateCell
+            property={property}
+            value={undefined}
+            pageId=""
+            databaseId="db1"
+            showEmptyPlaceholder
+            onChange={onChange}
+          />
+        </MantineProvider>,
+      );
+      fireEvent.click(screen.getByText("Empty"));
+      fireEvent.click(screen.getByText("2 days later"));
+      expect(onChange).toHaveBeenCalledWith({
+        type: "date",
+        value: dayjs().add(2, "day").format("YYYY-MM-DD"),
+      });
+      expect(setMutate).not.toHaveBeenCalled();
+    });
   });
 });

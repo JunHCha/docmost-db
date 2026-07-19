@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Text } from "@mantine/core";
+import { Button, Popover, Stack, Text } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,16 @@ import {
 } from "./inline-text";
 
 const ISO = "YYYY-MM-DD";
+
+// Relative shortcuts offered above the calendar so common due dates are one
+// click away. Each computes its date from "now" at click time (dayjs).
+const QUICK_PICKS: { label: string; compute: () => Date }[] = [
+  { label: "Today", compute: () => dayjs().toDate() },
+  { label: "1 day later", compute: () => dayjs().add(1, "day").toDate() },
+  { label: "2 days later", compute: () => dayjs().add(2, "day").toDate() },
+  { label: "3 days later", compute: () => dayjs().add(3, "day").toDate() },
+  { label: "Next week", compute: () => dayjs().add(1, "week").toDate() },
+];
 
 // Normalize whatever DateInput hands back (a `YYYY-MM-DD` string in Mantine v8,
 // or a Date) into the ISO date-only string the backend stores (conventions §1).
@@ -61,22 +71,58 @@ export function DateCell({
     }
   }
 
+  function pick(date: Date) {
+    commit(date);
+    setEditing(false);
+  }
+
   if (editing) {
     return (
-      <DateInput
-        autoFocus
-        size="xs"
-        variant="unstyled"
-        valueFormat={ISO}
-        clearable
-        defaultValue={stored || null}
-        aria-label={property.name}
-        onChange={commit}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setEditing(false);
-        }}
-      />
+      <Popover
+        opened
+        trapFocus={false}
+        withinPortal
+        position="bottom-start"
+        shadow="md"
+      >
+        <Popover.Target>
+          <div style={{ width: "100%" }}>
+            <DateInput
+              autoFocus
+              size="xs"
+              variant="unstyled"
+              valueFormat={ISO}
+              clearable
+              defaultValue={stored || null}
+              aria-label={property.name}
+              onChange={commit}
+              onBlur={() => setEditing(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setEditing(false);
+              }}
+            />
+          </div>
+        </Popover.Target>
+        <Popover.Dropdown p={4}>
+          <Stack gap={2}>
+            {QUICK_PICKS.map((qp) => (
+              <Button
+                key={qp.label}
+                variant="subtle"
+                color="gray"
+                size="xs"
+                justify="flex-start"
+                // Keep the DateInput focused so its onBlur does not close the
+                // editor before the click commits.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(qp.compute())}
+              >
+                {t(qp.label)}
+              </Button>
+            ))}
+          </Stack>
+        </Popover.Dropdown>
+      </Popover>
     );
   }
 
