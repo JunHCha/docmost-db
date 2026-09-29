@@ -67,6 +67,18 @@ export class DatabasePropertyService {
     const config = await this.resolveConfig(dto.type, dto.config, database);
 
     if (dto.type === 'relation') {
+      // Creating a bidirectional relation mutates the target database by adding
+      // a reverse property. Require edit permission on that target before the
+      // source property is inserted so a denied request cannot leave a partial
+      // relation behind. A self-relation is already covered by the source check.
+      if (config.targetDatabaseId !== database.id) {
+        await this.authorize(
+          user,
+          config.targetDatabaseId,
+          SpaceCaslAction.Edit,
+        );
+      }
+
       await this.assertNoDuplicateRelationTarget(
         dto.databaseId,
         config.targetDatabaseId,
@@ -168,6 +180,13 @@ export class DatabasePropertyService {
     // auto-created reverse column and a self-relation's own pair are exempt; only
     // the user's explicit second relation to an already-linked target is blocked.
     if ((dto.type ?? property.type) === 'relation' && patch.config) {
+      const targetDatabaseId = (patch.config as any).targetDatabaseId as string;
+      // Reconfiguring a relation can create a reverse property in a different
+      // database. Authorize that target before updating the source property or
+      // deleting its existing reverse pair.
+      if (targetDatabaseId !== database.id) {
+        await this.authorize(user, targetDatabaseId, SpaceCaslAction.Edit);
+      }
       await this.assertNoDuplicateRelationTarget(
         property.databaseId,
         (patch.config as any).targetDatabaseId,
