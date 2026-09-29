@@ -451,6 +451,68 @@ describe('DatabasePropertyService', () => {
       );
     });
 
+    it('rejects a relation when the user cannot edit the target space before inserting anything', async () => {
+      const sourceAbility = abilityMock(true);
+      const targetAbility = abilityMock(false);
+      spaceAbility.createForUser.mockImplementation(async (_user: any, spaceId: string) =>
+        spaceId === 'space-2' ? targetAbility : sourceAbility,
+      );
+      const privateTarget = { ...dbB, spaceId: 'space-2' };
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'db-1' ? database : id === 'db-2' ? privateTarget : undefined,
+      );
+
+      await expect(
+        service.create(user, {
+          databaseId: 'db-1',
+          name: 'Private relation',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-2' },
+        } as any),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(spaceAbility.createForUser).toHaveBeenCalledWith(user, 'space-2');
+      expect(targetAbility.cannot).toHaveBeenCalledWith(
+        SpaceCaslAction.Edit,
+        SpaceCaslSubject.Page,
+      );
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
+      expect(propertyRepo.updateProperty).not.toHaveBeenCalled();
+    });
+
+    it('rejects retargeting a relation without target edit permission before mutating the source', async () => {
+      propertyRepo.findById.mockResolvedValueOnce({
+        id: 'src-1',
+        databaseId: 'db-1',
+        type: 'relation',
+        config: { targetDatabaseId: 'db-2', relatedPropertyId: 'rev-old' },
+      } as any);
+      const dbC: any = {
+        id: 'db-3',
+        pageId: 'dbpage-3',
+        spaceId: 'space-3',
+        workspaceId: 'ws-1',
+      };
+      databaseRepo.findById.mockImplementation(async (id: string) =>
+        id === 'db-1' ? database : id === 'db-3' ? dbC : undefined,
+      );
+      spaceAbility.createForUser.mockImplementation(async (_user: any, spaceId: string) =>
+        abilityMock(spaceId !== 'space-3') as any,
+      );
+
+      await expect(
+        service.update(user, {
+          propertyId: 'src-1',
+          type: 'relation',
+          config: { targetDatabaseId: 'db-3' },
+        } as any),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(propertyRepo.updateProperty).not.toHaveBeenCalled();
+      expect(propertyRepo.softDeleteProperty).not.toHaveBeenCalled();
+      expect(propertyRepo.insertProperty).not.toHaveBeenCalled();
+    });
+
     it('creates a reverse relation in the target db and cross-links both (approval)', async () => {
       // source insert -> reverse insert. Distinguish by databaseId.
       propertyRepo.insertProperty.mockImplementation(async (v: any) => ({
